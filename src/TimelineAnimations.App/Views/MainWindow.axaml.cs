@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using TimelineAnimations.App.Controls;
+using TimelineAnimations.App.Services;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.Core.Services;
 
@@ -179,5 +180,70 @@ public partial class MainWindow : Window
 
         await DocumentSerializer.SaveAsync(stream, ViewModel.Document);
         ViewModel.SetDocumentLabel(file.Name);
+    }
+
+    private async void ExportFrameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ViewModel is null || !StorageProvider.CanSave)
+        {
+            return;
+        }
+
+        var pngFile = new FilePickerFileType("PNG Image")
+        {
+            Patterns = ["*.png"],
+            MimeTypes = ["image/png"]
+        };
+
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export current frame",
+            SuggestedFileName = $"frame_{ViewModel.CurrentTime:0.00}s.png",
+            DefaultExtension = "png",
+            FileTypeChoices = [pngFile],
+            SuggestedFileType = pngFile,
+            ShowOverwritePrompt = true
+        });
+
+        if (file is null)
+        {
+            return;
+        }
+
+        ViewModel.StatusMessage = "Exporting current frame...";
+        await using var stream = await file.OpenWriteAsync();
+        if (stream.CanSeek)
+        {
+            stream.SetLength(0);
+        }
+
+        await FrameExportService.ExportFrameAsync(ViewModel.Document, ViewModel.CurrentTime, stream);
+        ViewModel.StatusMessage = $"Frame exported to {file.Name}";
+    }
+
+    private async void RenderSequenceClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ViewModel is null || !StorageProvider.CanPickFolder)
+        {
+            return;
+        }
+
+        var result = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose sequence output folder",
+            AllowMultiple = false
+        });
+
+        var folder = result.FirstOrDefault();
+        var folderPath = folder?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            ViewModel.StatusMessage = "Sequence export requires a local folder.";
+            return;
+        }
+
+        ViewModel.StatusMessage = "Rendering PNG sequence...";
+        var frameCount = await FrameExportService.ExportSequenceAsync(ViewModel.Document, folderPath);
+        ViewModel.StatusMessage = $"Rendered {frameCount} frames to {Path.GetFileName(folderPath)}";
     }
 }

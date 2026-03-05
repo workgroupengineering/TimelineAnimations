@@ -53,6 +53,11 @@
           <Button Content="Save"
                   Classes="accent"
                   Click="SaveDocumentClick" />
+          <Button Content="Export Frame"
+                  Click="ExportFrameClick" />
+          <Button Content="Render Sequence"
+                  Classes="warm"
+                  Click="RenderSequenceClick" />
           <Border Classes="panel-soft"
                   Padding="14,10">
             <StackPanel Spacing="2">
@@ -454,6 +459,9 @@
                              TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
+              <TextBlock Classes="micro-label"
+                         Text="Sequence rendering exports 30 fps PNG frames to the selected folder."
+                         TextWrapping="Wrap" />
             </StackPanel>
           </Border>
         </StackPanel>
