@@ -24,15 +24,22 @@ public partial class KeyframeViewModel : ViewModelBase
     [ObservableProperty]
     private double value;
 
+    [ObservableProperty]
+    private EasingKind easing;
+
     public string TimeLabel => $"{Time:0.00}s";
 
     public string ValueLabel => $"{Value:0.##}";
+
+    public string EasingLabel => Easing.ToString();
 
     public void RefreshFromModel()
     {
         Time = Model.Time;
         Value = Model.Value;
+        Easing = Model.Easing;
         OnPropertyChanged(nameof(TimeLabel));
         OnPropertyChanged(nameof(ValueLabel));
+        OnPropertyChanged(nameof(EasingLabel));
     }
 }

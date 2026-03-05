@@ -440,6 +440,13 @@
               <TextBlock Classes="micro-label"
                          Text="{Binding SelectedKeyframeSummary}"
                          TextWrapping="Wrap" />
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Selected keyframe easing" />
+                <ComboBox ItemsSource="{Binding AvailableEasings}"
+                          SelectedItem="{Binding SelectedKeyframeEasing, Mode=TwoWay}"
+                          IsEnabled="{Binding HasSelectedKeyframe}" />
+              </StackPanel>
               <Border Classes="panel-soft">
                 <StackPanel Spacing="4">
                   <TextBlock Classes="eyebrow"

@@ -64,7 +64,8 @@ public static class TimelineInterpolationService
         }
 
         var progress = (time - previous.Time) / (next.Time - previous.Time);
-        return previous.Value + ((next.Value - previous.Value) * progress);
+        var easedProgress = TimelineEasingService.Apply(next.Easing, progress);
+        return previous.Value + ((next.Value - previous.Value) * easedProgress);
     }
 
     public static double GetDefaultValue(TimelineLayer layer, AnimatedProperty property)

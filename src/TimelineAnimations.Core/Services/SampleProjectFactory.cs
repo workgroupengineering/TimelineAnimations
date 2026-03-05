@@ -54,7 +54,10 @@ public static class SampleProjectFactory
                 Track(AnimatedProperty.Rotation, (0, -8), (1.8, 3), (4.8, -1)),
                 Track(AnimatedProperty.Opacity, (0, 0.5), (0.6, 0.92), (4.8, 1))
             ]
-        };
+        }.WithEasings(
+            (AnimatedProperty.X, 1, EasingKind.EaseOut),
+            (AnimatedProperty.X, 2, EasingKind.EaseInOut),
+            (AnimatedProperty.Rotation, 1, EasingKind.BackOut));
     }
 
     private static TimelineLayer CreateOrb()
@@ -88,7 +91,10 @@ public static class SampleProjectFactory
                 Track(AnimatedProperty.Rotation, (0, 0), (2.4, 28), (5.2, 6)),
                 Track(AnimatedProperty.Opacity, (0, 0.12), (0.9, 0.84), (5.2, 0.94))
             ]
-        };
+        }.WithEasings(
+            (AnimatedProperty.X, 1, EasingKind.EaseInOut),
+            (AnimatedProperty.Y, 1, EasingKind.BackOut),
+            (AnimatedProperty.Height, 1, EasingKind.EaseOut));
     }
 
     private static TimelineLayer CreateCaption()
@@ -124,7 +130,10 @@ public static class SampleProjectFactory
                 Track(AnimatedProperty.Rotation, (0, 0), (4.2, -2)),
                 Track(AnimatedProperty.Opacity, (0, 0), (0.7, 1), (5.6, 1))
             ]
-        };
+        }.WithEasings(
+            (AnimatedProperty.X, 1, EasingKind.EaseOut),
+            (AnimatedProperty.Opacity, 1, EasingKind.Hold),
+            (AnimatedProperty.Opacity, 2, EasingKind.EaseInOut));
     }
 
     private static LayerTrack Track(AnimatedProperty property, params (double Time, double Value)[] points)
@@ -141,5 +150,21 @@ public static class SampleProjectFactory
                 })
             ]
         };
+    }
+
+    private static TimelineLayer WithEasings(this TimelineLayer layer, params (AnimatedProperty Property, int KeyframeIndex, EasingKind Easing)[] settings)
+    {
+        foreach (var setting in settings)
+        {
+            var track = layer.Tracks.FirstOrDefault(item => item.Property == setting.Property);
+            if (track is null || setting.KeyframeIndex < 0 || setting.KeyframeIndex >= track.Keyframes.Count)
+            {
+                continue;
+            }
+
+            track.Keyframes[setting.KeyframeIndex].Easing = setting.Easing;
+        }
+
+        return layer;
     }
 }

@@ -18,6 +18,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private UndoRedoStack<EditorStateSnapshot>? _history;
     private bool _isApplyingHistory;
     private bool _isInteractiveChange;
+    private bool _suppressSelectedKeyframeEditor;
     private bool _suppressInspector;
     private double _playbackOriginTime;
 
@@ -61,6 +62,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<PaletteItemViewModel> PaletteItems { get; }
 
+    public IReadOnlyList<EasingKind> AvailableEasings { get; } = Enum.GetValues<EasingKind>();
+
     public TimelineDocument Document => _document;
 
     public string CurrentTimeLabel => $"{CurrentTime:0.00}s";
@@ -76,6 +79,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool CanRedo => _history?.CanRedo == true;
 
     public bool SelectedLayerIsText => SelectedLayer?.Kind == LayerKind.Text;
+
+    public bool HasSelectedKeyframe => SelectedKeyframeId is not null;
 
     public string SelectionHeadline => SelectedLayer is null
         ? "Nothing selected"
@@ -94,7 +99,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var keyframe = track?.Keyframes.FirstOrDefault(item => item.Id == SelectedKeyframeId.Value);
             return keyframe is null
                 ? "No keyframe selected"
-                : $"{track!.Title} @ {keyframe.TimeLabel} • {keyframe.ValueLabel}";
+                : $"{track!.Title} @ {keyframe.TimeLabel} • {keyframe.ValueLabel} • {keyframe.EasingLabel}";
         }
     }
 
@@ -185,6 +190,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private double inspectorFontSize = 48;
 
+    [ObservableProperty]
+    private EasingKind selectedKeyframeEasing = EasingKind.Linear;
+
     partial void OnSelectedLayerChanged(LayerViewModel? oldValue, LayerViewModel? newValue)
     {
         if (oldValue is not null)
@@ -222,6 +230,8 @@ public partial class MainWindowViewModel : ViewModelBase
             track.UpdateKeyframeSelection(value);
         }
 
+        RefreshSelectedKeyframeEditor();
+        OnPropertyChanged(nameof(HasSelectedKeyframe));
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
     }
 
@@ -726,6 +736,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
+        RefreshSelectedKeyframeEditor();
     }
 
     private void UpdateTrackPreviewValues()
@@ -808,6 +819,25 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = $"{GetPropertyTitle(property)} updated";
     }
 
+    partial void OnSelectedKeyframeEasingChanged(EasingKind value)
+    {
+        if (_suppressSelectedKeyframeEditor)
+        {
+            return;
+        }
+
+        var keyframe = FindSelectedKeyframeModel();
+        if (keyframe is null)
+        {
+            return;
+        }
+
+        keyframe.Easing = value;
+        ReloadTracks();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Keyframe easing updated";
+    }
+
     private void ReloadPreviewForLayer(LayerViewModel layer)
     {
         layer.RefreshMetadata();
@@ -842,6 +872,25 @@ public partial class MainWindowViewModel : ViewModelBase
         UpdateHistoryAvailability();
     }
 
+    private void RefreshSelectedKeyframeEditor()
+    {
+        _suppressSelectedKeyframeEditor = true;
+        SelectedKeyframeEasing = FindSelectedKeyframeModel()?.Easing ?? EasingKind.Linear;
+        _suppressSelectedKeyframeEditor = false;
+    }
+
+    private KeyframeModel? FindSelectedKeyframeModel()
+    {
+        if (SelectedLayer is null || SelectedKeyframeId is null)
+        {
+            return null;
+        }
+
+        return SelectedLayer.Model.Tracks
+            .SelectMany(track => track.Keyframes)
+            .FirstOrDefault(keyframe => keyframe.Id == SelectedKeyframeId.Value);
+    }
+
     private void RecordHistoryIfNeeded()
     {
         if (_isApplyingHistory || _isInteractiveChange || _history is null)
@@ -870,6 +919,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedKeyframeId = snapshot.SelectedKeyframeId;
         Seek(snapshot.CurrentTime);
         RefreshInspector();
+        RefreshSelectedKeyframeEditor();
 
         _isApplyingHistory = false;
     }

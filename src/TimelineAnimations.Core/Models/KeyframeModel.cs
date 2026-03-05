@@ -7,4 +7,6 @@ public sealed class KeyframeModel
     public double Time { get; set; }
 
     public double Value { get; set; }
+
+    public EasingKind Easing { get; set; } = EasingKind.Linear;
 }

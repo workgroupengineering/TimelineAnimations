@@ -93,4 +93,38 @@ public class TimelineCoreTests
         Assert.True(history.TryRedo(out var redoState));
         Assert.Equal(2, redoState);
     }
+
+    [Fact]
+    public void SampleProperty_UsesHoldEasing_FromNextKeyframe()
+    {
+        var layer = new TimelineLayer
+        {
+            Defaults = new LayerDefaults { Opacity = 0.1 },
+            Tracks =
+            [
+                new LayerTrack
+                {
+                    Property = AnimatedProperty.Opacity,
+                    Keyframes =
+                    [
+                        new KeyframeModel { Time = 0, Value = 0.1 },
+                        new KeyframeModel { Time = 1, Value = 1.0, Easing = EasingKind.Hold }
+                    ]
+                }
+            ]
+        };
+
+        var sampled = TimelineInterpolationService.SampleProperty(layer, AnimatedProperty.Opacity, 0.6);
+
+        Assert.Equal(0.1, sampled);
+    }
+
+    [Fact]
+    public void TimelineEasingService_BackOut_OvershootsLinearCurve()
+    {
+        var linear = TimelineEasingService.Apply(EasingKind.Linear, 0.75);
+        var backOut = TimelineEasingService.Apply(EasingKind.BackOut, 0.75);
+
+        Assert.True(backOut > linear);
+    }
 }
