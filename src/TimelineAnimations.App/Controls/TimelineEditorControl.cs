@@ -22,8 +22,8 @@ public sealed class TimelineEditorControl : Control
     private Guid? _dragKeyframeId;
     private AnimatedProperty _dragProperty;
 
-    public static readonly StyledProperty<IReadOnlyList<PropertyTrackViewModel>?> TracksProperty =
-        AvaloniaProperty.Register<TimelineEditorControl, IReadOnlyList<PropertyTrackViewModel>?>(nameof(Tracks));
+    public static readonly StyledProperty<IReadOnlyList<TimelineTrackRowViewModel>?> RowsProperty =
+        AvaloniaProperty.Register<TimelineEditorControl, IReadOnlyList<TimelineTrackRowViewModel>?>(nameof(Rows));
 
     public static readonly StyledProperty<double> CurrentTimeProperty =
         AvaloniaProperty.Register<TimelineEditorControl, double>(nameof(CurrentTime));
@@ -43,7 +43,7 @@ public sealed class TimelineEditorControl : Control
     static TimelineEditorControl()
     {
         AffectsRender<TimelineEditorControl>(
-            TracksProperty,
+            RowsProperty,
             CurrentTimeProperty,
             DurationProperty,
             PixelsPerSecondProperty,
@@ -63,10 +63,10 @@ public sealed class TimelineEditorControl : Control
 
     public event EventHandler<TimelineInteractionStateChangedEventArgs>? KeyframeInteractionStateChanged;
 
-    public IReadOnlyList<PropertyTrackViewModel>? Tracks
+    public IReadOnlyList<TimelineTrackRowViewModel>? Rows
     {
-        get => GetValue(TracksProperty);
-        set => SetValue(TracksProperty, value);
+        get => GetValue(RowsProperty);
+        set => SetValue(RowsProperty, value);
     }
 
     public double CurrentTime
@@ -103,10 +103,10 @@ public sealed class TimelineEditorControl : Control
     {
         base.OnPropertyChanged(change);
 
-        if (change.Property == TracksProperty)
+        if (change.Property == RowsProperty)
         {
-            DetachTrackListeners(change.GetOldValue<IReadOnlyList<PropertyTrackViewModel>?>());
-            AttachTrackListeners(change.GetNewValue<IReadOnlyList<PropertyTrackViewModel>?>());
+            DetachTrackListeners(change.GetOldValue<IReadOnlyList<TimelineTrackRowViewModel>?>());
+            AttachTrackListeners(change.GetNewValue<IReadOnlyList<TimelineTrackRowViewModel>?>());
             InvalidateVisual();
         }
     }
@@ -128,7 +128,7 @@ public sealed class TimelineEditorControl : Control
         Focus();
 
         var point = e.GetPosition(this);
-        if (!TryGetTrackAt(point, out var track))
+        if (!TryGetRowAt(point, out var row))
         {
             if (point.Y <= HeaderHeight)
             {
@@ -141,14 +141,14 @@ public sealed class TimelineEditorControl : Control
             return;
         }
 
-        TrackSelectionRequested?.Invoke(this, new TimelineTrackSelectionRequestedEventArgs(track.Property));
+        TrackSelectionRequested?.Invoke(this, new TimelineTrackSelectionRequestedEventArgs(row.LayerId, row.Property));
 
-        if (TryHitKeyframe(track, point, out var keyframe))
+        if (TryHitKeyframe(row, point, out var keyframe))
         {
-            KeyframeSelectionRequested?.Invoke(this, new TimelineKeyframeSelectionRequestedEventArgs(track.Property, keyframe.Id));
+            KeyframeSelectionRequested?.Invoke(this, new TimelineKeyframeSelectionRequestedEventArgs(row.LayerId, row.Property, keyframe.Id));
             _isDraggingKeyframe = true;
             _dragKeyframeId = keyframe.Id;
-            _dragProperty = track.Property;
+            _dragProperty = row.Property;
             KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(true));
             e.Pointer.Capture(this);
             e.Handled = true;
@@ -157,7 +157,7 @@ public sealed class TimelineEditorControl : Control
 
         if (e.ClickCount >= 2)
         {
-            KeyframeAddRequested?.Invoke(this, new TimelineKeyframeAddRequestedEventArgs(track.Property, TimeFromPoint(point.X)));
+            KeyframeAddRequested?.Invoke(this, new TimelineKeyframeAddRequestedEventArgs(row.LayerId, row.Property, TimeFromPoint(point.X)));
             e.Handled = true;
             return;
         }
@@ -175,7 +175,12 @@ public sealed class TimelineEditorControl : Control
 
         if (_isDraggingKeyframe && _dragKeyframeId is not null)
         {
-            KeyframeMoveRequested?.Invoke(this, new TimelineKeyframeMoveRequestedEventArgs(_dragProperty, _dragKeyframeId.Value, TimeFromPoint(point.X)));
+            var layerId = Rows?.FirstOrDefault(item => item.Property == _dragProperty && item.Keyframes.Any(keyframe => keyframe.Id == _dragKeyframeId.Value))?.LayerId;
+            if (layerId is Guid rowLayerId)
+            {
+                KeyframeMoveRequested?.Invoke(this, new TimelineKeyframeMoveRequestedEventArgs(rowLayerId, _dragProperty, _dragKeyframeId.Value, TimeFromPoint(point.X)));
+            }
+
             e.Handled = true;
             return;
         }
@@ -230,7 +235,7 @@ public sealed class TimelineEditorControl : Control
 
     private void DrawRows(DrawingContext context, Rect rect)
     {
-        if (Tracks is null)
+        if (Rows is null)
         {
             return;
         }
@@ -239,18 +244,33 @@ public sealed class TimelineEditorControl : Control
         var minorGridPen = new Pen(new SolidColorBrush(Color.Parse("#101A2B")), 1);
         var dividerPen = new Pen(new SolidColorBrush(Color.Parse("#223354")), 1);
 
-        for (var index = 0; index < Tracks.Count; index++)
+        for (var index = 0; index < Rows.Count; index++)
         {
-            var track = Tracks[index];
+            var row = Rows[index];
             var rowY = HeaderHeight + (index * TrackHeight);
             var rowRect = new Rect(0, rowY, rect.Width, TrackHeight);
-            var fill = track.Property == SelectedProperty
+            var fill = row.IsSelected
                 ? new SolidColorBrush(Color.Parse("#101B2E"))
-                : new SolidColorBrush(Color.Parse("#0A111B"));
+                : row.IsLayerSelected
+                    ? new SolidColorBrush(Color.Parse("#0D1728"))
+                    : new SolidColorBrush(Color.Parse("#0A111B"));
             context.DrawRectangle(fill, dividerPen, rowRect);
 
-            DrawLabel(context, track.Title, new Point(18, rowY + 8), 14, Color.Parse("#E8EFFD"));
-            DrawLabel(context, track.CurrentValueLabel, new Point(18, rowY + 24), 12, Color.Parse("#86A0CF"));
+            if (row.IsFirstForLayer)
+            {
+                context.DrawRectangle(new SolidColorBrush(Color.Parse("#18263C")), null, new Rect(0, rowY, rect.Width, 6));
+                context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 11, 12, 12), 6, 6);
+                DrawLabel(context, row.LayerName, new Point(38, rowY + 8), 13, Color.Parse("#B7C8EA"));
+                DrawLabel(context, row.TrackTitle, new Point(18, rowY + 24), 12, Color.Parse("#E8EFFD"));
+            }
+            else
+            {
+                context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 14, 10, 10), 5, 5);
+                DrawLabel(context, row.TrackTitle, new Point(36, rowY + 10), 13, Color.Parse("#E8EFFD"));
+                DrawLabel(context, row.LayerName, new Point(36, rowY + 26), 11, Color.Parse("#7E95BD"));
+            }
+
+            DrawLabel(context, row.CurrentValueLabel, new Point(LabelWidth - 28, rowY + 18), 12, Color.Parse("#86A0CF"));
 
             for (var second = 0d; second <= Duration + 0.0001d; second += 0.5d)
             {
@@ -259,9 +279,9 @@ public sealed class TimelineEditorControl : Control
                 context.DrawLine(pen, new Point(x, rowY), new Point(x, rowY + TrackHeight));
             }
 
-            foreach (var keyframe in track.Keyframes)
+            foreach (var keyframe in row.Keyframes)
             {
-                DrawKeyframe(context, track, keyframe, rowY + (TrackHeight / 2));
+                DrawKeyframe(context, row, keyframe, rowY + (TrackHeight / 2));
             }
         }
     }
@@ -270,13 +290,13 @@ public sealed class TimelineEditorControl : Control
     {
         var x = TimelineStartX + (CurrentTime * PixelsPerSecond);
         var top = 0d;
-        var bottom = HeaderHeight + ((Tracks?.Count ?? 0) * TrackHeight);
+        var bottom = HeaderHeight + ((Rows?.Count ?? 0) * TrackHeight);
         var playheadPen = new Pen(new SolidColorBrush(Color.Parse("#9BFFF0")), 1.8);
         context.DrawLine(playheadPen, new Point(x, top), new Point(x, bottom));
         context.DrawRectangle(new SolidColorBrush(Color.Parse("#9BFFF0")), null, new Rect(x - 5, 8, 10, 10), 5, 5);
     }
 
-    private void DrawKeyframe(DrawingContext context, PropertyTrackViewModel track, KeyframeViewModel keyframe, double centerY)
+    private void DrawKeyframe(DrawingContext context, TimelineTrackRowViewModel row, KeyframeViewModel keyframe, double centerY)
     {
         var center = new Point(TimelineStartX + (keyframe.Time * PixelsPerSecond), centerY);
         var geometry = new StreamGeometry();
@@ -292,46 +312,46 @@ public sealed class TimelineEditorControl : Control
 
         var fill = keyframe.IsSelected
             ? new SolidColorBrush(Color.Parse("#9BFFF0"))
-            : track.Property == SelectedProperty
+            : row.IsSelected
                 ? new SolidColorBrush(Color.Parse("#FFB685"))
                 : new SolidColorBrush(Color.Parse("#7B8AA7"));
 
         context.DrawGeometry(fill, new Pen(new SolidColorBrush(Color.Parse("#07101B")), 1.2), geometry);
     }
 
-    private bool TryGetTrackAt(Point point, out PropertyTrackViewModel track)
+    private bool TryGetRowAt(Point point, out TimelineTrackRowViewModel row)
     {
-        track = null!;
+        row = null!;
 
-        if (Tracks is null || point.Y < HeaderHeight)
+        if (Rows is null || point.Y < HeaderHeight)
         {
             return false;
         }
 
         var index = (int)((point.Y - HeaderHeight) / TrackHeight);
-        if (index < 0 || index >= Tracks.Count)
+        if (index < 0 || index >= Rows.Count)
         {
             return false;
         }
 
-        track = Tracks[index];
+        row = Rows[index];
         return true;
     }
 
-    private bool TryHitKeyframe(PropertyTrackViewModel track, Point point, out KeyframeViewModel keyframe)
+    private bool TryHitKeyframe(TimelineTrackRowViewModel row, Point point, out KeyframeViewModel keyframe)
     {
         keyframe = null!;
-        if (Tracks is null)
+        if (Rows is null)
         {
             return false;
         }
 
         var trackIndex = 0;
-        if (Tracks is not null)
+        if (Rows is not null)
         {
-            for (var index = 0; index < Tracks.Count; index++)
+            for (var index = 0; index < Rows.Count; index++)
             {
-                if (ReferenceEquals(Tracks[index], track))
+                if (ReferenceEquals(Rows[index], row))
                 {
                     trackIndex = index;
                     break;
@@ -341,7 +361,7 @@ public sealed class TimelineEditorControl : Control
 
         var centerY = HeaderHeight + (trackIndex * TrackHeight) + (TrackHeight / 2);
 
-        foreach (var item in track.Keyframes)
+        foreach (var item in row.Keyframes)
         {
             var center = new Point(TimelineStartX + (item.Time * PixelsPerSecond), centerY);
             var markerRect = new Rect(center.X - 10, center.Y - 10, 20, 20);
@@ -376,57 +396,57 @@ public sealed class TimelineEditorControl : Control
 
     private double TimelineStartX => LabelWidth + 12;
 
-    private void AttachTrackListeners(IReadOnlyList<PropertyTrackViewModel>? tracks)
+    private void AttachTrackListeners(IReadOnlyList<TimelineTrackRowViewModel>? rows)
     {
-        if (tracks is INotifyCollectionChanged collection)
+        if (rows is INotifyCollectionChanged collection)
         {
             collection.CollectionChanged += HandleTracksCollectionChanged;
         }
 
-        if (tracks is null)
+        if (rows is null)
         {
             return;
         }
 
-        foreach (var track in tracks)
+        foreach (var row in rows)
         {
-            AttachTrack(track);
+            AttachTrack(row);
         }
     }
 
-    private void DetachTrackListeners(IReadOnlyList<PropertyTrackViewModel>? tracks)
+    private void DetachTrackListeners(IReadOnlyList<TimelineTrackRowViewModel>? rows)
     {
-        if (tracks is INotifyCollectionChanged collection)
+        if (rows is INotifyCollectionChanged collection)
         {
             collection.CollectionChanged -= HandleTracksCollectionChanged;
         }
 
-        if (tracks is null)
+        if (rows is null)
         {
             return;
         }
 
-        foreach (var track in tracks)
+        foreach (var row in rows)
         {
-            DetachTrack(track);
+            DetachTrack(row);
         }
     }
 
-    private void AttachTrack(PropertyTrackViewModel track)
+    private void AttachTrack(TimelineTrackRowViewModel row)
     {
-        track.PropertyChanged += HandleTrackPropertyChanged;
-        track.Keyframes.CollectionChanged += HandleKeyframesCollectionChanged;
-        foreach (var keyframe in track.Keyframes)
+        row.PropertyChanged += HandleTrackPropertyChanged;
+        row.Keyframes.CollectionChanged += HandleKeyframesCollectionChanged;
+        foreach (var keyframe in row.Keyframes)
         {
             keyframe.PropertyChanged += HandleTrackPropertyChanged;
         }
     }
 
-    private void DetachTrack(PropertyTrackViewModel track)
+    private void DetachTrack(TimelineTrackRowViewModel row)
     {
-        track.PropertyChanged -= HandleTrackPropertyChanged;
-        track.Keyframes.CollectionChanged -= HandleKeyframesCollectionChanged;
-        foreach (var keyframe in track.Keyframes)
+        row.PropertyChanged -= HandleTrackPropertyChanged;
+        row.Keyframes.CollectionChanged -= HandleKeyframesCollectionChanged;
+        foreach (var keyframe in row.Keyframes)
         {
             keyframe.PropertyChanged -= HandleTrackPropertyChanged;
         }
@@ -436,17 +456,17 @@ public sealed class TimelineEditorControl : Control
     {
         if (e.OldItems is not null)
         {
-            foreach (PropertyTrackViewModel track in e.OldItems)
+            foreach (TimelineTrackRowViewModel row in e.OldItems)
             {
-                DetachTrack(track);
+                DetachTrack(row);
             }
         }
 
         if (e.NewItems is not null)
         {
-            foreach (PropertyTrackViewModel track in e.NewItems)
+            foreach (TimelineTrackRowViewModel row in e.NewItems)
             {
-                AttachTrack(track);
+                AttachTrack(row);
             }
         }
 

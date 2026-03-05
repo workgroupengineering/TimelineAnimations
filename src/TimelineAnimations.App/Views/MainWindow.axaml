@@ -285,16 +285,14 @@
 
             <ScrollViewer Grid.Row="1"
                           HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Disabled">
+                          VerticalScrollBarVisibility="Auto">
               <controls:TimelineEditorControl x:Name="TimelineEditor"
                                               Width="{Binding TimelineSurfaceWidth}"
-                                              Height="322"
-                                              Tracks="{Binding Tracks}"
+                                              Height="{Binding TimelineSurfaceHeight}"
+                                              Rows="{Binding TimelineRows}"
                                               CurrentTime="{Binding CurrentTime}"
                                               Duration="{Binding Duration}"
-                                              PixelsPerSecond="{Binding TimelineZoom}"
-                                              SelectedProperty="{Binding SelectedProperty}"
-                                              SelectedKeyframeId="{Binding SelectedKeyframeId}" />
+                                              PixelsPerSecond="{Binding TimelineZoom}" />
             </ScrollViewer>
           </Grid>
         </Border>

@@ -60,6 +60,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<PropertyTrackViewModel> Tracks { get; } = [];
 
+    public ObservableCollection<TimelineTrackRowViewModel> TimelineRows { get; } = [];
+
     public ObservableCollection<PaletteItemViewModel> PaletteItems { get; }
 
     public IReadOnlyList<EasingKind> AvailableEasings { get; } = Enum.GetValues<EasingKind>();
@@ -73,6 +75,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public string CanvasSizeLabel => $"{CanvasWidth:0} × {CanvasHeight:0}";
 
     public double TimelineSurfaceWidth => Math.Max(920, (Duration * TimelineZoom) + 200);
+
+    public double TimelineSurfaceHeight => Math.Max(322, 34 + (TimelineRows.Count * 48) + 8);
 
     public bool CanUndo => _history?.CanUndo == true;
 
@@ -220,6 +224,7 @@ public partial class MainWindowViewModel : ViewModelBase
             track.IsSelected = track.Property == value;
         }
 
+        UpdateTimelineRowSelection();
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
     }
 
@@ -230,6 +235,7 @@ public partial class MainWindowViewModel : ViewModelBase
             track.UpdateKeyframeSelection(value);
         }
 
+        UpdateTimelineRowSelection();
         RefreshSelectedKeyframeEditor();
         OnPropertyChanged(nameof(HasSelectedKeyframe));
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
@@ -243,6 +249,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         UpdateTrackPreviewValues();
+        UpdateTimelineRowPreviewValues();
         RefreshInspector();
         OnPropertyChanged(nameof(CurrentTimeLabel));
     }
@@ -587,6 +594,12 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedProperty = property;
     }
 
+    public void SelectTrack(Guid layerId, AnimatedProperty property)
+    {
+        SelectLayer(layerId);
+        SelectedProperty = property;
+    }
+
     public void SelectKeyframe(AnimatedProperty property, Guid keyframeId)
     {
         SelectedProperty = property;
@@ -597,6 +610,12 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Seek(keyframe.Time);
         }
+    }
+
+    public void SelectKeyframe(Guid layerId, AnimatedProperty property, Guid keyframeId)
+    {
+        SelectLayer(layerId);
+        SelectKeyframe(property, keyframeId);
     }
 
     public void MoveKeyframe(AnimatedProperty property, Guid keyframeId, double time)
@@ -620,6 +639,12 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public void MoveKeyframe(Guid layerId, AnimatedProperty property, Guid keyframeId, double time)
+    {
+        SelectLayer(layerId);
+        MoveKeyframe(property, keyframeId, time);
+    }
+
     public void AddKeyframeAt(AnimatedProperty property, double time)
     {
         if (SelectedLayer is null)
@@ -635,6 +660,12 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedKeyframeId = keyframe.Id;
         RecordHistoryIfNeeded();
         StatusMessage = "Keyframe inserted";
+    }
+
+    public void AddKeyframeAt(Guid layerId, AnimatedProperty property, double time)
+    {
+        SelectLayer(layerId);
+        AddKeyframeAt(property, time);
     }
 
     public void UpdateLayerFrame(Guid layerId, Rect bounds)
@@ -713,6 +744,8 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedLayer = selectionId is null
             ? Layers.FirstOrDefault()
             : Layers.FirstOrDefault(item => item.Id == selectionId.Value) ?? Layers.FirstOrDefault();
+
+        ReloadTimelineRows();
     }
 
     private void ReloadTracks()
@@ -737,6 +770,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
         RefreshSelectedKeyframeEditor();
+        ReloadTimelineRows();
     }
 
     private void UpdateTrackPreviewValues()
@@ -752,6 +786,51 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
+    }
+
+    private void ReloadTimelineRows()
+    {
+        TimelineRows.Clear();
+
+        foreach (var layer in Layers)
+        {
+            var firstForLayer = true;
+            foreach (var property in Enum.GetValues<AnimatedProperty>())
+            {
+                var row = new TimelineTrackRowViewModel(layer.Id, property);
+                row.LoadFromLayer(
+                    layer.Model,
+                    CurrentTime,
+                    SelectedLayer?.Id,
+                    SelectedProperty,
+                    SelectedKeyframeId,
+                    firstForLayer);
+                TimelineRows.Add(row);
+                firstForLayer = false;
+            }
+        }
+
+        OnPropertyChanged(nameof(TimelineSurfaceHeight));
+    }
+
+    private void UpdateTimelineRowPreviewValues()
+    {
+        foreach (var row in TimelineRows)
+        {
+            var layer = Layers.FirstOrDefault(item => item.Id == row.LayerId);
+            if (layer is not null)
+            {
+                row.RefreshCurrentValue(layer.Model, CurrentTime);
+            }
+        }
+    }
+
+    private void UpdateTimelineRowSelection()
+    {
+        foreach (var row in TimelineRows)
+        {
+            row.UpdateSelection(SelectedLayer?.Id, SelectedProperty, SelectedKeyframeId);
+        }
     }
 
     private void RefreshInspector()

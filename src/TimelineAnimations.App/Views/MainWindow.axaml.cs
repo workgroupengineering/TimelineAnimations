@@ -77,22 +77,22 @@ public partial class MainWindow : Window
 
     private void HandleTrackSelectionRequested(object? sender, TimelineTrackSelectionRequestedEventArgs e)
     {
-        ViewModel?.SelectTrack(e.Property);
+        ViewModel?.SelectTrack(e.LayerId, e.Property);
     }
 
     private void HandleKeyframeSelectionRequested(object? sender, TimelineKeyframeSelectionRequestedEventArgs e)
     {
-        ViewModel?.SelectKeyframe(e.Property, e.KeyframeId);
+        ViewModel?.SelectKeyframe(e.LayerId, e.Property, e.KeyframeId);
     }
 
     private void HandleKeyframeMoveRequested(object? sender, TimelineKeyframeMoveRequestedEventArgs e)
     {
-        ViewModel?.MoveKeyframe(e.Property, e.KeyframeId, e.Time);
+        ViewModel?.MoveKeyframe(e.LayerId, e.Property, e.KeyframeId, e.Time);
     }
 
     private void HandleKeyframeAddRequested(object? sender, TimelineKeyframeAddRequestedEventArgs e)
     {
-        ViewModel?.AddKeyframeAt(e.Property, e.Time);
+        ViewModel?.AddKeyframeAt(e.LayerId, e.Property, e.Time);
     }
 
     private void HandleTimelineInteractionStateChanged(object? sender, TimelineInteractionStateChangedEventArgs e)
