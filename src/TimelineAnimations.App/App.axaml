@@ -1,0 +1,15 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TimelineAnimations.App.App"
+             xmlns:local="using:TimelineAnimations.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+  
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://TimelineAnimations.App/Styles/Theme.axaml" />
+    </Application.Styles>
+</Application>

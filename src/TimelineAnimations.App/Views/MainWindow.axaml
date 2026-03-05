@@ -1,0 +1,452 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:TimelineAnimations.App.Controls"
+        xmlns:vm="using:TimelineAnimations.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="1680"
+        d:DesignHeight="1020"
+        x:Class="TimelineAnimations.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="1680"
+        Height="1020"
+        MinWidth="1360"
+        MinHeight="860"
+        Title="TimelineAnimations Studio">
+
+  <Design.DataContext>
+    <vm:MainWindowViewModel />
+  </Design.DataContext>
+
+  <Grid Margin="18"
+        RowDefinitions="Auto,*"
+        RowSpacing="18">
+    <Border Grid.Row="0"
+            Classes="panel">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="16">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="eyebrow"
+                     Text="TimelineAnimations" />
+          <TextBlock Classes="title"
+                     Text="Timeline Atelier" />
+          <TextBlock Classes="micro-label"
+                     Text="A cinematic Avalonia editor for keyframed motion composition." />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="10"
+                    VerticalAlignment="Center">
+          <Button Content="Sample"
+                  Command="{Binding ResetSampleCommand}" />
+          <Button Content="Open"
+                  Click="OpenDocumentClick" />
+          <Button Content="Save"
+                  Classes="accent"
+                  Click="SaveDocumentClick" />
+          <Border Classes="panel-soft"
+                  Padding="14,10">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="eyebrow"
+                         Text="Document" />
+              <TextBlock Classes="strong-label"
+                         Text="{Binding FileLabel}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1"
+          ColumnDefinitions="280,*,320"
+          ColumnSpacing="18">
+      <ScrollViewer Grid.Column="0"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="18">
+          <Border Classes="panel">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="eyebrow"
+                         Text="Composition" />
+              <TextBlock Classes="section-title"
+                         Text="{Binding DocumentName}" />
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <Border Classes="panel-soft">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="eyebrow"
+                               Text="Duration" />
+                    <TextBlock Classes="strong-label"
+                               Text="{Binding DurationLabel}" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="1"
+                        Classes="panel-soft">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="eyebrow"
+                               Text="Stage" />
+                    <TextBlock Classes="strong-label"
+                               Text="{Binding CanvasSizeLabel}" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+              <TextBlock Classes="micro-label"
+                         Text="{Binding StatusMessage}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="eyebrow"
+                         Text="Palette" />
+              <TextBlock Classes="section-title"
+                         Text="Drop new elements onto the stage" />
+              <ItemsControl ItemsSource="{Binding PaletteItems}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PaletteItemViewModel">
+                    <controls:PaletteItemControl />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel">
+            <StackPanel Spacing="14">
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto"
+                    ColumnSpacing="8">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="eyebrow"
+                             Text="Layers" />
+                  <TextBlock Classes="section-title"
+                             Text="Composition stack" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="+ Rect"
+                        Command="{Binding AddRectangleCommand}" />
+                <Button Grid.Column="2"
+                        Content="+ Orb"
+                        Classes="warm"
+                        Command="{Binding AddEllipseCommand}" />
+                <Button Grid.Column="3"
+                        Content="+ Text"
+                        Command="{Binding AddTextCommand}" />
+                <Button Grid.Column="4"
+                        Content="Copy"
+                        Command="{Binding DuplicateSelectionCommand}" />
+              </Grid>
+
+              <ListBox ItemsSource="{Binding Layers}"
+                       SelectedItem="{Binding SelectedLayer, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LayerViewModel">
+                    <Border Classes="layer-row">
+                      <Grid ColumnDefinitions="Auto,*,Auto"
+                            ColumnSpacing="12">
+                        <Border Width="14"
+                                Height="14"
+                                CornerRadius="7"
+                                VerticalAlignment="Center"
+                                Background="{Binding FillBrush}" />
+                        <StackPanel Grid.Column="1"
+                                    Spacing="2">
+                          <TextBlock Classes="strong-label"
+                                     Text="{Binding Name}" />
+                          <TextBlock Classes="micro-label"
+                                     Text="{Binding Subtitle}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2"
+                                   Classes="micro-label"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding KindLabel}" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <Button Content="Forward"
+                        Command="{Binding BringForwardCommand}" />
+                <Button Grid.Column="1"
+                        Content="Backward"
+                        Command="{Binding SendBackwardCommand}" />
+              </Grid>
+
+              <Button Content="Delete Selection"
+                      Classes="warm"
+                      Command="{Binding DeleteSelectionCommand}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <Grid Grid.Column="1"
+            RowDefinitions="*,340"
+            RowSpacing="18">
+        <Border Classes="panel">
+          <Grid RowDefinitions="Auto,*"
+                RowSpacing="16">
+            <Grid ColumnDefinitions="*,260,120"
+                  ColumnSpacing="12">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="eyebrow"
+                           Text="Stage" />
+                <TextBlock Classes="section-title"
+                           Text="{Binding SelectionHeadline}" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="1"
+                          Spacing="6">
+                <TextBlock Classes="eyebrow"
+                           Text="Canvas zoom" />
+                <Slider Minimum="0.45"
+                        Maximum="1.15"
+                        Value="{Binding CanvasZoom, Mode=TwoWay}" />
+              </StackPanel>
+
+              <Border Grid.Column="2"
+                      Classes="panel-soft"
+                      Padding="12,8">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="eyebrow"
+                             Text="Playhead" />
+                  <TextBlock Classes="strong-label"
+                             Text="{Binding CurrentTimeLabel}" />
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <controls:SceneCanvasControl x:Name="SceneCanvas"
+                                         Grid.Row="1"
+                                         Layers="{Binding Layers}"
+                                         SelectedLayer="{Binding SelectedLayer}"
+                                         CanvasZoom="{Binding CanvasZoom}"
+                                         DocumentWidth="{Binding CanvasWidth}"
+                                         DocumentHeight="{Binding CanvasHeight}"
+                                         BackgroundFrom="{Binding BackgroundFrom}"
+                                         BackgroundTo="{Binding BackgroundTo}" />
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Classes="panel">
+          <Grid RowDefinitions="Auto,*"
+                RowSpacing="14">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,220"
+                  ColumnSpacing="10">
+              <Button Content="Play / Pause"
+                      Classes="accent"
+                      Command="{Binding TogglePlaybackCommand}" />
+              <Button Grid.Column="1"
+                      Content="Stop"
+                      Command="{Binding StopPlaybackCommand}" />
+              <Button Grid.Column="2"
+                      Content="Add Key"
+                      Command="{Binding AddCurrentKeyframeCommand}" />
+              <Button Grid.Column="3"
+                      Content="Remove Key"
+                      Command="{Binding DeleteCurrentKeyframeCommand}" />
+              <ToggleButton Grid.Column="4"
+                            IsChecked="{Binding AutoKey, Mode=TwoWay}"
+                            Content="Auto-key" />
+
+              <StackPanel Grid.Column="5"
+                          Orientation="Horizontal"
+                          Spacing="16"
+                          VerticalAlignment="Center"
+                          Margin="16,0,0,0">
+                <CheckBox Content="Loop playback"
+                          IsChecked="{Binding LoopPlayback, Mode=TwoWay}" />
+                <CheckBox Content="Snap to grid"
+                          IsChecked="{Binding SnapToGrid, Mode=TwoWay}" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="6"
+                          Spacing="6">
+                <TextBlock Classes="eyebrow"
+                           Text="Timeline zoom" />
+                <Slider Minimum="90"
+                        Maximum="250"
+                        Value="{Binding TimelineZoom, Mode=TwoWay}" />
+              </StackPanel>
+            </Grid>
+
+            <ScrollViewer Grid.Row="1"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+              <controls:TimelineEditorControl x:Name="TimelineEditor"
+                                              Width="{Binding TimelineSurfaceWidth}"
+                                              Height="322"
+                                              Tracks="{Binding Tracks}"
+                                              CurrentTime="{Binding CurrentTime}"
+                                              Duration="{Binding Duration}"
+                                              PixelsPerSecond="{Binding TimelineZoom}"
+                                              SelectedProperty="{Binding SelectedProperty}"
+                                              SelectedKeyframeId="{Binding SelectedKeyframeId}" />
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <ScrollViewer Grid.Column="2"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="18">
+          <Border Classes="panel">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="eyebrow"
+                         Text="Inspector" />
+              <TextBlock Classes="section-title"
+                         Text="{Binding SelectionHeadline}" />
+
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Name" />
+                <TextBox Text="{Binding LayerNameEditor, Mode=TwoWay}" />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10"
+                    RowDefinitions="Auto,Auto,Auto">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="X" />
+                  <TextBox Text="{Binding InspectorX, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Y" />
+                  <TextBox Text="{Binding InspectorY, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Width" />
+                  <TextBox Text="{Binding InspectorWidth, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1"
+                            Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Height" />
+                  <TextBox Text="{Binding InspectorHeight, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Row="2"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Rotation" />
+                  <TextBox Text="{Binding InspectorRotation, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Row="2"
+                            Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Corner radius" />
+                  <TextBox Text="{Binding InspectorCornerRadius, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
+                  <TextBlock Classes="micro-label"
+                             Text="Opacity" />
+                  <TextBlock Grid.Column="1"
+                             Classes="micro-label"
+                             Text="{Binding InspectorOpacity, StringFormat='{}{0:0.00}'}" />
+                </Grid>
+                <Slider Minimum="0"
+                        Maximum="1"
+                        Value="{Binding InspectorOpacity, Mode=TwoWay}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="eyebrow"
+                         Text="Style" />
+              <TextBlock Classes="section-title"
+                         Text="Look and content" />
+
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Fill" />
+                <TextBox Text="{Binding FillHexEditor, Mode=TwoWay}" />
+              </StackPanel>
+
+              <UniformGrid Columns="4"
+                           Rows="2">
+                <Button Background="#24E5C1"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#24E5C1" />
+                <Button Background="#FF8A4C"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#FF8A4C" />
+                <Button Background="#F7F5ED"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#F7F5ED" />
+                <Button Background="#6D8DFF"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#6D8DFF" />
+                <Button Background="#FF5F79"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#FF5F79" />
+                <Button Background="#A7FF5A"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#A7FF5A" />
+                <Button Background="#61E6FF"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#61E6FF" />
+                <Button Background="#B093FF"
+                        Command="{Binding ApplyFillPresetCommand}"
+                        CommandParameter="#B093FF" />
+              </UniformGrid>
+
+              <StackPanel IsVisible="{Binding SelectedLayerIsText}"
+                          Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Text" />
+                <TextBox Text="{Binding TextEditor, Mode=TwoWay}"
+                         AcceptsReturn="True"
+                         Height="92"
+                         TextWrapping="Wrap" />
+                <TextBlock Classes="micro-label"
+                           Text="Font size" />
+                <TextBox Text="{Binding InspectorFontSize, Mode=TwoWay}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="eyebrow"
+                         Text="Animation" />
+              <TextBlock Classes="section-title"
+                         Text="Track focus" />
+              <TextBlock Classes="micro-label"
+                         Text="{Binding SelectedKeyframeSummary}"
+                         TextWrapping="Wrap" />
+              <Border Classes="panel-soft">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="eyebrow"
+                             Text="Editing model" />
+                  <TextBlock Classes="micro-label"
+                             Text="Canvas edits and inspector changes update the current playhead. Away from zero or with auto-key enabled, the editor writes keyframes automatically."
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</Window>

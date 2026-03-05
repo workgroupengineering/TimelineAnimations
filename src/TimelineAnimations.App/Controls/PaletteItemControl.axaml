@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Controls.PaletteItemControl"
+             x:DataType="vm:PaletteItemViewModel">
+  <Border Classes="palette-card"
+          Background="#121A2C"
+          BorderBrush="#213355"
+          BorderThickness="1"
+          CornerRadius="24"
+          PointerPressed="OnPointerPressed">
+    <Grid ColumnDefinitions="Auto,*,Auto"
+          ColumnSpacing="14">
+      <Border Width="18"
+              Height="18"
+              VerticalAlignment="Top"
+              Margin="0,2,0,0"
+              CornerRadius="9"
+              Background="{Binding Fill}" />
+
+      <StackPanel Grid.Column="1"
+                  Spacing="4">
+        <TextBlock Text="{Binding Title}"
+                   Classes="strong-label" />
+        <TextBlock Text="{Binding Subtitle}"
+                   Classes="micro-label"
+                   Opacity="0.72"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Grid.Column="2"
+              Width="32"
+              Height="32"
+              CornerRadius="16"
+              Background="#0A101C"
+              BorderBrush="{Binding Accent}"
+              BorderThickness="1">
+        <TextBlock HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Text="+"
+                   FontSize="18"
+                   Foreground="{Binding Accent}" />
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>
