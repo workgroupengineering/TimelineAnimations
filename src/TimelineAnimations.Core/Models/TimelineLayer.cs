@@ -10,6 +10,8 @@ public sealed class TimelineLayer
 
     public bool IsVisible { get; set; } = true;
 
+    public bool IsLocked { get; set; }
+
     public int ZIndex { get; set; }
 
     public LayerDefaults Defaults { get; set; } = new();

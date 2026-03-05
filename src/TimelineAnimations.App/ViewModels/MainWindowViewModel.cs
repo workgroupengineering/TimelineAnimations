@@ -86,9 +86,47 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool HasSelectedKeyframe => SelectedKeyframeId is not null;
 
+    public bool CanEditSelection => SelectedLayer is not null && !SelectedLayer.IsLocked;
+
+    public bool CanToggleLayerState => SelectedLayer is not null;
+
+    public bool CanDeleteSelectedKeyframe => CanEditSelection && SelectedKeyframeId is not null;
+
+    public string SelectedLayerVisibilityLabel => SelectedLayer?.IsVisible == false ? "Show Layer" : "Hide Layer";
+
+    public string SelectedLayerLockLabel => SelectedLayer?.IsLocked == true ? "Unlock Layer" : "Lock Layer";
+
+    public string SelectedLayerStateLabel
+    {
+        get
+        {
+            if (SelectedLayer is null)
+            {
+                return "No layer selected";
+            }
+
+            if (SelectedLayer.IsLocked && !SelectedLayer.IsVisible)
+            {
+                return "Hidden on stage and protected from edits.";
+            }
+
+            if (SelectedLayer.IsLocked)
+            {
+                return "Visible on stage but protected from edits.";
+            }
+
+            if (!SelectedLayer.IsVisible)
+            {
+                return "Hidden from the stage and render output.";
+            }
+
+            return "Visible on stage and editable.";
+        }
+    }
+
     public string SelectionHeadline => SelectedLayer is null
         ? "Nothing selected"
-        : $"{SelectedLayer.Name} • {SelectedLayer.KindLabel}";
+        : $"{SelectedLayer.Name} • {SelectedLayer.KindLabel}{GetSelectionStateSuffix(SelectedLayer)}";
 
     public string SelectedKeyframeSummary
     {
@@ -213,8 +251,8 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadTracks();
         RefreshInspector();
         OnPropertyChanged(nameof(SelectedLayerIsText));
-        OnPropertyChanged(nameof(SelectionHeadline));
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
+        RefreshSelectionStateProperties();
     }
 
     partial void OnSelectedPropertyChanged(AnimatedProperty value)
@@ -239,6 +277,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshSelectedKeyframeEditor();
         OnPropertyChanged(nameof(HasSelectedKeyframe));
         OnPropertyChanged(nameof(SelectedKeyframeSummary));
+        OnPropertyChanged(nameof(CanDeleteSelectedKeyframe));
     }
 
     partial void OnCurrentTimeChanged(double value)
@@ -277,13 +316,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnLayerNameEditorChanged(string value)
     {
-        if (_suppressInspector || SelectedLayer is null || string.IsNullOrWhiteSpace(value))
+        if (_suppressInspector || !CanEditSelection || string.IsNullOrWhiteSpace(value))
         {
             return;
         }
 
-        SelectedLayer.Model.Name = value.Trim();
-        SelectedLayer.RefreshMetadata();
+        var selectedLayer = SelectedLayer!;
+        selectedLayer.Model.Name = value.Trim();
+        selectedLayer.RefreshMetadata();
         RecordHistoryIfNeeded();
         StatusMessage = "Layer renamed";
         OnPropertyChanged(nameof(SelectionHeadline));
@@ -291,28 +331,30 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnFillHexEditorChanged(string value)
     {
-        if (_suppressInspector || SelectedLayer is null || string.IsNullOrWhiteSpace(value))
+        if (_suppressInspector || !CanEditSelection || string.IsNullOrWhiteSpace(value))
         {
             return;
         }
 
-        SelectedLayer.Model.Style.Fill = value.Trim();
-        SelectedLayer.RefreshMetadata();
-        SelectedLayer.UpdatePreview(CurrentTime);
+        var selectedLayer = SelectedLayer!;
+        selectedLayer.Model.Style.Fill = value.Trim();
+        selectedLayer.RefreshMetadata();
+        selectedLayer.UpdatePreview(CurrentTime);
         RecordHistoryIfNeeded();
         StatusMessage = "Fill updated";
     }
 
     partial void OnTextEditorChanged(string value)
     {
-        if (_suppressInspector || SelectedLayer is null)
+        if (_suppressInspector || !CanEditSelection)
         {
             return;
         }
 
-        SelectedLayer.Model.Style.Text = value;
-        SelectedLayer.RefreshMetadata();
-        SelectedLayer.UpdatePreview(CurrentTime);
+        var selectedLayer = SelectedLayer!;
+        selectedLayer.Model.Style.Text = value;
+        selectedLayer.RefreshMetadata();
+        selectedLayer.UpdatePreview(CurrentTime);
         RecordHistoryIfNeeded();
         StatusMessage = "Text updated";
     }
@@ -331,26 +373,28 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnInspectorCornerRadiusChanged(double value)
     {
-        if (_suppressInspector || SelectedLayer is null)
+        if (_suppressInspector || !CanEditSelection)
         {
             return;
         }
 
-        SelectedLayer.Model.Style.CornerRadius = Math.Max(0, value);
-        SelectedLayer.RefreshMetadata();
+        var selectedLayer = SelectedLayer!;
+        selectedLayer.Model.Style.CornerRadius = Math.Max(0, value);
+        selectedLayer.RefreshMetadata();
         RecordHistoryIfNeeded();
         StatusMessage = "Corner radius updated";
     }
 
     partial void OnInspectorFontSizeChanged(double value)
     {
-        if (_suppressInspector || SelectedLayer is null)
+        if (_suppressInspector || !CanEditSelection)
         {
             return;
         }
 
-        SelectedLayer.Model.Style.FontSize = Math.Max(8, value);
-        SelectedLayer.RefreshMetadata();
+        var selectedLayer = SelectedLayer!;
+        selectedLayer.Model.Style.FontSize = Math.Max(8, value);
+        selectedLayer.RefreshMetadata();
         RecordHistoryIfNeeded();
         StatusMessage = "Font size updated";
     }
@@ -492,7 +536,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void AddCurrentKeyframe()
     {
-        if (SelectedLayer is null)
+        if (!CanEditSelection || SelectedLayer is null)
         {
             return;
         }
@@ -514,7 +558,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void DeleteCurrentKeyframe()
     {
-        if (SelectedLayer is null || SelectedKeyframeId is null)
+        if (!CanEditSelection || SelectedLayer is null || SelectedKeyframeId is null)
         {
             return;
         }
@@ -531,7 +575,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ApplyFillPreset(string? fill)
     {
-        if (SelectedLayer is null || string.IsNullOrWhiteSpace(fill))
+        if (!CanEditSelection || SelectedLayer is null || string.IsNullOrWhiteSpace(fill))
         {
             return;
         }
@@ -620,7 +664,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public void MoveKeyframe(AnimatedProperty property, Guid keyframeId, double time)
     {
-        if (SelectedLayer is null)
+        if (!CanEditSelection || SelectedLayer is null)
         {
             return;
         }
@@ -647,7 +691,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public void AddKeyframeAt(AnimatedProperty property, double time)
     {
-        if (SelectedLayer is null)
+        if (!CanEditSelection || SelectedLayer is null)
         {
             return;
         }
@@ -671,7 +715,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public void UpdateLayerFrame(Guid layerId, Rect bounds)
     {
         var layer = Layers.FirstOrDefault(item => item.Id == layerId);
-        if (layer is null)
+        if (layer is null || layer.IsLocked)
         {
             return;
         }
@@ -871,7 +915,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void ApplyInspectorValue(AnimatedProperty property, double value)
     {
-        if (_suppressInspector || SelectedLayer is null)
+        if (_suppressInspector || !CanEditSelection || SelectedLayer is null)
         {
             return;
         }
@@ -900,7 +944,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedKeyframeEasingChanged(EasingKind value)
     {
-        if (_suppressSelectedKeyframeEditor)
+        if (_suppressSelectedKeyframeEditor || !CanEditSelection)
         {
             return;
         }
@@ -1058,5 +1102,69 @@ public partial class MainWindowViewModel : ViewModelBase
             AnimatedProperty.Opacity => "Opacity",
             _ => property.ToString()
         };
+    }
+
+    [RelayCommand]
+    private void ToggleSelectedLayerVisibility()
+    {
+        if (SelectedLayer is null)
+        {
+            return;
+        }
+
+        SelectedLayer.Model.IsVisible = !SelectedLayer.Model.IsVisible;
+        SelectedLayer.RefreshMetadata();
+        ReloadTimelineRows();
+        RecordHistoryIfNeeded();
+        StatusMessage = SelectedLayer.Model.IsVisible ? "Layer shown" : "Layer hidden";
+        RefreshSelectionStateProperties();
+    }
+
+    [RelayCommand]
+    private void ToggleSelectedLayerLock()
+    {
+        if (SelectedLayer is null)
+        {
+            return;
+        }
+
+        SelectedLayer.Model.IsLocked = !SelectedLayer.Model.IsLocked;
+        SelectedLayer.RefreshMetadata();
+        ReloadTracks();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = SelectedLayer.Model.IsLocked ? "Layer locked" : "Layer unlocked";
+        RefreshSelectionStateProperties();
+    }
+
+    private void RefreshSelectionStateProperties()
+    {
+        OnPropertyChanged(nameof(CanEditSelection));
+        OnPropertyChanged(nameof(CanToggleLayerState));
+        OnPropertyChanged(nameof(CanDeleteSelectedKeyframe));
+        OnPropertyChanged(nameof(SelectedLayerVisibilityLabel));
+        OnPropertyChanged(nameof(SelectedLayerLockLabel));
+        OnPropertyChanged(nameof(SelectedLayerStateLabel));
+        OnPropertyChanged(nameof(SelectionHeadline));
+    }
+
+    private static string GetSelectionStateSuffix(LayerViewModel selectedLayer)
+    {
+        if (selectedLayer.IsLocked && !selectedLayer.IsVisible)
+        {
+            return " • Hidden • Locked";
+        }
+
+        if (selectedLayer.IsLocked)
+        {
+            return " • Locked";
+        }
+
+        if (!selectedLayer.IsVisible)
+        {
+            return " • Hidden";
+        }
+
+        return string.Empty;
     }
 }

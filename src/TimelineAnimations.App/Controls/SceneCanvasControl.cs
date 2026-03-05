@@ -8,6 +8,7 @@ using Avalonia.Media;
 using TimelineAnimations.App.Helpers;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.Core.Models;
+using TimelineAnimations.Core.Services;
 
 namespace TimelineAnimations.App.Controls;
 
@@ -19,6 +20,8 @@ public sealed class SceneCanvasControl : Control
     private Guid? _activeLayerId;
     private Point _pointerOrigin;
     private Rect _originalBounds;
+    private double? _verticalGuide;
+    private double? _horizontalGuide;
 
     public static readonly StyledProperty<IReadOnlyList<LayerViewModel>?> LayersProperty =
         AvaloniaProperty.Register<SceneCanvasControl, IReadOnlyList<LayerViewModel>?>(nameof(Layers));
@@ -41,6 +44,9 @@ public sealed class SceneCanvasControl : Control
     public static readonly StyledProperty<string> BackgroundToProperty =
         AvaloniaProperty.Register<SceneCanvasControl, string>(nameof(BackgroundTo), "#182748");
 
+    public static readonly StyledProperty<bool> SnapToGridProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(SnapToGrid), true);
+
     static SceneCanvasControl()
     {
         AffectsRender<SceneCanvasControl>(
@@ -50,7 +56,8 @@ public sealed class SceneCanvasControl : Control
             DocumentWidthProperty,
             DocumentHeightProperty,
             BackgroundFromProperty,
-            BackgroundToProperty);
+            BackgroundToProperty,
+            SnapToGridProperty);
     }
 
     public SceneCanvasControl()
@@ -109,6 +116,12 @@ public sealed class SceneCanvasControl : Control
     {
         get => GetValue(BackgroundToProperty);
         set => SetValue(BackgroundToProperty, value);
+    }
+
+    public bool SnapToGrid
+    {
+        get => GetValue(SnapToGridProperty);
+        set => SetValue(SnapToGridProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -174,6 +187,8 @@ public sealed class SceneCanvasControl : Control
                     DrawLayer(context, stageRect, layer);
                 }
             }
+
+            DrawActiveGuides(context, stageRect);
         }
 
         DrawFrameLabel(context, stageRect);
@@ -194,13 +209,16 @@ public sealed class SceneCanvasControl : Control
         _pointerOrigin = pointer;
         _interactionMode = InteractionMode.None;
         _activeLayerId = null;
+        ClearGuides();
 
         if (!stageRect.Contains(pointer))
         {
             return;
         }
 
-        if (SelectedLayer is not null && TryHitResizeHandle(stageRect, SelectedLayer, pointer, out var handleMode))
+        if (SelectedLayer is not null &&
+            !SelectedLayer.IsLocked &&
+            TryHitResizeHandle(stageRect, SelectedLayer, pointer, out var handleMode))
         {
             _interactionMode = handleMode;
             _activeLayerId = SelectedLayer.Id;
@@ -214,10 +232,17 @@ public sealed class SceneCanvasControl : Control
         var hitLayer = HitTestLayer(stageRect, pointer);
         if (hitLayer is not null)
         {
+            LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(hitLayer.Id));
+
+            if (hitLayer.IsLocked)
+            {
+                e.Handled = true;
+                return;
+            }
+
             _activeLayerId = hitLayer.Id;
             _originalBounds = new Rect(hitLayer.X, hitLayer.Y, hitLayer.Width, hitLayer.Height);
             _interactionMode = InteractionMode.Move;
-            LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(hitLayer.Id));
             TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
             e.Pointer.Capture(this);
             e.Handled = true;
@@ -245,6 +270,17 @@ public sealed class SceneCanvasControl : Control
         {
             case InteractionMode.Move:
                 nextBounds = nextBounds.Translate(documentDelta);
+                var moveSnap = CanvasSnapService.SnapMove(
+                    nextBounds.X,
+                    nextBounds.Y,
+                    nextBounds.Width,
+                    nextBounds.Height,
+                    DocumentWidth,
+                    DocumentHeight,
+                    SnapToGrid);
+                nextBounds = new Rect(moveSnap.X, moveSnap.Y, moveSnap.Width, moveSnap.Height);
+                _verticalGuide = moveSnap.VerticalGuide;
+                _horizontalGuide = moveSnap.HorizontalGuide;
                 break;
             case InteractionMode.ResizeBottomRight:
                 nextBounds = new Rect(
@@ -252,6 +288,7 @@ public sealed class SceneCanvasControl : Control
                     nextBounds.Y,
                     Math.Max(24, nextBounds.Width + documentDelta.X),
                     Math.Max(24, nextBounds.Height + documentDelta.Y));
+                ApplyResizeSnapping(ref nextBounds);
                 break;
             case InteractionMode.ResizeTopLeft:
                 nextBounds = NormalizeRect(
@@ -259,6 +296,7 @@ public sealed class SceneCanvasControl : Control
                     nextBounds.Y + documentDelta.Y,
                     nextBounds.Width - documentDelta.X,
                     nextBounds.Height - documentDelta.Y);
+                ApplyResizeSnapping(ref nextBounds);
                 break;
             case InteractionMode.ResizeTopRight:
                 nextBounds = NormalizeRect(
@@ -266,6 +304,7 @@ public sealed class SceneCanvasControl : Control
                     nextBounds.Y + documentDelta.Y,
                     nextBounds.Width + documentDelta.X,
                     nextBounds.Height - documentDelta.Y);
+                ApplyResizeSnapping(ref nextBounds);
                 break;
             case InteractionMode.ResizeBottomLeft:
                 nextBounds = NormalizeRect(
@@ -273,6 +312,7 @@ public sealed class SceneCanvasControl : Control
                     nextBounds.Y,
                     nextBounds.Width - documentDelta.X,
                     nextBounds.Height + documentDelta.Y);
+                ApplyResizeSnapping(ref nextBounds);
                 break;
         }
 
@@ -288,6 +328,7 @@ public sealed class SceneCanvasControl : Control
         var wasInteracting = _interactionMode != InteractionMode.None;
         _interactionMode = InteractionMode.None;
         _activeLayerId = null;
+        ClearGuides();
         if (wasInteracting)
         {
             TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(false));
@@ -390,12 +431,40 @@ public sealed class SceneCanvasControl : Control
     private void DrawSelection(DrawingContext context, Rect stageRect, LayerViewModel layer)
     {
         var rect = ToScreenRect(stageRect, new Rect(layer.X, layer.Y, layer.Width, layer.Height));
-        var borderPen = new Pen(new SolidColorBrush(Color.Parse("#9BFFF0")), 2, dashStyle: new DashStyle([6, 4], 0));
+        var borderColor = layer.IsLocked ? Color.Parse("#FFB685") : Color.Parse("#9BFFF0");
+        var borderPen = new Pen(new SolidColorBrush(borderColor), 2, dashStyle: new DashStyle([6, 4], 0));
         context.DrawRectangle(null, borderPen, rect, layer.CornerRadius, layer.CornerRadius);
+
+        if (layer.IsLocked)
+        {
+            return;
+        }
 
         foreach (var handle in GetHandleRects(rect))
         {
             context.DrawRectangle(new SolidColorBrush(Color.Parse("#09101C")), new Pen(new SolidColorBrush(Color.Parse("#9BFFF0")), 1.2), handle, 4, 4);
+        }
+    }
+
+    private void DrawActiveGuides(DrawingContext context, Rect stageRect)
+    {
+        if (_verticalGuide is null && _horizontalGuide is null)
+        {
+            return;
+        }
+
+        var guidePen = new Pen(new SolidColorBrush(Color.Parse("#9BFFF0")), 1.4, dashStyle: new DashStyle([4, 4], 0));
+
+        if (_verticalGuide is double verticalGuide)
+        {
+            var x = stageRect.X + (verticalGuide * CanvasZoom);
+            context.DrawLine(guidePen, new Point(x, stageRect.Y), new Point(x, stageRect.Bottom));
+        }
+
+        if (_horizontalGuide is double horizontalGuide)
+        {
+            var y = stageRect.Y + (horizontalGuide * CanvasZoom);
+            context.DrawLine(guidePen, new Point(stageRect.X, y), new Point(stageRect.Right, y));
         }
     }
 
@@ -419,6 +488,11 @@ public sealed class SceneCanvasControl : Control
 
         foreach (var layer in Layers.OrderByDescending(item => item.ZIndex))
         {
+            if (!layer.IsVisible)
+            {
+                continue;
+            }
+
             var bounds = new Rect(layer.X, layer.Y, layer.Width, layer.Height);
             if (bounds.Contains(documentPoint))
             {
@@ -501,6 +575,27 @@ public sealed class SceneCanvasControl : Control
         var x = TimelineAnimations.Core.Services.TimelineMath.Clamp(rect.X, 0, DocumentWidth - width);
         var y = TimelineAnimations.Core.Services.TimelineMath.Clamp(rect.Y, 0, DocumentHeight - height);
         return new Rect(x, y, width, height);
+    }
+
+    private void ApplyResizeSnapping(ref Rect bounds)
+    {
+        var snapResult = CanvasSnapService.SnapResize(
+            bounds.X,
+            bounds.Y,
+            bounds.Width,
+            bounds.Height,
+            DocumentWidth,
+            DocumentHeight,
+            SnapToGrid);
+        bounds = new Rect(snapResult.X, snapResult.Y, snapResult.Width, snapResult.Height);
+        _verticalGuide = snapResult.VerticalGuide;
+        _horizontalGuide = snapResult.HorizontalGuide;
+    }
+
+    private void ClearGuides()
+    {
+        _verticalGuide = null;
+        _horizontalGuide = null;
     }
 
     private IDisposable PushLayerRotation(DrawingContext context, Rect rect, double angle)

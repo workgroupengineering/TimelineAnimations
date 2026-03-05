@@ -146,6 +146,12 @@ public sealed class TimelineEditorControl : Control
         if (TryHitKeyframe(row, point, out var keyframe))
         {
             KeyframeSelectionRequested?.Invoke(this, new TimelineKeyframeSelectionRequestedEventArgs(row.LayerId, row.Property, keyframe.Id));
+            if (row.IsLocked)
+            {
+                e.Handled = true;
+                return;
+            }
+
             _isDraggingKeyframe = true;
             _dragKeyframeId = keyframe.Id;
             _dragProperty = row.Property;
@@ -157,6 +163,12 @@ public sealed class TimelineEditorControl : Control
 
         if (e.ClickCount >= 2)
         {
+            if (row.IsLocked)
+            {
+                e.Handled = true;
+                return;
+            }
+
             KeyframeAddRequested?.Invoke(this, new TimelineKeyframeAddRequestedEventArgs(row.LayerId, row.Property, TimeFromPoint(point.X)));
             e.Handled = true;
             return;
@@ -256,6 +268,11 @@ public sealed class TimelineEditorControl : Control
                     : new SolidColorBrush(Color.Parse("#0A111B"));
             context.DrawRectangle(fill, dividerPen, rowRect);
 
+            if (row.IsLocked)
+            {
+                context.DrawRectangle(new SolidColorBrush(Color.Parse("#14000000")), null, rowRect);
+            }
+
             if (row.IsFirstForLayer)
             {
                 context.DrawRectangle(new SolidColorBrush(Color.Parse("#18263C")), null, new Rect(0, rowY, rect.Width, 6));
@@ -268,6 +285,11 @@ public sealed class TimelineEditorControl : Control
                 context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 14, 10, 10), 5, 5);
                 DrawLabel(context, row.TrackTitle, new Point(36, rowY + 10), 13, Color.Parse("#E8EFFD"));
                 DrawLabel(context, row.LayerName, new Point(36, rowY + 26), 11, Color.Parse("#7E95BD"));
+            }
+
+            if (row.IsLocked)
+            {
+                DrawLabel(context, "Locked", new Point(LabelWidth - 92, rowY + 4), 10, Color.Parse("#FFB685"));
             }
 
             DrawLabel(context, row.CurrentValueLabel, new Point(LabelWidth - 28, rowY + 18), 12, Color.Parse("#86A0CF"));
@@ -315,6 +337,11 @@ public sealed class TimelineEditorControl : Control
             : row.IsSelected
                 ? new SolidColorBrush(Color.Parse("#FFB685"))
                 : new SolidColorBrush(Color.Parse("#7B8AA7"));
+
+        if (row.IsLocked)
+        {
+            fill = new SolidColorBrush(Color.Parse("#5F6980"));
+        }
 
         context.DrawGeometry(fill, new Pen(new SolidColorBrush(Color.Parse("#07101B")), 1.2), geometry);
     }

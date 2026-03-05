@@ -45,6 +45,9 @@ public partial class TimelineTrackRowViewModel : ViewModelBase
     private bool isLayerSelected;
 
     [ObservableProperty]
+    private bool isLocked;
+
+    [ObservableProperty]
     private bool isFirstForLayer;
 
     [ObservableProperty]
@@ -66,6 +69,7 @@ public partial class TimelineTrackRowViewModel : ViewModelBase
         FillBrush = ColorHelpers.Brush(layer.Style.Fill, "#FFFFFF");
         IsLayerSelected = selectedLayerId == layer.Id;
         IsSelected = selectedLayerId == layer.Id && selectedProperty == Property;
+        IsLocked = layer.IsLocked;
         IsFirstForLayer = firstForLayer;
         CurrentValue = TimelineInterpolationService.SampleProperty(layer, Property, time);
         OnPropertyChanged(nameof(CurrentValueLabel));

@@ -33,11 +33,37 @@ public partial class LayerViewModel : ViewModelBase
 
     public string Subtitle => $"{KindLabel} • {Math.Round(Width):0}×{Math.Round(Height):0}";
 
+    public string StateBadge
+    {
+        get
+        {
+            if (IsLocked && !IsVisible)
+            {
+                return "Hidden • Locked";
+            }
+
+            if (IsLocked)
+            {
+                return "Locked";
+            }
+
+            if (!IsVisible)
+            {
+                return "Hidden";
+            }
+
+            return "Visible";
+        }
+    }
+
     [ObservableProperty]
     private string name = string.Empty;
 
     [ObservableProperty]
     private bool isVisible;
+
+    [ObservableProperty]
+    private bool isLocked;
 
     [ObservableProperty]
     private bool isSelected;
@@ -88,6 +114,7 @@ public partial class LayerViewModel : ViewModelBase
     {
         Name = Model.Name;
         IsVisible = Model.IsVisible;
+        IsLocked = Model.IsLocked;
         ZIndex = Model.ZIndex;
         FillHex = Model.Style.Fill;
         StrokeHex = Model.Style.Stroke;
@@ -98,6 +125,7 @@ public partial class LayerViewModel : ViewModelBase
         StrokeBrush = ColorHelpers.Brush(StrokeHex, "#FFFFFF");
         OnPropertyChanged(nameof(KindLabel));
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(StateBadge));
     }
 
     public void UpdatePreview(double time)
@@ -113,5 +141,6 @@ public partial class LayerViewModel : ViewModelBase
         TextContent = snapshot.Text;
         FontSize = snapshot.FontSize;
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(StateBadge));
     }
 }

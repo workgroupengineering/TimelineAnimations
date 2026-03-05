@@ -169,6 +169,8 @@
                                      Text="{Binding Name}" />
                           <TextBlock Classes="micro-label"
                                      Text="{Binding Subtitle}" />
+                          <TextBlock Classes="micro-label"
+                                     Text="{Binding StateBadge}" />
                         </StackPanel>
                         <TextBlock Grid.Column="2"
                                    Classes="micro-label"
@@ -187,6 +189,17 @@
                 <Button Grid.Column="1"
                         Content="Backward"
                         Command="{Binding SendBackwardCommand}" />
+              </Grid>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <Button Content="{Binding SelectedLayerVisibilityLabel}"
+                        Command="{Binding ToggleSelectedLayerVisibilityCommand}"
+                        IsEnabled="{Binding CanToggleLayerState}" />
+                <Button Grid.Column="1"
+                        Content="{Binding SelectedLayerLockLabel}"
+                        Command="{Binding ToggleSelectedLayerLockCommand}"
+                        IsEnabled="{Binding CanToggleLayerState}" />
               </Grid>
 
               <Button Content="Delete Selection"
@@ -238,6 +251,7 @@
                                          Layers="{Binding Layers}"
                                          SelectedLayer="{Binding SelectedLayer}"
                                          CanvasZoom="{Binding CanvasZoom}"
+                                         SnapToGrid="{Binding SnapToGrid}"
                                          DocumentWidth="{Binding CanvasWidth}"
                                          DocumentHeight="{Binding CanvasHeight}"
                                          BackgroundFrom="{Binding BackgroundFrom}"
@@ -259,10 +273,12 @@
                       Command="{Binding StopPlaybackCommand}" />
               <Button Grid.Column="2"
                       Content="Add Key"
-                      Command="{Binding AddCurrentKeyframeCommand}" />
+                      Command="{Binding AddCurrentKeyframeCommand}"
+                      IsEnabled="{Binding CanEditSelection}" />
               <Button Grid.Column="3"
                       Content="Remove Key"
-                      Command="{Binding DeleteCurrentKeyframeCommand}" />
+                      Command="{Binding DeleteCurrentKeyframeCommand}"
+                      IsEnabled="{Binding CanDeleteSelectedKeyframe}" />
               <ToggleButton Grid.Column="4"
                             IsChecked="{Binding AutoKey, Mode=TwoWay}"
                             Content="Auto-key" />
@@ -313,73 +329,82 @@
                          Text="Inspector" />
               <TextBlock Classes="section-title"
                          Text="{Binding SelectionHeadline}" />
-
-              <StackPanel Spacing="6">
+              <Border Classes="panel-soft">
                 <TextBlock Classes="micro-label"
-                           Text="Name" />
-                <TextBox Text="{Binding LayerNameEditor, Mode=TwoWay}" />
-              </StackPanel>
+                           Text="{Binding SelectedLayerStateLabel}"
+                           TextWrapping="Wrap" />
+              </Border>
 
-              <Grid ColumnDefinitions="*,*"
-                    ColumnSpacing="10"
-                    RowDefinitions="Auto,Auto,Auto">
+              <StackPanel Spacing="14"
+                          IsEnabled="{Binding CanEditSelection}">
                 <StackPanel Spacing="6">
                   <TextBlock Classes="micro-label"
-                             Text="X" />
-                  <TextBox Text="{Binding InspectorX, Mode=TwoWay}" />
+                             Text="Name" />
+                  <TextBox Text="{Binding LayerNameEditor, Mode=TwoWay}" />
                 </StackPanel>
-                <StackPanel Grid.Column="1"
-                            Spacing="6">
-                  <TextBlock Classes="micro-label"
-                             Text="Y" />
-                  <TextBox Text="{Binding InspectorY, Mode=TwoWay}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1"
-                            Spacing="6">
-                  <TextBlock Classes="micro-label"
-                             Text="Width" />
-                  <TextBox Text="{Binding InspectorWidth, Mode=TwoWay}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1"
-                            Grid.Column="1"
-                            Spacing="6">
-                  <TextBlock Classes="micro-label"
-                             Text="Height" />
-                  <TextBox Text="{Binding InspectorHeight, Mode=TwoWay}" />
-                </StackPanel>
-                <StackPanel Grid.Row="2"
-                            Spacing="6">
-                  <TextBlock Classes="micro-label"
-                             Text="Rotation" />
-                  <TextBox Text="{Binding InspectorRotation, Mode=TwoWay}" />
-                </StackPanel>
-                <StackPanel Grid.Row="2"
-                            Grid.Column="1"
-                            Spacing="6">
-                  <TextBlock Classes="micro-label"
-                             Text="Corner radius" />
-                  <TextBox Text="{Binding InspectorCornerRadius, Mode=TwoWay}" />
-                </StackPanel>
-              </Grid>
 
-              <StackPanel Spacing="6">
-                <Grid ColumnDefinitions="*,Auto"
-                      ColumnSpacing="10">
-                  <TextBlock Classes="micro-label"
-                             Text="Opacity" />
-                  <TextBlock Grid.Column="1"
-                             Classes="micro-label"
-                             Text="{Binding InspectorOpacity, StringFormat='{}{0:0.00}'}" />
+                <Grid ColumnDefinitions="*,*"
+                      ColumnSpacing="10"
+                      RowDefinitions="Auto,Auto,Auto">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="X" />
+                    <TextBox Text="{Binding InspectorX, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Y" />
+                    <TextBox Text="{Binding InspectorY, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Width" />
+                    <TextBox Text="{Binding InspectorWidth, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1"
+                              Grid.Column="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Height" />
+                    <TextBox Text="{Binding InspectorHeight, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="2"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Rotation" />
+                    <TextBox Text="{Binding InspectorRotation, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="2"
+                              Grid.Column="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Corner radius" />
+                    <TextBox Text="{Binding InspectorCornerRadius, Mode=TwoWay}" />
+                  </StackPanel>
                 </Grid>
-                <Slider Minimum="0"
-                        Maximum="1"
-                        Value="{Binding InspectorOpacity, Mode=TwoWay}" />
+
+                <StackPanel Spacing="6">
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10">
+                    <TextBlock Classes="micro-label"
+                               Text="Opacity" />
+                    <TextBlock Grid.Column="1"
+                               Classes="micro-label"
+                               Text="{Binding InspectorOpacity, StringFormat='{}{0:0.00}'}" />
+                  </Grid>
+                  <Slider Minimum="0"
+                          Maximum="1"
+                          Value="{Binding InspectorOpacity, Mode=TwoWay}" />
+                </StackPanel>
               </StackPanel>
             </StackPanel>
           </Border>
 
           <Border Classes="panel">
-            <StackPanel Spacing="14">
+            <StackPanel Spacing="14"
+                        IsEnabled="{Binding CanEditSelection}">
               <TextBlock Classes="eyebrow"
                          Text="Style" />
               <TextBlock Classes="section-title"
@@ -448,7 +473,7 @@
                            Text="Selected keyframe easing" />
                 <ComboBox ItemsSource="{Binding AvailableEasings}"
                           SelectedItem="{Binding SelectedKeyframeEasing, Mode=TwoWay}"
-                          IsEnabled="{Binding HasSelectedKeyframe}" />
+                          IsEnabled="{Binding CanDeleteSelectedKeyframe}" />
               </StackPanel>
               <Border Classes="panel-soft">
                 <StackPanel Spacing="4">

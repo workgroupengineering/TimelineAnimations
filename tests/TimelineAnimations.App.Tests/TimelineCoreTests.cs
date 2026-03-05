@@ -69,12 +69,16 @@ public class TimelineCoreTests
     public void DocumentSerializer_RoundTrips_SampleComposition()
     {
         var document = SampleProjectFactory.Create();
+        document.Layers[0].IsLocked = true;
+        document.Layers[1].IsVisible = false;
         var json = DocumentSerializer.ToJson(document);
         var restored = DocumentSerializer.FromJson(json);
 
         Assert.Equal(document.Name, restored.Name);
         Assert.Equal(document.Duration, restored.Duration);
         Assert.Equal(document.Layers.Count, restored.Layers.Count);
+        Assert.True(restored.Layers[0].IsLocked);
+        Assert.False(restored.Layers[1].IsVisible);
         Assert.Equal(document.Layers[2].Style.Text, restored.Layers[2].Style.Text);
         Assert.Equal(document.Layers[1].Tracks[0].Keyframes.Count, restored.Layers[1].Tracks[0].Keyframes.Count);
     }
@@ -126,5 +130,41 @@ public class TimelineCoreTests
         var backOut = TimelineEasingService.Apply(EasingKind.BackOut, 0.75);
 
         Assert.True(backOut > linear);
+    }
+
+    [Fact]
+    public void CanvasSnapService_SnapsMove_ToStageCenter()
+    {
+        var snapped = CanvasSnapService.SnapMove(
+            x: 495,
+            y: 214,
+            width: 300,
+            height: 100,
+            canvasWidth: 1280,
+            canvasHeight: 720,
+            snapEnabled: true);
+
+        Assert.Equal(490, snapped.X);
+        Assert.Equal(220, snapped.Y);
+        Assert.Equal(640, snapped.VerticalGuide);
+        Assert.Null(snapped.HorizontalGuide);
+    }
+
+    [Fact]
+    public void CanvasSnapService_SnapsResize_ToGrid()
+    {
+        var snapped = CanvasSnapService.SnapResize(
+            x: 143,
+            y: 118,
+            width: 237,
+            height: 151,
+            canvasWidth: 1280,
+            canvasHeight: 720,
+            snapEnabled: true);
+
+        Assert.Equal(140, snapped.X);
+        Assert.Equal(120, snapped.Y);
+        Assert.Equal(240, snapped.Width);
+        Assert.Equal(160, snapped.Height);
     }
 }
