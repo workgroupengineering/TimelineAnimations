@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.Core.Models;
+using TimelineAnimations.Core.Services;
 
 namespace TimelineAnimations.App.Controls;
 
@@ -301,6 +302,8 @@ public sealed class TimelineEditorControl : Control
                 context.DrawLine(pen, new Point(x, rowY), new Point(x, rowY + TrackHeight));
             }
 
+            DrawInterpolationCurve(context, row, rowY);
+
             foreach (var keyframe in row.Keyframes)
             {
                 DrawKeyframe(context, row, keyframe, rowY + (TrackHeight / 2));
@@ -344,6 +347,184 @@ public sealed class TimelineEditorControl : Control
         }
 
         context.DrawGeometry(fill, new Pen(new SolidColorBrush(Color.Parse("#07101B")), 1.2), geometry);
+    }
+
+    private void DrawInterpolationCurve(DrawingContext context, TimelineTrackRowViewModel row, double rowY)
+    {
+        if (row.Keyframes.Count == 0)
+        {
+            return;
+        }
+
+        var sampleCount = Math.Max(24, (int)Math.Ceiling((Duration * PixelsPerSecond) / 18));
+        var timeStep = sampleCount <= 1 ? Duration : Duration / sampleCount;
+        var geometry = new StreamGeometry();
+
+        using (var builder = geometry.Open())
+        {
+            for (var sampleIndex = 0; sampleIndex <= sampleCount; sampleIndex++)
+            {
+                var time = Math.Min(Duration, sampleIndex * timeStep);
+                var point = new Point(
+                    TimelineStartX + (time * PixelsPerSecond),
+                    GetCurveY(row, rowY, SampleRowValue(row, time)));
+
+                if (sampleIndex == 0)
+                {
+                    builder.BeginFigure(point, false);
+                }
+                else
+                {
+                    builder.LineTo(point);
+                }
+            }
+        }
+
+        var curveColor = row.IsLocked
+            ? Color.Parse("#4B576F")
+            : row.IsSelected
+                ? Color.Parse("#9BFFF0")
+                : row.FillBrush.Color;
+        var glowColor = row.IsSelected ? Color.Parse("#24E5C1") : curveColor;
+        context.DrawGeometry(
+            null,
+            new Pen(new SolidColorBrush(Color.FromArgb(64, glowColor.R, glowColor.G, glowColor.B)), row.IsSelected ? 4.6 : 3.2),
+            geometry);
+        context.DrawGeometry(
+            null,
+            new Pen(new SolidColorBrush(Color.FromArgb(row.IsLocked ? (byte)110 : (byte)210, curveColor.R, curveColor.G, curveColor.B)), row.IsSelected ? 2.1 : 1.4),
+            geometry);
+
+        DrawSelectedSegmentCallout(context, row, rowY);
+    }
+
+    private void DrawSelectedSegmentCallout(DrawingContext context, TimelineTrackRowViewModel row, double rowY)
+    {
+        if (!row.IsSelected || row.IsLocked || row.Keyframes.Count < 2)
+        {
+            return;
+        }
+
+        var selectedIndex = -1;
+        for (var index = 0; index < row.Keyframes.Count; index++)
+        {
+            if (row.Keyframes[index].IsSelected)
+            {
+                selectedIndex = index;
+                break;
+            }
+        }
+
+        if (selectedIndex <= 0)
+        {
+            return;
+        }
+
+        var previous = row.Keyframes[selectedIndex - 1];
+        var selected = row.Keyframes[selectedIndex];
+        var segmentGeometry = new StreamGeometry();
+        using (var builder = segmentGeometry.Open())
+        {
+            const int segmentSamples = 18;
+            for (var sampleIndex = 0; sampleIndex <= segmentSamples; sampleIndex++)
+            {
+                var progress = sampleIndex / (double)segmentSamples;
+                var time = previous.Time + ((selected.Time - previous.Time) * progress);
+                var point = new Point(
+                    TimelineStartX + (time * PixelsPerSecond),
+                    GetCurveY(row, rowY, SampleRowValue(row, time)));
+
+                if (sampleIndex == 0)
+                {
+                    builder.BeginFigure(point, false);
+                }
+                else
+                {
+                    builder.LineTo(point);
+                }
+            }
+        }
+
+        context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#FFB685")), 2.8), segmentGeometry);
+
+        var midpoint = previous.Time + ((selected.Time - previous.Time) / 2);
+        DrawLabel(
+            context,
+            selected.EasingLabel,
+            new Point(TimelineStartX + (midpoint * PixelsPerSecond) - 18, rowY + 4),
+            10,
+            Color.Parse("#FFD4B8"));
+    }
+
+    private double SampleRowValue(TimelineTrackRowViewModel row, double time)
+    {
+        if (row.Keyframes.Count == 1)
+        {
+            return row.Keyframes[0].Value;
+        }
+
+        KeyframeViewModel? previous = null;
+        KeyframeViewModel? next = null;
+
+        foreach (var keyframe in row.Keyframes)
+        {
+            if (keyframe.Time <= time)
+            {
+                previous = keyframe;
+            }
+
+            if (keyframe.Time >= time)
+            {
+                next = keyframe;
+                break;
+            }
+        }
+
+        if (previous is null)
+        {
+            return row.Keyframes[0].Value;
+        }
+
+        if (next is null)
+        {
+            return row.Keyframes[^1].Value;
+        }
+
+        if (ReferenceEquals(previous, next) || Math.Abs(next.Time - previous.Time) < 0.0001d)
+        {
+            return previous.Value;
+        }
+
+        var progress = (time - previous.Time) / (next.Time - previous.Time);
+        var easedProgress = TimelineEasingService.Apply(next.Easing, progress);
+        return previous.Value + ((next.Value - previous.Value) * easedProgress);
+    }
+
+    private double GetCurveY(TimelineTrackRowViewModel row, double rowY, double value)
+    {
+        var top = rowY + 8;
+        var bottom = rowY + TrackHeight - 8;
+
+        double minimum;
+        double maximum;
+        if (row.Property == AnimatedProperty.Opacity)
+        {
+            minimum = 0;
+            maximum = 1;
+        }
+        else
+        {
+            minimum = row.Keyframes.Min(keyframe => keyframe.Value);
+            maximum = row.Keyframes.Max(keyframe => keyframe.Value);
+        }
+
+        if (Math.Abs(maximum - minimum) < 0.0001d)
+        {
+            return rowY + (TrackHeight / 2);
+        }
+
+        var normalized = (value - minimum) / (maximum - minimum);
+        return bottom - (normalized * (bottom - top));
     }
 
     private bool TryGetRowAt(Point point, out TimelineTrackRowViewModel row)
