@@ -40,6 +40,12 @@
                     Orientation="Horizontal"
                     Spacing="10"
                     VerticalAlignment="Center">
+          <Button Content="Undo"
+                  Command="{Binding UndoCommand}"
+                  IsEnabled="{Binding CanUndo}" />
+          <Button Content="Redo"
+                  Command="{Binding RedoCommand}"
+                  IsEnabled="{Binding CanRedo}" />
           <Button Content="Sample"
                   Command="{Binding ResetSampleCommand}" />
           <Button Content="Open"

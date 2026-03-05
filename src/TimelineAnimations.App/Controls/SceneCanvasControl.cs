@@ -67,6 +67,8 @@ public sealed class SceneCanvasControl : Control
 
     public event EventHandler<CanvasPaletteDropRequestedEventArgs>? PaletteDropRequested;
 
+    public event EventHandler<CanvasInteractionStateChangedEventArgs>? TransformInteractionStateChanged;
+
     public IReadOnlyList<LayerViewModel>? Layers
     {
         get => GetValue(LayersProperty);
@@ -203,6 +205,7 @@ public sealed class SceneCanvasControl : Control
             _interactionMode = handleMode;
             _activeLayerId = SelectedLayer.Id;
             _originalBounds = new Rect(SelectedLayer.X, SelectedLayer.Y, SelectedLayer.Width, SelectedLayer.Height);
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
             e.Pointer.Capture(this);
             e.Handled = true;
             return;
@@ -215,6 +218,7 @@ public sealed class SceneCanvasControl : Control
             _originalBounds = new Rect(hitLayer.X, hitLayer.Y, hitLayer.Width, hitLayer.Height);
             _interactionMode = InteractionMode.Move;
             LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(hitLayer.Id));
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
             e.Pointer.Capture(this);
             e.Handled = true;
             return;
@@ -281,8 +285,14 @@ public sealed class SceneCanvasControl : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        var wasInteracting = _interactionMode != InteractionMode.None;
         _interactionMode = InteractionMode.None;
         _activeLayerId = null;
+        if (wasInteracting)
+        {
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(false));
+        }
+
         e.Pointer.Capture(null);
     }
 

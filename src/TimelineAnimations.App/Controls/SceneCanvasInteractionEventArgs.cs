@@ -3,6 +3,11 @@ using TimelineAnimations.Core.Models;
 
 namespace TimelineAnimations.App.Controls;
 
+public sealed class CanvasInteractionStateChangedEventArgs(bool isActive) : EventArgs
+{
+    public bool IsActive { get; } = isActive;
+}
+
 public sealed class CanvasLayerSelectionRequestedEventArgs(Guid? layerId) : EventArgs
 {
     public Guid? LayerId { get; } = layerId;

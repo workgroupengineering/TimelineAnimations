@@ -61,6 +61,8 @@ public sealed class TimelineEditorControl : Control
 
     public event EventHandler<TimelineKeyframeAddRequestedEventArgs>? KeyframeAddRequested;
 
+    public event EventHandler<TimelineInteractionStateChangedEventArgs>? KeyframeInteractionStateChanged;
+
     public IReadOnlyList<PropertyTrackViewModel>? Tracks
     {
         get => GetValue(TracksProperty);
@@ -147,6 +149,7 @@ public sealed class TimelineEditorControl : Control
             _isDraggingKeyframe = true;
             _dragKeyframeId = keyframe.Id;
             _dragProperty = track.Property;
+            KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(true));
             e.Pointer.Capture(this);
             e.Handled = true;
             return;
@@ -187,9 +190,15 @@ public sealed class TimelineEditorControl : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        var wasDraggingKeyframe = _isDraggingKeyframe;
         _isScrubbing = false;
         _isDraggingKeyframe = false;
         _dragKeyframeId = null;
+        if (wasDraggingKeyframe)
+        {
+            KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(false));
+        }
+
         e.Pointer.Capture(null);
     }
 

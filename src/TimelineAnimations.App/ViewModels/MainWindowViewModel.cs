@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TimelineAnimations.App.Models;
 using TimelineAnimations.Core.Models;
 using TimelineAnimations.Core.Services;
 
@@ -14,6 +15,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly DispatcherTimer _playbackTimer;
     private readonly Stopwatch _playbackClock = new();
     private TimelineDocument _document = SampleProjectFactory.Create();
+    private UndoRedoStack<EditorStateSnapshot>? _history;
+    private bool _isApplyingHistory;
+    private bool _isInteractiveChange;
     private bool _suppressInspector;
     private double _playbackOriginTime;
 
@@ -66,6 +70,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public string CanvasSizeLabel => $"{CanvasWidth:0} × {CanvasHeight:0}";
 
     public double TimelineSurfaceWidth => Math.Max(920, (Duration * TimelineZoom) + 200);
+
+    public bool CanUndo => _history?.CanUndo == true;
+
+    public bool CanRedo => _history?.CanRedo == true;
 
     public bool SelectedLayerIsText => SelectedLayer?.Kind == LayerKind.Text;
 
@@ -259,6 +267,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         SelectedLayer.Model.Name = value.Trim();
         SelectedLayer.RefreshMetadata();
+        RecordHistoryIfNeeded();
         StatusMessage = "Layer renamed";
         OnPropertyChanged(nameof(SelectionHeadline));
     }
@@ -273,6 +282,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedLayer.Model.Style.Fill = value.Trim();
         SelectedLayer.RefreshMetadata();
         SelectedLayer.UpdatePreview(CurrentTime);
+        RecordHistoryIfNeeded();
         StatusMessage = "Fill updated";
     }
 
@@ -286,6 +296,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedLayer.Model.Style.Text = value;
         SelectedLayer.RefreshMetadata();
         SelectedLayer.UpdatePreview(CurrentTime);
+        RecordHistoryIfNeeded();
         StatusMessage = "Text updated";
     }
 
@@ -310,6 +321,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         SelectedLayer.Model.Style.CornerRadius = Math.Max(0, value);
         SelectedLayer.RefreshMetadata();
+        RecordHistoryIfNeeded();
         StatusMessage = "Corner radius updated";
     }
 
@@ -322,7 +334,34 @@ public partial class MainWindowViewModel : ViewModelBase
 
         SelectedLayer.Model.Style.FontSize = Math.Max(8, value);
         SelectedLayer.RefreshMetadata();
+        RecordHistoryIfNeeded();
         StatusMessage = "Font size updated";
+    }
+
+    [RelayCommand]
+    private void Undo()
+    {
+        if (_history?.TryUndo(out var snapshot) != true)
+        {
+            return;
+        }
+
+        ApplySnapshot(snapshot);
+        UpdateHistoryAvailability();
+        StatusMessage = "Undo applied";
+    }
+
+    [RelayCommand]
+    private void Redo()
+    {
+        if (_history?.TryRedo(out var snapshot) != true)
+        {
+            return;
+        }
+
+        ApplySnapshot(snapshot);
+        UpdateHistoryAvailability();
+        StatusMessage = "Redo applied";
     }
 
     [RelayCommand]
@@ -385,6 +424,7 @@ public partial class MainWindowViewModel : ViewModelBase
         duplicate.Defaults.Y += 30;
         TimelineEditingService.AddLayer(_document, duplicate);
         RebuildLayers(duplicate.Id);
+        RecordHistoryIfNeeded();
         StatusMessage = "Layer duplicated";
     }
 
@@ -400,6 +440,7 @@ public partial class MainWindowViewModel : ViewModelBase
         TimelineEditingService.RemoveLayer(_document, removedId);
         var nextSelection = _document.Layers.OrderByDescending(item => item.ZIndex).FirstOrDefault()?.Id;
         RebuildLayers(nextSelection);
+        RecordHistoryIfNeeded();
         StatusMessage = "Layer removed";
     }
 
@@ -413,6 +454,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         TimelineEditingService.BringForward(_document, SelectedLayer.Id);
         RebuildLayers(SelectedLayer.Id);
+        RecordHistoryIfNeeded();
         StatusMessage = "Layer moved forward";
     }
 
@@ -426,6 +468,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         TimelineEditingService.SendBackward(_document, SelectedLayer.Id);
         RebuildLayers(SelectedLayer.Id);
+        RecordHistoryIfNeeded();
         StatusMessage = "Layer moved backward";
     }
 
@@ -447,6 +490,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         ReloadTracks();
         SelectedKeyframeId = keyframe.Id;
+        RecordHistoryIfNeeded();
         StatusMessage = $"Keyframe added on {GetPropertyTitle(SelectedProperty)}";
     }
 
@@ -462,6 +506,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             SelectedKeyframeId = null;
             ReloadTracks();
+            RecordHistoryIfNeeded();
             StatusMessage = "Keyframe removed";
         }
     }
@@ -477,6 +522,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedLayer.Model.Style.Fill = fill;
         SelectedLayer.RefreshMetadata();
         RefreshInspector();
+        RecordHistoryIfNeeded();
         StatusMessage = "Color preset applied";
     }
 
@@ -493,6 +539,7 @@ public partial class MainWindowViewModel : ViewModelBase
         BackgroundTo = document.BackgroundTo;
         RebuildLayers(document.Layers.OrderByDescending(item => item.ZIndex).FirstOrDefault()?.Id);
         Seek(0);
+        ResetHistory();
         StatusMessage = "Document loaded";
     }
 
@@ -555,7 +602,11 @@ public partial class MainWindowViewModel : ViewModelBase
             SelectedProperty = property;
             SelectedKeyframeId = keyframeId;
             Seek(Snap(time));
-            StatusMessage = "Keyframe moved";
+            RecordHistoryIfNeeded();
+            if (!_isInteractiveChange)
+            {
+                StatusMessage = "Keyframe moved";
+            }
         }
     }
 
@@ -572,6 +623,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var keyframe = TimelineEditingService.SetKeyframe(SelectedLayer.Model, property, Snap(CurrentTime), value, Duration);
         ReloadTracks();
         SelectedKeyframeId = keyframe.Id;
+        RecordHistoryIfNeeded();
         StatusMessage = "Keyframe inserted";
     }
 
@@ -594,7 +646,28 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadPreviewForLayer(layer);
         ReloadTracks();
         RefreshInspector();
-        StatusMessage = "Layer transformed";
+        RecordHistoryIfNeeded();
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = "Layer transformed";
+        }
+    }
+
+    public void BeginInteractiveChange()
+    {
+        _isInteractiveChange = true;
+    }
+
+    public void CommitInteractiveChange(string statusMessage)
+    {
+        if (!_isInteractiveChange)
+        {
+            return;
+        }
+
+        _isInteractiveChange = false;
+        RecordHistoryIfNeeded();
+        StatusMessage = statusMessage;
     }
 
     public void AddLayerFromPalette(LayerKind kind, Point position)
@@ -614,6 +687,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         TimelineEditingService.AddLayer(_document, layer);
         RebuildLayers(layer.Id);
+        RecordHistoryIfNeeded();
         StatusMessage = $"{layer.Name} added";
     }
 
@@ -730,6 +804,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadPreviewForLayer(SelectedLayer);
         ReloadTracks();
         RefreshInspector();
+        RecordHistoryIfNeeded();
         StatusMessage = $"{GetPropertyTitle(property)} updated";
     }
 
@@ -747,6 +822,62 @@ public partial class MainWindowViewModel : ViewModelBase
     private double Snap(double time)
     {
         return SnapToGrid ? TimelineMath.Snap(time, 0.1d) : time;
+    }
+
+    private EditorStateSnapshot CaptureSnapshot()
+    {
+        return new EditorStateSnapshot(
+            _document,
+            SelectedLayer?.Id,
+            SelectedProperty,
+            SelectedKeyframeId,
+            CurrentTime);
+    }
+
+    private void ResetHistory()
+    {
+        var snapshot = CaptureSnapshot();
+        _history ??= new UndoRedoStack<EditorStateSnapshot>(snapshot, EditorStateSnapshotComparer.Instance);
+        _history.Reset(snapshot);
+        UpdateHistoryAvailability();
+    }
+
+    private void RecordHistoryIfNeeded()
+    {
+        if (_isApplyingHistory || _isInteractiveChange || _history is null)
+        {
+            return;
+        }
+
+        _history.Record(CaptureSnapshot());
+        UpdateHistoryAvailability();
+    }
+
+    private void ApplySnapshot(EditorStateSnapshot snapshot)
+    {
+        StopPlayback(false);
+        _isApplyingHistory = true;
+
+        _document = DocumentSerializer.Clone(snapshot.Document);
+        DocumentName = _document.Name;
+        Duration = _document.Duration;
+        CanvasWidth = _document.CanvasWidth;
+        CanvasHeight = _document.CanvasHeight;
+        BackgroundFrom = _document.BackgroundFrom;
+        BackgroundTo = _document.BackgroundTo;
+        RebuildLayers(snapshot.SelectedLayerId);
+        SelectedProperty = snapshot.SelectedProperty;
+        SelectedKeyframeId = snapshot.SelectedKeyframeId;
+        Seek(snapshot.CurrentTime);
+        RefreshInspector();
+
+        _isApplyingHistory = false;
+    }
+
+    private void UpdateHistoryAvailability()
+    {
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
     }
 
     private void HandlePlaybackTick(object? sender, EventArgs e)

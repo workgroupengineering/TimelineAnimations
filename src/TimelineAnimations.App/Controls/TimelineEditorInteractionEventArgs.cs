@@ -2,6 +2,11 @@ using TimelineAnimations.Core.Models;
 
 namespace TimelineAnimations.App.Controls;
 
+public sealed class TimelineInteractionStateChangedEventArgs(bool isActive) : EventArgs
+{
+    public bool IsActive { get; } = isActive;
+}
+
 public sealed class TimelineScrubRequestedEventArgs(double time) : EventArgs
 {
     public double Time { get; } = time;

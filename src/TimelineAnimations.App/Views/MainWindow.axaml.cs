@@ -21,12 +21,14 @@ public partial class MainWindow : Window
         SceneCanvas.LayerSelectionRequested += HandleLayerSelectionRequested;
         SceneCanvas.LayerTransformRequested += HandleLayerTransformRequested;
         SceneCanvas.PaletteDropRequested += HandlePaletteDropRequested;
+        SceneCanvas.TransformInteractionStateChanged += HandleCanvasInteractionStateChanged;
 
         TimelineEditor.ScrubRequested += HandleTimelineScrubRequested;
         TimelineEditor.TrackSelectionRequested += HandleTrackSelectionRequested;
         TimelineEditor.KeyframeSelectionRequested += HandleKeyframeSelectionRequested;
         TimelineEditor.KeyframeMoveRequested += HandleKeyframeMoveRequested;
         TimelineEditor.KeyframeAddRequested += HandleKeyframeAddRequested;
+        TimelineEditor.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
     }
 
     private void HandleLayerSelectionRequested(object? sender, CanvasLayerSelectionRequestedEventArgs e)
@@ -49,6 +51,23 @@ public partial class MainWindow : Window
     private void HandlePaletteDropRequested(object? sender, CanvasPaletteDropRequestedEventArgs e)
     {
         ViewModel?.AddLayerFromPalette(e.Kind, e.DocumentPosition);
+    }
+
+    private void HandleCanvasInteractionStateChanged(object? sender, CanvasInteractionStateChangedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        if (e.IsActive)
+        {
+            ViewModel.BeginInteractiveChange();
+        }
+        else
+        {
+            ViewModel.CommitInteractiveChange("Layer transformed");
+        }
     }
 
     private void HandleTimelineScrubRequested(object? sender, TimelineScrubRequestedEventArgs e)
@@ -74,6 +93,23 @@ public partial class MainWindow : Window
     private void HandleKeyframeAddRequested(object? sender, TimelineKeyframeAddRequestedEventArgs e)
     {
         ViewModel?.AddKeyframeAt(e.Property, e.Time);
+    }
+
+    private void HandleTimelineInteractionStateChanged(object? sender, TimelineInteractionStateChangedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        if (e.IsActive)
+        {
+            ViewModel.BeginInteractiveChange();
+        }
+        else
+        {
+            ViewModel.CommitInteractiveChange("Keyframe moved");
+        }
     }
 
     private async void OpenDocumentClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

@@ -78,4 +78,19 @@ public class TimelineCoreTests
         Assert.Equal(document.Layers[2].Style.Text, restored.Layers[2].Style.Text);
         Assert.Equal(document.Layers[1].Tracks[0].Keyframes.Count, restored.Layers[1].Tracks[0].Keyframes.Count);
     }
+
+    [Fact]
+    public void UndoRedoStack_TraversesRecordedStates()
+    {
+        var history = new UndoRedoStack<int>(1);
+
+        Assert.True(history.Record(2));
+        Assert.True(history.Record(3));
+        Assert.True(history.TryUndo(out var undoState));
+        Assert.Equal(2, undoState);
+        Assert.True(history.TryUndo(out undoState));
+        Assert.Equal(1, undoState);
+        Assert.True(history.TryRedo(out var redoState));
+        Assert.Equal(2, redoState);
+    }
 }
