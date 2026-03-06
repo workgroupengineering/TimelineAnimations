@@ -50,6 +50,25 @@ public partial class LayerViewModel : ViewModelBase
             LayerKind.Ellipse => "Orb",
             LayerKind.Text => "Caption",
             LayerKind.Path => "Vector",
+            LayerKind.AvaloniaControl => Model.Style.AvaloniaControl.Kind switch
+            {
+                AvaloniaControlKind.Button => "Button",
+                AvaloniaControlKind.TextBlock => "TextBlock",
+                AvaloniaControlKind.TextBox => "TextBox",
+                AvaloniaControlKind.CheckBox => "CheckBox",
+                AvaloniaControlKind.ToggleButton => "Toggle",
+                AvaloniaControlKind.Slider => "Slider",
+                AvaloniaControlKind.ProgressBar => "Progress",
+                AvaloniaControlKind.Image => "Image",
+                AvaloniaControlKind.ComboBox => "ComboBox",
+                AvaloniaControlKind.ListBox => "ListBox",
+                AvaloniaControlKind.TabControl => "Tabs",
+                AvaloniaControlKind.Grid => "Grid",
+                AvaloniaControlKind.StackPanel => "Stack",
+                AvaloniaControlKind.PathIcon => "Icon",
+                AvaloniaControlKind.Panel => "Panel",
+                _ => "Border"
+            },
             LayerKind.Video => "Video",
             LayerKind.Audio => "Audio",
             _ => "Layer"

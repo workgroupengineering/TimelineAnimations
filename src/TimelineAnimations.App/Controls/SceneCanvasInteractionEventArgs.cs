@@ -23,11 +23,13 @@ public sealed class CanvasLayerTransformRequestedEventArgs(Guid layerId, Rect bo
     public Rect Bounds { get; } = bounds;
 }
 
-public sealed class CanvasPaletteDropRequestedEventArgs(LayerKind kind, Point documentPosition) : EventArgs
+public sealed class CanvasPaletteDropRequestedEventArgs(LayerKind kind, Point documentPosition, AvaloniaControlKind? avaloniaControlKind = null) : EventArgs
 {
     public LayerKind Kind { get; } = kind;
 
     public Point DocumentPosition { get; } = documentPosition;
+
+    public AvaloniaControlKind? AvaloniaControlKind { get; } = avaloniaControlKind;
 }
 
 public sealed class CanvasDrawingRequestedEventArgs(

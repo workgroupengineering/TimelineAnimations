@@ -845,6 +845,7 @@ public class TimelineCoreTests
             "#FFFFFF",
             false,
             [],
+            new AvaloniaControlSettings(),
             new LayerCompositeSettings { ParallaxDepth = 2d });
         var camera = new LayerSnapshot(
             80,
@@ -864,6 +865,7 @@ public class TimelineCoreTests
             "#FFD166",
             false,
             [],
+            new AvaloniaControlSettings(),
             new LayerCompositeSettings { Role = LayerCompositeRole.Camera });
 
         var transformed = CompositeFrameRenderer.TransformSnapshot(snapshot, camera, 1280, 720, snapshot.Compositing.ParallaxDepth);
@@ -884,21 +886,21 @@ public class TimelineCoreTests
             SourceLayerId = Guid.NewGuid(),
             Kind = LayerKind.Rectangle,
             ZIndex = 0,
-            Snapshot = new LayerSnapshot(0, 0, 1280, 720, 0, 1, 0, "#000000", "#000000", string.Empty, 0, 1, false, "#000000", "#000000", false, [], cameraSettings)
+            Snapshot = new LayerSnapshot(0, 0, 1280, 720, 0, 1, 0, "#000000", "#000000", string.Empty, 0, 1, false, "#000000", "#000000", false, [], new AvaloniaControlSettings(), cameraSettings)
         };
         var topCamera = new RenderableLayerSample
         {
             SourceLayerId = Guid.NewGuid(),
             Kind = LayerKind.Rectangle,
             ZIndex = 2,
-            Snapshot = new LayerSnapshot(80, 24, 1120, 630, 0, 1, 0, "#000000", "#000000", string.Empty, 0, 1, false, "#000000", "#000000", false, [], new LayerCompositeSettings { Role = LayerCompositeRole.Camera })
+            Snapshot = new LayerSnapshot(80, 24, 1120, 630, 0, 1, 0, "#000000", "#000000", string.Empty, 0, 1, false, "#000000", "#000000", false, [], new AvaloniaControlSettings(), new LayerCompositeSettings { Role = LayerCompositeRole.Camera })
         };
         var content = new RenderableLayerSample
         {
             SourceLayerId = Guid.NewGuid(),
             Kind = LayerKind.Rectangle,
             ZIndex = 1,
-            Snapshot = new LayerSnapshot(120, 80, 320, 180, 0, 1, 28, "#24E5C1", "#FFFFFF", string.Empty, 0, 1, false, "#24E5C1", "#FFFFFF", false, [], baseSettings)
+            Snapshot = new LayerSnapshot(120, 80, 320, 180, 0, 1, 28, "#24E5C1", "#FFFFFF", string.Empty, 0, 1, false, "#24E5C1", "#FFFFFF", false, [], new AvaloniaControlSettings(), baseSettings)
         };
 
         var resolved = CompositeFrameRenderer.ResolveActiveCamera([firstCamera, content, topCamera]);
@@ -1301,6 +1303,64 @@ public class TimelineCoreTests
     }
 
     [Fact]
+    public void TimelineDocumentFileService_DetectsSupportedFormats()
+    {
+        Assert.Equal(TimelineDocumentFileFormat.NativeProject, TimelineDocumentFileService.DetectFormat("scene.timeline.json"));
+        Assert.Equal(TimelineDocumentFileFormat.AvaloniaXaml, TimelineDocumentFileService.DetectFormat("view.axaml"));
+        Assert.Equal(TimelineDocumentFileFormat.SvgSmil, TimelineDocumentFileService.DetectFormat("motion.svg"));
+        Assert.Equal(TimelineDocumentFileFormat.HtmlCss, TimelineDocumentFileService.DetectFormat("motion.html"));
+        Assert.Equal(
+            TimelineDocumentFileFormat.AvaloniaXaml,
+            TimelineDocumentFileService.DetectFormat("unknown.txt", """<Canvas xmlns="https://github.com/avaloniaui" Width="320" Height="180" />"""));
+    }
+
+    [Fact]
+    public async Task TimelineDocumentFileService_LoadsAndSaves_NativeProject()
+    {
+        var document = CreateInteropDocument();
+        await using var stream = new MemoryStream();
+
+        var save = await TimelineDocumentFileService.SaveAsync(stream, document, TimelineDocumentFileFormat.NativeProject);
+        stream.Position = 0;
+        var loaded = await TimelineDocumentFileService.LoadAsync(stream, "interop.timeline.json");
+
+        Assert.Equal(TimelineDocumentFileFormat.NativeProject, save.Format);
+        Assert.Equal(TimelineDocumentFileFormat.NativeProject, loaded.Format);
+        Assert.Equal(document.Name, loaded.Document.Name);
+        Assert.Empty(loaded.Issues);
+    }
+
+    [Theory]
+    [InlineData(TimelineDocumentFileFormat.AvaloniaXaml, "interop.axaml")]
+    [InlineData(TimelineDocumentFileFormat.SvgSmil, "interop.svg")]
+    [InlineData(TimelineDocumentFileFormat.HtmlCss, "interop.html")]
+    public async Task TimelineDocumentFileService_LoadsAndSaves_ExchangeFormats(TimelineDocumentFileFormat format, string fileName)
+    {
+        var document = CreateInteropDocument();
+        await using var stream = new MemoryStream();
+
+        var save = await TimelineDocumentFileService.SaveAsync(stream, document, format);
+        stream.Position = 0;
+        var loaded = await TimelineDocumentFileService.LoadAsync(stream, fileName);
+
+        Assert.Equal(format, save.Format);
+        Assert.Equal(format, loaded.Format);
+        Assert.True(loaded.Document.Layers.Count >= 2);
+        Assert.Contains(save.Issues, issue => issue.Severity == AnimationExchangeIssueSeverity.Info);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_LoadDocument_TracksCurrentDocumentFormat()
+    {
+        var viewModel = new MainWindowViewModel();
+
+        viewModel.LoadDocument(CreateInteropDocument(), "interop.svg", TimelineDocumentFileFormat.SvgSmil);
+
+        Assert.Equal(TimelineDocumentFileFormat.SvgSmil, viewModel.CurrentDocumentFileFormat);
+        Assert.Contains("SVG", viewModel.DocumentFileSummary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void PublishValidationService_FlagsInvalidActionScripts()
     {
         var document = SampleProjectFactory.Create();
@@ -1338,5 +1398,287 @@ public class TimelineCoreTests
         Assert.Equal("Feature Focus", viewModel.SelectedScene?.Name);
         Assert.Contains("mode=scripted", viewModel.PrototypeVariableSummary, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("CTA fired", viewModel.PrototypeSummary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AnimationExchangeService_AvaloniaXaml_RoundTrips_WithEmbeddedMetadata()
+    {
+        var document = CreateInteropDocument();
+
+        var export = AnimationExchangeService.Export(document, AnimationExchangeFormat.AvaloniaXaml);
+        var imported = AnimationExchangeService.Import(AnimationExchangeFormat.AvaloniaXaml, export.Content, "interop.axaml");
+
+        Assert.Equal(document.Name, imported.Document.Name);
+        Assert.Equal(document.Scenes.Count, imported.Document.Scenes.Count);
+        Assert.Contains(imported.Document.Layers, layer => layer.Kind == LayerKind.AvaloniaControl && layer.Style.AvaloniaControl.Kind == AvaloniaControlKind.Button);
+    }
+
+    [Fact]
+    public void AnimationExchangeService_AvaloniaXaml_FallbackImports_KeyframeStyles()
+    {
+        const string xaml = """
+                            <UserControl xmlns="https://github.com/avaloniaui"
+                                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                              <UserControl.Styles>
+                                <Style Selector="#cta">
+                                  <Style.Animations>
+                                    <Animation Duration="0:0:2" FillMode="Forward" IterationCount="1">
+                                      <KeyFrame Cue="0%">
+                                        <Setter Property="Canvas.Left" Value="40" />
+                                        <Setter Property="Opacity" Value="0.4" />
+                                      </KeyFrame>
+                                      <KeyFrame Cue="100%">
+                                        <Setter Property="Canvas.Left" Value="180" />
+                                        <Setter Property="Opacity" Value="1" />
+                                      </KeyFrame>
+                                    </Animation>
+                                  </Style.Animations>
+                                </Style>
+                              </UserControl.Styles>
+                              <Canvas Width="640" Height="360">
+                                <Button x:Name="cta"
+                                        Canvas.Left="40"
+                                        Canvas.Top="60"
+                                        Width="200"
+                                        Height="52"
+                                        Content="CTA" />
+                              </Canvas>
+                            </UserControl>
+                            """;
+
+        var imported = AnimationExchangeService.Import(AnimationExchangeFormat.AvaloniaXaml, xaml, "cta.axaml");
+        var layer = Assert.Single(imported.Document.Layers);
+        var xTrack = layer.Tracks.First(track => track.Property == AnimatedProperty.X);
+        var opacityTrack = layer.Tracks.First(track => track.Property == AnimatedProperty.Opacity);
+
+        Assert.Equal(LayerKind.AvaloniaControl, layer.Kind);
+        Assert.Equal(AvaloniaControlKind.Button, layer.Style.AvaloniaControl.Kind);
+        Assert.Contains(xTrack.Keyframes, keyframe => Math.Abs(keyframe.Time - 2d) < 0.0001d && Math.Abs(keyframe.Value - 180d) < 0.0001d);
+        Assert.Contains(opacityTrack.Keyframes, keyframe => Math.Abs(keyframe.Value - 1d) < 0.0001d);
+    }
+
+    [Fact]
+    public void AnimationExchangeService_AvaloniaXaml_FallbackImports_RootCanvasAndExpandedControls()
+    {
+        const string xaml = """
+                            <Canvas xmlns="https://github.com/avaloniaui"
+                                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                    Width="640"
+                                    Height="360">
+                              <ComboBox Canvas.Left="24"
+                                        Canvas.Top="32"
+                                        Width="220"
+                                        Height="52">
+                                <ComboBoxItem Content="Alpha" />
+                                <ComboBoxItem Content="Beta" />
+                                <ComboBoxItem Content="Gamma" />
+                              </ComboBox>
+                              <PathIcon Canvas.Left="260"
+                                        Canvas.Top="96"
+                                        Width="64"
+                                        Height="64"
+                                        Data="M 12 2 L 22 22 L 2 22 Z" />
+                            </Canvas>
+                            """;
+
+        var imported = AnimationExchangeService.Import(AnimationExchangeFormat.AvaloniaXaml, xaml, "surface.axaml");
+        var combo = imported.Document.Layers.First(layer => layer.Style.AvaloniaControl.Kind == AvaloniaControlKind.ComboBox);
+        var icon = imported.Document.Layers.First(layer => layer.Style.AvaloniaControl.Kind == AvaloniaControlKind.PathIcon);
+
+        Assert.Equal(2, imported.Document.Layers.Count);
+        Assert.Equal("Alpha|Beta|Gamma", combo.Style.AvaloniaControl.SecondaryContent);
+        Assert.Equal("M 12 2 L 22 22 L 2 22 Z", icon.Style.AvaloniaControl.SecondaryContent);
+        Assert.DoesNotContain(imported.Issues, issue => string.Equals(issue.Source, "Avalonia", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void AnimationExchangeService_AvaloniaXaml_FallbackImports_ProjectSurfaceWithoutCanvas()
+    {
+        const string xaml = """
+                            <Window xmlns="https://github.com/avaloniaui"
+                                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                    Width="640"
+                                    Height="360">
+                              <Grid Width="640" Height="360">
+                                <TextBlock Text="Project Title"
+                                           Width="220"
+                                           Height="60"
+                                           FontSize="28" />
+                              </Grid>
+                            </Window>
+                            """;
+
+        var imported = AnimationExchangeService.Import(AnimationExchangeFormat.AvaloniaXaml, xaml, "window.axaml");
+
+        Assert.Single(imported.Document.Layers);
+        Assert.Contains(imported.Issues, issue => string.Equals(issue.Source, "Avalonia", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(LayerKind.Text, imported.Document.Layers[0].Kind);
+    }
+
+    [Fact]
+    public void AnimationExchangeService_SvgFallback_ImportsGeneratedAnimation()
+    {
+        var document = CreateInteropDocument();
+        var export = AnimationExchangeService.Export(document, AnimationExchangeFormat.SvgSmil);
+        var withoutMetadata = System.Text.RegularExpressions.Regex.Replace(
+            export.Content,
+            @"<metadata[^>]*id=""TimelineAnimationsMetadata""[^>]*>.*?</metadata>",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var imported = AnimationExchangeService.Import(AnimationExchangeFormat.SvgSmil, withoutMetadata, "interop.svg");
+        var rectangle = imported.Document.Layers.First(layer => layer.Kind == LayerKind.Rectangle);
+        var xTrack = rectangle.Tracks.First(track => track.Property == AnimatedProperty.X);
+
+        Assert.True(imported.Document.Layers.Count >= 2);
+        Assert.True(xTrack.Keyframes.Count > 2);
+    }
+
+    [Fact]
+    public void AnimationExchangeService_HtmlFallback_ImportsGeneratedAnimation()
+    {
+        var document = CreateInteropDocument();
+        var export = AnimationExchangeService.Export(document, AnimationExchangeFormat.HtmlCss);
+        var withoutMetadata = System.Text.RegularExpressions.Regex.Replace(
+            export.Content,
+            @"<meta[^>]*name=""timeline-animations-metadata""[^>]*/>",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var imported = AnimationExchangeService.Import(AnimationExchangeFormat.HtmlCss, withoutMetadata, "interop.html");
+        var button = imported.Document.Layers.First(layer => layer.Kind == LayerKind.AvaloniaControl);
+        var yTrack = button.Tracks.First(track => track.Property == AnimatedProperty.Y);
+
+        Assert.Equal(AvaloniaControlKind.Button, button.Style.AvaloniaControl.Kind);
+        Assert.True(yTrack.Keyframes.Count > 2);
+    }
+
+    [Fact]
+    public void AnimationExchangeService_HtmlFallback_ImportsExpandedControlsAndTransformHints()
+    {
+        const string html = """
+                            <html xmlns="http://www.w3.org/1999/xhtml">
+                              <head>
+                                <style>
+                                  .layer { position:absolute; box-sizing:border-box; }
+                                </style>
+                              </head>
+                              <body>
+                                <div id="stage"
+                                     data-canvas-width="640"
+                                     data-canvas-height="360"
+                                     style="width:640px;height:360px;background:linear-gradient(135deg,#09111F,#182748);">
+                                  <select data-layer-kind="AvaloniaControl"
+                                          data-control-kind="ComboBox"
+                                          style="position:absolute;left:20px;top:24px;width:220px;height:52px;">
+                                    <option selected="selected">Alpha</option>
+                                    <option>Beta</option>
+                                  </select>
+                                  <div data-layer-kind="AvaloniaControl"
+                                       data-control-kind="PathIcon"
+                                       data-path="M 0 0 L 24 12 L 0 24 Z"
+                                       style="position:absolute;left:120px;top:80px;width:64px;height:64px;transform:translate(10px,5px) scale(1.5);"></div>
+                                </div>
+                              </body>
+                            </html>
+                            """;
+
+        var imported = AnimationExchangeService.Import(AnimationExchangeFormat.HtmlCss, html, "controls.html");
+        var combo = imported.Document.Layers.First(layer => layer.Style.AvaloniaControl.Kind == AvaloniaControlKind.ComboBox);
+        var icon = imported.Document.Layers.First(layer => layer.Style.AvaloniaControl.Kind == AvaloniaControlKind.PathIcon);
+
+        Assert.Equal("Alpha", combo.Style.AvaloniaControl.Content);
+        Assert.Equal("Alpha|Beta", combo.Style.AvaloniaControl.SecondaryContent);
+        Assert.Equal("M 0 0 L 24 12 L 0 24 Z", icon.Style.AvaloniaControl.SecondaryContent);
+        Assert.Equal(130d, icon.Defaults.X, 3);
+        Assert.Equal(96d, icon.Defaults.Width, 3);
+    }
+
+    [Fact]
+    public void AnimationExchangeService_Export_ReportsStructuredInteropIssues()
+    {
+        var document = CreateInteropDocument();
+        var grid = TimelineEditingService.CreateAvaloniaControlLayer(AvaloniaControlKind.Grid, "Metrics Grid", "#233149", "#E6F1FF", "2x2 Grid", 180d, 120d, document.Layers.Count);
+        grid.Style.AvaloniaControl.SecondaryContent = "A|B|C|D";
+        TimelineEditingService.AddLayer(document, grid);
+
+        var export = AnimationExchangeService.Export(document, AnimationExchangeFormat.HtmlCss);
+
+        Assert.Contains(export.Issues, issue => issue.Source == "Metadata" && issue.Severity == AnimationExchangeIssueSeverity.Info);
+        Assert.Contains(export.Issues, issue => issue.Source == "Motion" && issue.Severity == AnimationExchangeIssueSeverity.Info);
+        Assert.Contains(export.Issues, issue => issue.Source == "Controls" && issue.Severity == AnimationExchangeIssueSeverity.Info);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_AddLayerFromPalette_CreatesAvaloniaControlInstance()
+    {
+        var viewModel = new MainWindowViewModel();
+        var initialCount = viewModel.Document.Layers.Count;
+
+        viewModel.AddLayerFromPalette(LayerKind.AvaloniaControl, new Avalonia.Point(320, 180), AvaloniaControlKind.Slider);
+
+        var created = Assert.Single(viewModel.Document.Layers.Skip(initialCount));
+        Assert.Equal(LayerKind.AvaloniaControl, created.Kind);
+        Assert.Equal(AvaloniaControlKind.Slider, created.Style.AvaloniaControl.Kind);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_AvaloniaToolbox_IncludesExpandedControls()
+    {
+        var viewModel = new MainWindowViewModel();
+
+        Assert.Contains(viewModel.AvaloniaToolboxItems, item => item.AvaloniaControlKind == AvaloniaControlKind.ComboBox);
+        Assert.Contains(viewModel.AvaloniaToolboxItems, item => item.AvaloniaControlKind == AvaloniaControlKind.Grid);
+        Assert.Contains(viewModel.AvaloniaToolboxItems, item => item.AvaloniaControlKind == AvaloniaControlKind.PathIcon);
+    }
+
+    private static TimelineDocument CreateInteropDocument()
+    {
+        var rectangle = TimelineEditingService.CreateLayer(LayerKind.Rectangle, "Card", "#24E5C1", string.Empty, 40, 54, 0);
+        rectangle.Defaults.Width = 220;
+        rectangle.Defaults.Height = 132;
+        rectangle.Defaults.Rotation = -4;
+        rectangle.Defaults.Opacity = 0.45d;
+        TimelineEditingService.SetKeyframe(rectangle, AnimatedProperty.X, 0d, 40d, 2d);
+        TimelineEditingService.SetKeyframe(rectangle, AnimatedProperty.X, 2d, 220d, 2d);
+        TimelineEditingService.SetKeyframe(rectangle, AnimatedProperty.Opacity, 0d, 0.45d, 2d);
+        TimelineEditingService.SetKeyframe(rectangle, AnimatedProperty.Opacity, 2d, 1d, 2d);
+
+        var button = TimelineEditingService.CreateAvaloniaControlLayer(AvaloniaControlKind.Button, "CTA", "#1F7DFF", "#E6F1FF", "Launch", 420, 220, 1);
+        button.Defaults.Width = 210;
+        button.Defaults.Height = 56;
+        button.Style.AvaloniaControl.Content = "Launch";
+        TimelineEditingService.SetKeyframe(button, AnimatedProperty.Y, 0d, 220d, 2d);
+        TimelineEditingService.SetKeyframe(button, AnimatedProperty.Y, 2d, 280d, 2d);
+        TimelineEditingService.SetKeyframe(button, AnimatedProperty.Rotation, 0d, 0d, 2d);
+        TimelineEditingService.SetKeyframe(button, AnimatedProperty.Rotation, 2d, 8d, 2d);
+
+        var scene = new SceneModel
+        {
+            Name = "Interop Scene",
+            Duration = 2d,
+            FrameRate = 24d,
+            CanvasWidth = 800d,
+            CanvasHeight = 450d,
+            BackgroundFrom = "#09111F",
+            BackgroundTo = "#182748",
+            Layers = [rectangle, button]
+        };
+
+        var document = new TimelineDocument
+        {
+            Name = "Interop Demo",
+            Duration = scene.Duration,
+            CanvasWidth = scene.CanvasWidth,
+            CanvasHeight = scene.CanvasHeight,
+            BackgroundFrom = scene.BackgroundFrom,
+            BackgroundTo = scene.BackgroundTo,
+            Layers = scene.Layers,
+            Scenes = [scene],
+            ActiveSceneId = scene.Id
+        };
+
+        PublishProfileService.EnsureProfiles(document);
+        return document;
     }
 }

@@ -544,6 +544,9 @@ public static class CompositeFrameRenderer
             case LayerKind.Path:
                 DrawPath(context, rect, snapshot, fillBrush, strokeBrush, includeAmbientGlow && !renderAsMask);
                 return;
+            case LayerKind.AvaloniaControl:
+                DrawAvaloniaControl(context, rect, snapshot, fillBrush, strokePen, fillColor, strokeBase, opacity);
+                return;
             case LayerKind.Video:
                 if (sample.SourceMediaAssetId is Guid mediaAssetId &&
                     state.MediaAssets.TryGetValue(mediaAssetId, out var mediaAsset))
@@ -589,6 +592,270 @@ public static class CompositeFrameRenderer
             default:
                 return;
         }
+    }
+
+    private static void DrawAvaloniaControl(
+        DrawingContext context,
+        Rect rect,
+        LayerSnapshot snapshot,
+        IBrush fillBrush,
+        Pen strokePen,
+        Color fillColor,
+        Color strokeBase,
+        double opacity)
+    {
+        var settings = snapshot.AvaloniaControl;
+        var textBrush = new SolidColorBrush(ApplyAlpha(Color.Parse("#F5F7FA"), (byte)(Math.Clamp(opacity, 0d, 1d) * 255)));
+        var mutedBrush = new SolidColorBrush(ApplyAlpha(Blend(strokeBase, Color.Parse("#F5F7FA"), 0.35d), (byte)(Math.Clamp(opacity, 0d, 1d) * 210)));
+
+        using var _ = PushRotation(context, rect, snapshot.Rotation);
+        switch (settings.Kind)
+        {
+            case AvaloniaControlKind.Button:
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                DrawCenteredText(context, rect, string.IsNullOrWhiteSpace(settings.Content) ? "Button" : settings.Content, textBrush, 15d);
+                return;
+            case AvaloniaControlKind.TextBlock:
+                DrawText(context, rect, string.IsNullOrWhiteSpace(settings.Content) ? snapshot.Text : settings.Content, textBrush, Math.Max(16d, snapshot.FontSize));
+                return;
+            case AvaloniaControlKind.TextBox:
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                DrawText(context, rect, string.IsNullOrWhiteSpace(settings.Content) ? "Type here" : settings.Content, textBrush, 14d);
+                return;
+            case AvaloniaControlKind.CheckBox:
+            {
+                var boxSize = Math.Min(24d, rect.Height - 10d);
+                var boxRect = new Rect(rect.X + 8d, rect.Center.Y - (boxSize / 2d), boxSize, boxSize);
+                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(fillColor, 48)), strokePen, boxRect, 6d, 6d);
+                if (settings.IsChecked)
+                {
+                    var checkPen = new Pen(textBrush, 2.2d);
+                    context.DrawLine(checkPen, new Point(boxRect.X + 5d, boxRect.Center.Y), new Point(boxRect.X + 10d, boxRect.Bottom - 6d));
+                    context.DrawLine(checkPen, new Point(boxRect.X + 10d, boxRect.Bottom - 6d), new Point(boxRect.Right - 5d, boxRect.Y + 6d));
+                }
+
+                DrawText(context, new Rect(boxRect.Right + 10d, rect.Y, rect.Width - boxSize - 24d, rect.Height), string.IsNullOrWhiteSpace(settings.Content) ? "CheckBox" : settings.Content, textBrush, 14d);
+                return;
+            }
+            case AvaloniaControlKind.ToggleButton:
+            {
+                var trackRect = new Rect(rect.X + 10d, rect.Center.Y - 13d, 52d, 26d);
+                var knobRect = new Rect(settings.IsChecked ? trackRect.Right - 22d : trackRect.X + 2d, trackRect.Y + 2d, 20d, 20d);
+                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(fillColor, settings.IsChecked ? (byte)168 : (byte)72)), strokePen, trackRect, 13d, 13d);
+                context.DrawEllipse(textBrush, null, knobRect.Center, knobRect.Width / 2d, knobRect.Height / 2d);
+                DrawText(context, new Rect(trackRect.Right + 10d, rect.Y, Math.Max(40d, rect.Width - 74d), rect.Height), string.IsNullOrWhiteSpace(settings.Content) ? "Toggle" : settings.Content, textBrush, 14d);
+                return;
+            }
+            case AvaloniaControlKind.Slider:
+            {
+                var trackRect = new Rect(rect.X + 14d, rect.Center.Y - 2d, Math.Max(28d, rect.Width - 28d), 4d);
+                var normalized = NormalizeRange(settings.Value, settings.Minimum, settings.Maximum);
+                var knobX = trackRect.X + (trackRect.Width * normalized);
+                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(strokeBase, 96)), null, trackRect, 2d, 2d);
+                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(fillColor, 210)), null, new Rect(trackRect.X, trackRect.Y, Math.Max(6d, knobX - trackRect.X), trackRect.Height), 2d, 2d);
+                context.DrawEllipse(fillBrush, strokePen, new Point(knobX, trackRect.Center.Y), 9d, 9d);
+                return;
+            }
+            case AvaloniaControlKind.ProgressBar:
+            {
+                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(strokeBase, 72)), strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                var normalized = NormalizeRange(settings.Value, settings.Minimum, settings.Maximum);
+                var fillRect = new Rect(rect.X + 2d, rect.Y + 2d, Math.Max(8d, (rect.Width - 4d) * normalized), Math.Max(8d, rect.Height - 4d));
+                context.DrawRectangle(fillBrush, null, fillRect, Math.Max(4d, snapshot.CornerRadius - 2d), Math.Max(4d, snapshot.CornerRadius - 2d));
+                return;
+            }
+            case AvaloniaControlKind.ComboBox:
+            {
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                var chevronPen = new Pen(textBrush, 1.8d);
+                var arrowCenterX = rect.Right - 20d;
+                var arrowCenterY = rect.Center.Y;
+                context.DrawLine(chevronPen, new Point(arrowCenterX - 6d, arrowCenterY - 3d), new Point(arrowCenterX, arrowCenterY + 3d));
+                context.DrawLine(chevronPen, new Point(arrowCenterX, arrowCenterY + 3d), new Point(arrowCenterX + 6d, arrowCenterY - 3d));
+                DrawText(context, new Rect(rect.X + 14d, rect.Y, rect.Width - 42d, rect.Height), string.IsNullOrWhiteSpace(settings.Content) ? "Selected Item" : settings.Content, textBrush, 14d);
+                return;
+            }
+            case AvaloniaControlKind.ListBox:
+            {
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                var items = SplitControlItems(settings.Content, "Item 1", "Item 2", "Item 3");
+                var rowHeight = Math.Max(22d, (rect.Height - 16d) / Math.Max(1, items.Count));
+                for (var index = 0; index < items.Count; index++)
+                {
+                    var rowRect = new Rect(rect.X + 8d, rect.Y + 8d + (index * rowHeight), rect.Width - 16d, rowHeight - 4d);
+                    if (index == 0)
+                    {
+                        context.DrawRectangle(new SolidColorBrush(ApplyAlpha(fillColor, 86)), null, rowRect, 8d, 8d);
+                    }
+
+                    DrawText(context, rowRect, items[index], textBrush, 13d);
+                }
+
+                return;
+            }
+            case AvaloniaControlKind.TabControl:
+            {
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                var tabs = SplitControlItems(settings.Content, "Overview", "Settings", "Export");
+                var active = string.IsNullOrWhiteSpace(settings.SecondaryContent) ? tabs[0] : settings.SecondaryContent;
+                var tabWidth = Math.Max(54d, (rect.Width - 16d) / Math.Max(1, tabs.Count));
+                for (var index = 0; index < tabs.Count; index++)
+                {
+                    var tabRect = new Rect(rect.X + 8d + (index * tabWidth), rect.Y + 8d, tabWidth - 4d, 28d);
+                    var tabFill = string.Equals(tabs[index], active, StringComparison.OrdinalIgnoreCase)
+                        ? new SolidColorBrush(ApplyAlpha(fillColor, 96))
+                        : new SolidColorBrush(ApplyAlpha(strokeBase, 44));
+                    context.DrawRectangle(tabFill, null, tabRect, 9d, 9d);
+                    DrawCenteredText(context, tabRect, tabs[index], textBrush, 12d);
+                }
+
+                var bodyRect = new Rect(rect.X + 8d, rect.Y + 44d, rect.Width - 16d, Math.Max(28d, rect.Height - 52d));
+                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(strokeBase, 34)), null, bodyRect, Math.Max(8d, snapshot.CornerRadius - 4d), Math.Max(8d, snapshot.CornerRadius - 4d));
+                DrawCenteredText(context, bodyRect, $"{active} content", mutedBrush, 12d);
+                return;
+            }
+            case AvaloniaControlKind.Grid:
+            {
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                var cellPen = new Pen(new SolidColorBrush(ApplyAlpha(strokeBase, 92)), 1.2d);
+                var verticalMid = rect.X + (rect.Width / 2d);
+                var horizontalMid = rect.Y + (rect.Height / 2d);
+                context.DrawLine(cellPen, new Point(verticalMid, rect.Y + 10d), new Point(verticalMid, rect.Bottom - 10d));
+                context.DrawLine(cellPen, new Point(rect.X + 10d, horizontalMid), new Point(rect.Right - 10d, horizontalMid));
+                DrawCenteredText(context, rect, string.IsNullOrWhiteSpace(settings.Content) ? "2x2 Grid" : settings.Content, mutedBrush, 12d);
+                return;
+            }
+            case AvaloniaControlKind.StackPanel:
+            {
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                var items = SplitControlItems(settings.SecondaryContent, "Item A", "Item B", "Item C");
+                var rowHeight = Math.Max(22d, (rect.Height - 18d) / Math.Max(1, items.Count));
+                for (var index = 0; index < items.Count; index++)
+                {
+                    var rowRect = new Rect(rect.X + 10d, rect.Y + 8d + (index * rowHeight), rect.Width - 20d, rowHeight - 6d);
+                    context.DrawRectangle(new SolidColorBrush(ApplyAlpha(fillColor, (byte)(index == 0 ? 88 : 52))), null, rowRect, 7d, 7d);
+                    DrawText(context, rowRect, items[index], textBrush, 12d);
+                }
+
+                return;
+            }
+            case AvaloniaControlKind.PathIcon:
+            {
+                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(fillColor, 36)), strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                var points = ParseControlPathGeometry(settings.SecondaryContent)
+                    .Select(point => new Point(rect.X + (point.X * rect.Width), rect.Y + (point.Y * rect.Height)))
+                    .ToList();
+                var geometry = BuildPathGeometry(points, true);
+                if (geometry is not null)
+                {
+                    context.DrawGeometry(textBrush, null, geometry);
+                }
+                else
+                {
+                    DrawCenteredText(context, rect, string.IsNullOrWhiteSpace(settings.Content) ? "Icon" : settings.Content, textBrush, 14d);
+                }
+
+                return;
+            }
+            case AvaloniaControlKind.Image:
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                context.DrawLine(new Pen(mutedBrush, 1.8d), new Point(rect.X + 18d, rect.Bottom - 18d), new Point(rect.Center.X - 8d, rect.Center.Y));
+                context.DrawLine(new Pen(mutedBrush, 1.8d), new Point(rect.Center.X - 8d, rect.Center.Y), new Point(rect.Right - 18d, rect.Bottom - 34d));
+                context.DrawEllipse(mutedBrush, null, new Point(rect.Right - 28d, rect.Y + 28d), 9d, 9d);
+                DrawCenteredText(context, rect, string.IsNullOrWhiteSpace(settings.Source) ? "Image" : settings.Source, textBrush, 12d);
+                return;
+            case AvaloniaControlKind.Panel:
+            case AvaloniaControlKind.Border:
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                if (!string.IsNullOrWhiteSpace(settings.Content))
+                {
+                    DrawText(context, new Rect(rect.X + 12d, rect.Y + 8d, rect.Width - 24d, 24d), settings.Content, textBrush, 12d);
+                }
+
+                return;
+            default:
+                context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                return;
+        }
+    }
+
+    private static double NormalizeRange(double value, double minimum, double maximum)
+    {
+        var range = Math.Max(0.0001d, maximum - minimum);
+        return TimelineMath.Clamp((value - minimum) / range, 0d, 1d);
+    }
+
+    private static List<string> SplitControlItems(string? value, params string[] fallback)
+    {
+        var items = string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(['|', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        return items.Count > 0 ? items : [.. fallback];
+    }
+
+    private static IReadOnlyList<Point> ParseControlPathGeometry(string? data)
+    {
+        if (string.IsNullOrWhiteSpace(data))
+        {
+            return
+            [
+                new Point(0.5d, 0.08d),
+                new Point(0.88d, 0.5d),
+                new Point(0.5d, 0.92d),
+                new Point(0.12d, 0.5d)
+            ];
+        }
+
+        var values = System.Text.RegularExpressions.Regex.Matches(data, @"[-+]?\d*\.?\d+")
+            .Select(match => double.TryParse(match.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : double.NaN)
+            .Where(value => !double.IsNaN(value))
+            .ToList();
+        if (values.Count < 4)
+        {
+            return [];
+        }
+
+        var points = new List<Point>();
+        for (var index = 0; index + 1 < values.Count; index += 2)
+        {
+            points.Add(new Point(values[index], values[index + 1]));
+        }
+
+        return points;
+    }
+
+    private static StreamGeometry? BuildPathGeometry(IReadOnlyList<Point> points, bool isClosed)
+    {
+        if (points.Count < 2)
+        {
+            return null;
+        }
+
+        var geometry = new StreamGeometry();
+        using var context = geometry.Open();
+        context.BeginFigure(points[0], isFilled: isClosed);
+        foreach (var point in points.Skip(1))
+        {
+            context.LineTo(point);
+        }
+
+        context.EndFigure(isClosed);
+
+        return geometry;
+    }
+
+    private static void DrawCenteredText(DrawingContext context, Rect rect, string text, IBrush fillBrush, double fontSize)
+    {
+        var formattedText = new FormattedText(
+            text,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            new Typeface(FontFamily.Default),
+            Math.Max(11d, fontSize),
+            fillBrush);
+        context.DrawText(formattedText, new Point(
+            rect.X + Math.Max(8d, (rect.Width - formattedText.Width) / 2d),
+            rect.Y + Math.Max(6d, (rect.Height - formattedText.Height) / 2d)));
     }
 
     private static void DrawText(DrawingContext context, Rect rect, string text, IBrush fillBrush, double fontSize)

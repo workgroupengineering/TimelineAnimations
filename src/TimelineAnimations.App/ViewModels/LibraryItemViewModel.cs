@@ -33,6 +33,7 @@ public partial class LibraryItemViewModel : ViewModelBase
         LayerKind.Ellipse => "Vector Orb",
         LayerKind.Text => "Text Symbol",
         LayerKind.Path => "Vector Path",
+        LayerKind.AvaloniaControl => $"Avalonia {Model.Template.Style.AvaloniaControl.Kind}",
         _ => Model.Template.Kind.ToString()
     };
 
@@ -96,6 +97,17 @@ public partial class LibraryItemViewModel : ViewModelBase
         if (template.Kind == LayerKind.Path)
         {
             return $"Path • {template.Style.PathPoints.Count} points • {template.Tracks.Count} tracks";
+        }
+
+        if (template.Kind == LayerKind.AvaloniaControl)
+        {
+            var content = template.Style.AvaloniaControl.Content;
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                return $"{template.Style.AvaloniaControl.Kind} • {content}";
+            }
+
+            return $"{template.Style.AvaloniaControl.Kind} • {template.Tracks.Count} tracks";
         }
 
         return $"{Math.Round(template.Defaults.Width):0}×{Math.Round(template.Defaults.Height):0} • {template.Tracks.Count} tracks";

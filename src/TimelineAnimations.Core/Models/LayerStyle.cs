@@ -23,4 +23,6 @@ public sealed class LayerStyle
     public bool IsClosed { get; set; }
 
     public List<VectorPointModel> PathPoints { get; set; } = [];
+
+    public AvaloniaControlSettings AvaloniaControl { get; set; } = new();
 }

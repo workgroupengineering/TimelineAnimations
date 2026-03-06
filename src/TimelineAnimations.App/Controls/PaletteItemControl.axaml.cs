@@ -25,7 +25,7 @@ public partial class PaletteItemControl : UserControl
         }
 
         var payload = new DataTransfer();
-        payload.Add(DataTransferItem.CreateText($"palette:{item.Kind}"));
+        payload.Add(DataTransferItem.CreateText(item.DragData));
         await DragDrop.DoDragDropAsync(e, payload, DragDropEffects.Copy);
     }
 }

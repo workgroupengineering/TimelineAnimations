@@ -21,6 +21,7 @@ public static class TimelineEditingService
             LayerKind.Ellipse => new LayerDefaults { X = x, Y = y, Width = 184, Height = 184, Opacity = 0.9 },
             LayerKind.Text => new LayerDefaults { X = x, Y = y, Width = 360, Height = 92, Opacity = 1 },
             LayerKind.Path => new LayerDefaults { X = x, Y = y, Width = 240, Height = 120, Opacity = 1 },
+            LayerKind.AvaloniaControl => new LayerDefaults { X = x, Y = y, Width = 260, Height = 160, Opacity = 1 },
             LayerKind.Video => new LayerDefaults { X = x, Y = y, Width = 420, Height = 236, Opacity = 1 },
             LayerKind.Audio => new LayerDefaults { X = 0, Y = 0, Width = 0, Height = 0, Opacity = 1 },
             _ => new LayerDefaults { X = x, Y = y }
@@ -33,7 +34,7 @@ public static class TimelineEditingService
             StrokeThickness = kind == LayerKind.Path ? 3.2d : 1.6d,
             Text = kind == LayerKind.Text ? text : string.Empty,
             FontSize = kind == LayerKind.Text ? 48 : 42,
-            CornerRadius = kind is LayerKind.Rectangle or LayerKind.Video ? 28 : 999,
+            CornerRadius = kind is LayerKind.Rectangle or LayerKind.Video or LayerKind.AvaloniaControl ? 28 : 999,
             GradientFrom = fill,
             GradientTo = "#FFFFFF",
             PathPoints = kind == LayerKind.Path
@@ -50,6 +51,54 @@ public static class TimelineEditingService
             Style = style,
             Tracks = CreateDefaultTracks(defaults)
         };
+    }
+
+    public static TimelineLayer CreateAvaloniaControlLayer(
+        AvaloniaControlKind controlKind,
+        string name,
+        string fill,
+        string stroke,
+        string text,
+        double x,
+        double y,
+        int zIndex)
+    {
+        var layer = CreateLayer(LayerKind.AvaloniaControl, name, fill, text, x, y, zIndex);
+        var defaults = controlKind switch
+        {
+            AvaloniaControlKind.Button => new LayerDefaults { X = x, Y = y, Width = 220, Height = 58, Opacity = 1 },
+            AvaloniaControlKind.TextBlock => new LayerDefaults { X = x, Y = y, Width = 320, Height = 72, Opacity = 1 },
+            AvaloniaControlKind.TextBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 56, Opacity = 1 },
+            AvaloniaControlKind.CheckBox => new LayerDefaults { X = x, Y = y, Width = 220, Height = 42, Opacity = 1 },
+            AvaloniaControlKind.ToggleButton => new LayerDefaults { X = x, Y = y, Width = 210, Height = 48, Opacity = 1 },
+            AvaloniaControlKind.Slider => new LayerDefaults { X = x, Y = y, Width = 280, Height = 44, Opacity = 1 },
+            AvaloniaControlKind.ProgressBar => new LayerDefaults { X = x, Y = y, Width = 280, Height = 30, Opacity = 1 },
+            AvaloniaControlKind.Image => new LayerDefaults { X = x, Y = y, Width = 280, Height = 180, Opacity = 1 },
+            AvaloniaControlKind.ComboBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 54, Opacity = 1 },
+            AvaloniaControlKind.ListBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 180, Opacity = 1 },
+            AvaloniaControlKind.TabControl => new LayerDefaults { X = x, Y = y, Width = 320, Height = 200, Opacity = 1 },
+            AvaloniaControlKind.Grid => new LayerDefaults { X = x, Y = y, Width = 300, Height = 200, Opacity = 1 },
+            AvaloniaControlKind.StackPanel => new LayerDefaults { X = x, Y = y, Width = 240, Height = 220, Opacity = 1 },
+            AvaloniaControlKind.PathIcon => new LayerDefaults { X = x, Y = y, Width = 84, Height = 84, Opacity = 1 },
+            AvaloniaControlKind.Panel => new LayerDefaults { X = x, Y = y, Width = 300, Height = 200, Opacity = 1 },
+            _ => new LayerDefaults { X = x, Y = y, Width = 260, Height = 160, Opacity = 1 }
+        };
+
+        layer.Defaults = defaults;
+        layer.Tracks = CreateDefaultTracks(defaults);
+        layer.Style.Fill = fill;
+        layer.Style.Stroke = stroke;
+        layer.Style.Text = text;
+        layer.Style.FontSize = controlKind == AvaloniaControlKind.TextBlock ? 34d : 18d;
+        layer.Style.CornerRadius = controlKind switch
+        {
+            AvaloniaControlKind.Border or AvaloniaControlKind.Button or AvaloniaControlKind.TextBox or AvaloniaControlKind.ProgressBar or AvaloniaControlKind.Panel or AvaloniaControlKind.Image or AvaloniaControlKind.ComboBox or AvaloniaControlKind.ListBox or AvaloniaControlKind.TabControl or AvaloniaControlKind.Grid or AvaloniaControlKind.StackPanel => 18d,
+            AvaloniaControlKind.ToggleButton => 22d,
+            AvaloniaControlKind.PathIcon => 14d,
+            _ => 10d
+        };
+        layer.Style.AvaloniaControl = CreateDefaultAvaloniaControlSettings(controlKind, text);
+        return layer;
     }
 
     public static TimelineLayer CreatePathLayer(
@@ -737,6 +786,103 @@ public static class TimelineEditingService
 
         template.Tracks = CreateDefaultTracks(template.Defaults);
         return template;
+    }
+
+    private static AvaloniaControlSettings CreateDefaultAvaloniaControlSettings(AvaloniaControlKind controlKind, string text)
+    {
+        return controlKind switch
+        {
+            AvaloniaControlKind.Button => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Button" : text
+            },
+            AvaloniaControlKind.TextBlock => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "TextBlock" : text
+            },
+            AvaloniaControlKind.TextBox => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Type here" : text,
+                SecondaryContent = "Watermark"
+            },
+            AvaloniaControlKind.CheckBox => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "CheckBox" : text
+            },
+            AvaloniaControlKind.ToggleButton => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Toggle" : text
+            },
+            AvaloniaControlKind.Slider => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Value = 68d,
+                Minimum = 0d,
+                Maximum = 100d
+            },
+            AvaloniaControlKind.ProgressBar => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Value = 62d,
+                Minimum = 0d,
+                Maximum = 100d
+            },
+            AvaloniaControlKind.Image => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = "Image",
+                SecondaryContent = "Source"
+            },
+            AvaloniaControlKind.ComboBox => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Selected Item" : text,
+                SecondaryContent = "Option A|Option B|Option C"
+            },
+            AvaloniaControlKind.ListBox => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Item 1|Item 2|Item 3" : text
+            },
+            AvaloniaControlKind.TabControl => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Overview|Settings|Export" : text,
+                SecondaryContent = "Overview"
+            },
+            AvaloniaControlKind.Grid => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "2x2 Grid" : text
+            },
+            AvaloniaControlKind.StackPanel => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Vertical Stack" : text,
+                SecondaryContent = "Item A|Item B|Item C"
+            },
+            AvaloniaControlKind.PathIcon => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Icon" : text,
+                SecondaryContent = "M 12 2 L 22 22 L 2 22 Z"
+            },
+            AvaloniaControlKind.Panel => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Panel" : text
+            },
+            _ => new AvaloniaControlSettings
+            {
+                Kind = controlKind,
+                Content = string.IsNullOrWhiteSpace(text) ? "Border" : text
+            }
+        };
     }
 
     private static double GetTimelineDuration(IEnumerable<TimelineLayer> layers)

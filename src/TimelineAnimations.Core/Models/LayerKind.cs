@@ -6,6 +6,7 @@ public enum LayerKind
     Ellipse,
     Text,
     Path,
+    AvaloniaControl,
     Video,
     Audio
 }

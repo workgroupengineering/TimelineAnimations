@@ -37,7 +37,7 @@
               BorderThickness="1">
         <TextBlock HorizontalAlignment="Center"
                    VerticalAlignment="Center"
-                   Text="+"
+                   Text="{Binding Badge}"
                    FontSize="18"
                    Foreground="{Binding Accent}" />
       </Border>

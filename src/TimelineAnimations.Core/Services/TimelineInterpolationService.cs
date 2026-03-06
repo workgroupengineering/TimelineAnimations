@@ -25,6 +25,7 @@ public static class TimelineInterpolationService
             GradientTo: layer.Style.GradientTo,
             IsClosed: shapeGeometry.IsClosed,
             PathPoints: shapeGeometry.PathPoints,
+            AvaloniaControl: layer.Style.AvaloniaControl.Clone(),
             Compositing: layer.Compositing.Clone());
     }
 

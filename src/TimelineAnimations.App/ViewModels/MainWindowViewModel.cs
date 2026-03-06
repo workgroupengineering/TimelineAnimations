@@ -62,7 +62,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 Subtitle = "Rounded focal shape",
                 Fill = "#24E5C1",
                 Accent = "#9BFFF0",
-                Kind = LayerKind.Rectangle
+                Kind = LayerKind.Rectangle,
+                DragData = "palette:shape:Rectangle"
             },
             new()
             {
@@ -70,7 +71,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 Subtitle = "Soft circular light",
                 Fill = "#FF8A4C",
                 Accent = "#FFE0B8",
-                Kind = LayerKind.Ellipse
+                Kind = LayerKind.Ellipse,
+                DragData = "palette:shape:Ellipse"
             },
             new()
             {
@@ -78,14 +80,53 @@ public partial class MainWindowViewModel : ViewModelBase
                 Subtitle = "Large text caption",
                 Fill = "#F7F5ED",
                 Accent = "#B6C8FF",
-                Kind = LayerKind.Text
+                Kind = LayerKind.Text,
+                DragData = "palette:shape:Text"
             }
+        };
+        AvaloniaToolboxItems = new ObservableCollection<PaletteItemViewModel>
+        {
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.Border, "Card Surface", "Bordered visual container", "#243651", "#8EEAFF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.Button, "Button", "Native button control", "#1F7DFF", "#9BCAFF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.TextBlock, "TextBlock", "Display text visual", "#F7F5ED", "#B6C8FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.TextBox, "TextBox", "Editable text input", "#25364B", "#9FD4FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.CheckBox, "CheckBox", "Boolean option control", "#263953", "#8FF1D6"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.ToggleButton, "Toggle", "Two-state action button", "#8B5CF6", "#D3C6FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.Slider, "Slider", "Ranged value editor", "#283D57", "#57C9FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.ProgressBar, "Progress", "Progress feedback strip", "#204A62", "#53E3C4"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.ComboBox, "ComboBox", "Selection dropdown control", "#304860", "#B6D7FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.ListBox, "ListBox", "Selectable item list", "#233B54", "#9BD1FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.TabControl, "Tabs", "Tabbed content surface", "#2E355A", "#D0C4FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.Grid, "Grid", "Cell-based layout surface", "#233149", "#A8C4FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.StackPanel, "Stack", "Stacked layout host", "#1C3552", "#8FE2FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.PathIcon, "PathIcon", "Vector icon visual", "#1B2A45", "#7FE9FF"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.Image, "Image", "Image placeholder visual", "#3B445A", "#FFD58C"),
+            CreateAvaloniaPaletteItem(AvaloniaControlKind.Panel, "Panel", "Layout surface / visual host", "#1E2D44", "#A8C4FF")
         };
 
         _playbackTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Background, HandlePlaybackTick);
         LoadDocument(SampleProjectFactory.Create(), "Sample Composition");
         RestoreWorkspaceLayout();
         _workspaceLayoutLoaded = true;
+    }
+
+    private static PaletteItemViewModel CreateAvaloniaPaletteItem(
+        AvaloniaControlKind kind,
+        string title,
+        string subtitle,
+        string fill,
+        string accent)
+    {
+        return new PaletteItemViewModel
+        {
+            Title = title,
+            Subtitle = subtitle,
+            Fill = fill,
+            Accent = accent,
+            Kind = LayerKind.AvaloniaControl,
+            AvaloniaControlKind = kind,
+            DragData = $"palette:control:{kind}"
+        };
     }
 
     public ObservableCollection<LayerViewModel> Layers { get; } = [];
@@ -116,6 +157,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<PaletteItemViewModel> PaletteItems { get; }
 
+    public ObservableCollection<PaletteItemViewModel> AvaloniaToolboxItems { get; }
+
+    public ObservableCollection<AnimationExchangeIssue> AnimationExchangeIssues { get; } = [];
+
     public IReadOnlyList<EasingKind> AvailableEasings { get; } = Enum.GetValues<EasingKind>();
 
     public IReadOnlyList<SymbolKind> AvailableSymbolKinds { get; } = Enum.GetValues<SymbolKind>();
@@ -141,6 +186,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public IReadOnlyList<WorkspaceLayoutPreset> AvailableWorkspacePresets { get; } = Enum.GetValues<WorkspaceLayoutPreset>();
 
     public IReadOnlyList<string> AvailableWorkspaceFocusTargets { get; } = ["Classic", "Stage", "Timeline", "Tools", "Inspector"];
+
+    public IReadOnlyList<AnimationExchangeFormat> AvailableAnimationExchangeFormats { get; } = Enum.GetValues<AnimationExchangeFormat>();
 
     public TimelineDocument Document => _document;
 
@@ -286,9 +333,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool SelectedLayerIsText => SelectedLayer?.Kind == LayerKind.Text;
 
+    public bool SelectedLayerIsAvaloniaControl => SelectedLayer?.Kind == LayerKind.AvaloniaControl;
+
     public bool SelectedLayerIsPath => SelectedLayer?.Kind == LayerKind.Path;
 
-    public bool SelectedLayerSupportsCornerRadius => SelectedLayer?.Kind == LayerKind.Rectangle;
+    public bool SelectedLayerSupportsCornerRadius => SelectedLayer?.Kind is LayerKind.Rectangle or LayerKind.AvaloniaControl or LayerKind.Video;
 
     public bool SelectedLayerIsMask => SelectedLayer?.Model.Compositing.Role == LayerCompositeRole.Mask;
 
@@ -323,6 +372,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool CanEditPathPoints => CanEditSelection && SelectedLayerIsPath && SelectedLayer?.Model.SourceLibraryItemId is null;
 
     public bool CanAlignSelection => CanEditSelection && !SelectedLayerIsAudio;
+
+    public bool CanEditAvaloniaControl => CanEditSelection && SelectedLayerIsAvaloniaControl;
 
     public bool CanCaptureShapeKeyframe => CanEditSelection && SelectedLayerIsPath;
 
@@ -442,6 +493,24 @@ public partial class MainWindowViewModel : ViewModelBase
     public string SelectedPublishProfileSummary => SelectedPublishProfile is null
         ? "No publish profile selected"
         : $"{SelectedPublishProfile.Name} • {SelectedPublishProfile.FormatLabel} • {SelectedPublishProfile.Subtitle}";
+
+    public string SelectedAnimationExchangeSummary => SelectedAnimationExchangeFormat switch
+    {
+        AnimationExchangeFormat.AvaloniaXaml => "Avalonia keyframe export with selector-based XAML animations and control-aware fallback import.",
+        AnimationExchangeFormat.SvgSmil => "SVG/SMIL export with baked transform motion and shape-aware fallback import.",
+        AnimationExchangeFormat.HtmlCss => "HTML/CSS export with absolute-positioned stage layers, @keyframes motion, and XHTML fallback import.",
+        _ => "Animation interchange"
+    };
+
+    public string CurrentDocumentFileFormatLabel => TimelineDocumentFileService.GetDisplayName(CurrentDocumentFileFormat);
+
+    public string DocumentFileSummary => $"{FileLabel} • {CurrentDocumentFileFormatLabel}";
+
+    public string LastAnimationExchangeSummaryDisplay => string.IsNullOrWhiteSpace(LastAnimationExchangeSummary)
+        ? "No animation interop activity yet."
+        : LastAnimationExchangeSummary;
+
+    public bool HasAnimationExchangeIssues => AnimationExchangeIssues.Count > 0;
 
     public string SelectedSceneSummary => SelectedScene is null
         ? "No scene selected"
@@ -619,6 +688,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private string fileLabel = "Unsaved";
 
     [ObservableProperty]
+    private TimelineDocumentFileFormat currentDocumentFileFormat = TimelineDocumentFileFormat.NativeProject;
+
+    [ObservableProperty]
     private double duration = 6;
 
     [ObservableProperty]
@@ -722,6 +794,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private TimelineWorkspaceView selectedTimelineView = TimelineWorkspaceView.Frames;
+
+    [ObservableProperty]
+    private AnimationExchangeFormat selectedAnimationExchangeFormat = AnimationExchangeFormat.AvaloniaXaml;
 
     [ObservableProperty]
     private bool isPlaying;
@@ -931,6 +1006,33 @@ public partial class MainWindowViewModel : ViewModelBase
     private double inspectorFontSize = 48;
 
     [ObservableProperty]
+    private string lastAnimationExchangeSummary = string.Empty;
+
+    [ObservableProperty]
+    private string avaloniaControlContentEditor = string.Empty;
+
+    [ObservableProperty]
+    private string avaloniaControlSecondaryContentEditor = string.Empty;
+
+    [ObservableProperty]
+    private bool avaloniaControlIsCheckedEditor;
+
+    [ObservableProperty]
+    private double avaloniaControlMinimumEditor;
+
+    [ObservableProperty]
+    private double avaloniaControlMaximumEditor = 100d;
+
+    [ObservableProperty]
+    private double avaloniaControlValueEditor = 50d;
+
+    [ObservableProperty]
+    private bool avaloniaControlIsIndeterminateEditor;
+
+    [ObservableProperty]
+    private string avaloniaControlSourceEditor = string.Empty;
+
+    [ObservableProperty]
     private LayerCompositeRole layerRoleEditor = LayerCompositeRole.Normal;
 
     [ObservableProperty]
@@ -1028,6 +1130,11 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = value == DrawingTool.Select
             ? "Selection tool active"
             : $"{ToolModeLabel} tool active";
+    }
+
+    partial void OnLastAnimationExchangeSummaryChanged(string value)
+    {
+        OnPropertyChanged(nameof(LastAnimationExchangeSummaryDisplay));
     }
 
     partial void OnSelectedSceneChanged(SceneViewModel? oldValue, SceneViewModel? newValue)
@@ -1181,6 +1288,22 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsCurvesTimelineViewActive));
         OnPropertyChanged(nameof(TimelineWorkspaceViewLabel));
         OnPropertyChanged(nameof(TimelineWorkspaceViewSummary));
+    }
+
+    partial void OnSelectedAnimationExchangeFormatChanged(AnimationExchangeFormat value)
+    {
+        OnPropertyChanged(nameof(SelectedAnimationExchangeSummary));
+    }
+
+    partial void OnCurrentDocumentFileFormatChanged(TimelineDocumentFileFormat value)
+    {
+        OnPropertyChanged(nameof(CurrentDocumentFileFormatLabel));
+        OnPropertyChanged(nameof(DocumentFileSummary));
+    }
+
+    partial void OnFileLabelChanged(string value)
+    {
+        OnPropertyChanged(nameof(DocumentFileSummary));
     }
 
     partial void OnSelectedWorkspacePresetChanged(WorkspaceLayoutPreset value)
@@ -1876,6 +1999,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var selectedLayer = SelectedLayer!;
         selectedLayer.Model.Style.CornerRadius = Math.Max(0, value);
         selectedLayer.RefreshMetadata();
+        ReloadPreviewForLayer(selectedLayer);
         RecordHistoryIfNeeded();
         StatusMessage = "Corner radius updated";
     }
@@ -1890,8 +2014,91 @@ public partial class MainWindowViewModel : ViewModelBase
         var selectedLayer = SelectedLayer!;
         selectedLayer.Model.Style.FontSize = Math.Max(8, value);
         selectedLayer.RefreshMetadata();
+        ReloadPreviewForLayer(selectedLayer);
         RecordHistoryIfNeeded();
         StatusMessage = "Font size updated";
+    }
+
+    partial void OnAvaloniaControlContentEditorChanged(string value)
+    {
+        UpdateSelectedAvaloniaControl(
+            settings =>
+            {
+                settings.Content = value ?? string.Empty;
+                if (SelectedLayer is not null &&
+                    settings.Kind is AvaloniaControlKind.Button or AvaloniaControlKind.TextBlock or AvaloniaControlKind.TextBox or AvaloniaControlKind.CheckBox or AvaloniaControlKind.ToggleButton)
+                {
+                    SelectedLayer.Model.Style.Text = value ?? string.Empty;
+                }
+            },
+            "Avalonia control content updated");
+    }
+
+    partial void OnAvaloniaControlSecondaryContentEditorChanged(string value)
+    {
+        UpdateSelectedAvaloniaControl(
+            settings => settings.SecondaryContent = value ?? string.Empty,
+            "Avalonia control secondary content updated");
+    }
+
+    partial void OnAvaloniaControlIsCheckedEditorChanged(bool value)
+    {
+        UpdateSelectedAvaloniaControl(
+            settings => settings.IsChecked = value,
+            value ? "Avalonia control checked" : "Avalonia control unchecked");
+    }
+
+    partial void OnAvaloniaControlMinimumEditorChanged(double value)
+    {
+        UpdateSelectedAvaloniaControl(
+            settings =>
+            {
+                settings.Minimum = value;
+                settings.Maximum = Math.Max(settings.Maximum, settings.Minimum);
+                settings.Value = TimelineMath.Clamp(settings.Value, settings.Minimum, settings.Maximum);
+            },
+            "Avalonia control minimum updated");
+    }
+
+    partial void OnAvaloniaControlMaximumEditorChanged(double value)
+    {
+        var normalized = Math.Max(value, AvaloniaControlMinimumEditor);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            AvaloniaControlMaximumEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        UpdateSelectedAvaloniaControl(
+            settings =>
+            {
+                settings.Maximum = normalized;
+                settings.Value = TimelineMath.Clamp(settings.Value, settings.Minimum, settings.Maximum);
+            },
+            "Avalonia control maximum updated");
+    }
+
+    partial void OnAvaloniaControlValueEditorChanged(double value)
+    {
+        UpdateSelectedAvaloniaControl(
+            settings => settings.Value = TimelineMath.Clamp(value, settings.Minimum, settings.Maximum),
+            "Avalonia control value updated");
+    }
+
+    partial void OnAvaloniaControlIsIndeterminateEditorChanged(bool value)
+    {
+        UpdateSelectedAvaloniaControl(
+            settings => settings.IsIndeterminate = value,
+            value ? "Progress set to indeterminate" : "Progress indeterminate cleared");
+    }
+
+    partial void OnAvaloniaControlSourceEditorChanged(string value)
+    {
+        UpdateSelectedAvaloniaControl(
+            settings => settings.Source = value?.Trim() ?? string.Empty,
+            "Avalonia image source updated");
     }
 
     partial void OnLayerRoleEditorChanged(LayerCompositeRole value)
@@ -3023,7 +3230,7 @@ public partial class MainWindowViewModel : ViewModelBase
         AlignSelection(null, CanvasHeight - SelectedLayer.Height, "Aligned bottom");
     }
 
-    public void LoadDocument(TimelineDocument document, string label)
+    public void LoadDocument(TimelineDocument document, string label, TimelineDocumentFileFormat format = TimelineDocumentFileFormat.NativeProject)
     {
         StopPlayback(false);
         _document = document;
@@ -3044,6 +3251,12 @@ public partial class MainWindowViewModel : ViewModelBase
         PublishProfileService.EnsureProfiles(_document);
         DocumentName = document.Name;
         FileLabel = label;
+        CurrentDocumentFileFormat = format;
+        if (TimelineDocumentFileService.ToAnimationExchangeFormat(format) is { } exchangeFormat)
+        {
+            SelectedAnimationExchangeFormat = exchangeFormat;
+        }
+
         ReloadLibraryItems();
         ReloadComponentItems();
         ReloadMediaAssets();
@@ -3055,9 +3268,28 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = "Document loaded";
     }
 
-    public void SetDocumentLabel(string label)
+    public void SetDocumentLabel(string label, TimelineDocumentFileFormat? format = null)
     {
         FileLabel = label;
+        if (format is not null)
+        {
+            CurrentDocumentFileFormat = format.Value;
+        }
+    }
+
+    public void ApplyAnimationExchangeResult(string summary, IEnumerable<AnimationExchangeIssue> issues)
+    {
+        LastAnimationExchangeSummary = summary?.Trim() ?? string.Empty;
+        AnimationExchangeIssues.Clear();
+        foreach (var issue in issues)
+        {
+            AnimationExchangeIssues.Add(issue);
+        }
+
+        OnPropertyChanged(nameof(HasAnimationExchangeIssues));
+        StatusMessage = string.IsNullOrWhiteSpace(LastAnimationExchangeSummary)
+            ? "Animation interop updated"
+            : LastAnimationExchangeSummary;
     }
 
     public TimelineDocument CreateExportDocumentSnapshot()
@@ -3362,8 +3594,14 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = statusMessage;
     }
 
-    public void AddLayerFromPalette(LayerKind kind, Point position)
+    public void AddLayerFromPalette(LayerKind kind, Point position, AvaloniaControlKind? avaloniaControlKind = null)
     {
+        if (kind == LayerKind.AvaloniaControl && avaloniaControlKind is AvaloniaControlKind controlKind)
+        {
+            AddAvaloniaControlLayer(controlKind, position);
+            return;
+        }
+
         AddLayer(kind, position);
     }
 
@@ -3404,6 +3642,88 @@ public partial class MainWindowViewModel : ViewModelBase
         RebuildLayers(layer.Id);
         RecordHistoryIfNeeded();
         StatusMessage = $"{layer.Name} added";
+    }
+
+    private void AddAvaloniaControlLayer(AvaloniaControlKind controlKind, Point position)
+    {
+        var layer = TimelineEditingService.CreateAvaloniaControlLayer(
+            controlKind,
+            GetDefaultAvaloniaControlName(controlKind),
+            GetDefaultAvaloniaControlFill(controlKind),
+            "#E6F1FF",
+            GetDefaultAvaloniaControlText(controlKind),
+            position.X,
+            position.Y,
+            _document.Layers.Count);
+
+        TimelineEditingService.AddLayer(_document, layer);
+        RebuildLayers(layer.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{layer.Name} added";
+    }
+
+    private static string GetDefaultAvaloniaControlName(AvaloniaControlKind controlKind)
+    {
+        return controlKind switch
+        {
+            AvaloniaControlKind.Border => "Card Surface",
+            AvaloniaControlKind.TextBlock => "Text Block",
+            AvaloniaControlKind.TextBox => "Text Input",
+            AvaloniaControlKind.CheckBox => "Check Option",
+            AvaloniaControlKind.ToggleButton => "Toggle Action",
+            AvaloniaControlKind.ProgressBar => "Progress Track",
+            AvaloniaControlKind.ComboBox => "Dropdown",
+            AvaloniaControlKind.ListBox => "Selectable List",
+            AvaloniaControlKind.TabControl => "Tabbed Surface",
+            AvaloniaControlKind.Grid => "Grid Layout",
+            AvaloniaControlKind.StackPanel => "Stack Layout",
+            AvaloniaControlKind.PathIcon => "Icon Visual",
+            _ => controlKind.ToString()
+        };
+    }
+
+    private static string GetDefaultAvaloniaControlText(AvaloniaControlKind controlKind)
+    {
+        return controlKind switch
+        {
+            AvaloniaControlKind.Button => "Call To Action",
+            AvaloniaControlKind.TextBlock => "Avalonia Visual",
+            AvaloniaControlKind.TextBox => "Editable text",
+            AvaloniaControlKind.CheckBox => "Enable option",
+            AvaloniaControlKind.ToggleButton => "Prototype",
+            AvaloniaControlKind.ComboBox => "Selected Item",
+            AvaloniaControlKind.ListBox => "Item 1|Item 2|Item 3",
+            AvaloniaControlKind.TabControl => "Overview|Settings|Export",
+            AvaloniaControlKind.Grid => "2x2 Grid",
+            AvaloniaControlKind.StackPanel => "Vertical Stack",
+            AvaloniaControlKind.PathIcon => "Icon",
+            AvaloniaControlKind.Image => "Image Frame",
+            AvaloniaControlKind.Panel => "Layout Host",
+            _ => controlKind.ToString()
+        };
+    }
+
+    private static string GetDefaultAvaloniaControlFill(AvaloniaControlKind controlKind)
+    {
+        return controlKind switch
+        {
+            AvaloniaControlKind.Button => "#1F7DFF",
+            AvaloniaControlKind.TextBlock => "#F7F5ED",
+            AvaloniaControlKind.TextBox => "#25364B",
+            AvaloniaControlKind.CheckBox => "#263953",
+            AvaloniaControlKind.ToggleButton => "#8B5CF6",
+            AvaloniaControlKind.Slider => "#283D57",
+            AvaloniaControlKind.ProgressBar => "#204A62",
+            AvaloniaControlKind.ComboBox => "#304860",
+            AvaloniaControlKind.ListBox => "#233B54",
+            AvaloniaControlKind.TabControl => "#2E355A",
+            AvaloniaControlKind.Grid => "#233149",
+            AvaloniaControlKind.StackPanel => "#1C3552",
+            AvaloniaControlKind.PathIcon => "#1B2A45",
+            AvaloniaControlKind.Image => "#3B445A",
+            AvaloniaControlKind.Panel => "#1E2D44",
+            _ => "#243651"
+        };
     }
 
     private void SetLayerBounds(TimelineLayer layer, Rect bounds)
@@ -4102,6 +4422,14 @@ public partial class MainWindowViewModel : ViewModelBase
             InspectorOpacity = 1;
             InspectorCornerRadius = 0;
             InspectorFontSize = 48;
+            AvaloniaControlContentEditor = string.Empty;
+            AvaloniaControlSecondaryContentEditor = string.Empty;
+            AvaloniaControlIsCheckedEditor = false;
+            AvaloniaControlMinimumEditor = 0;
+            AvaloniaControlMaximumEditor = 100d;
+            AvaloniaControlValueEditor = 50d;
+            AvaloniaControlIsIndeterminateEditor = false;
+            AvaloniaControlSourceEditor = string.Empty;
             LayerRoleEditor = LayerCompositeRole.Normal;
             LayerBlendModeEditor = LayerBlendMode.Normal;
             MaskLayerCountEditor = 1;
@@ -4146,6 +4474,14 @@ public partial class MainWindowViewModel : ViewModelBase
         InspectorOpacity = SelectedLayer.Opacity;
         InspectorCornerRadius = SelectedLayer.CornerRadius;
         InspectorFontSize = SelectedLayer.FontSize;
+        AvaloniaControlContentEditor = SelectedLayer.Model.Style.AvaloniaControl.Content;
+        AvaloniaControlSecondaryContentEditor = SelectedLayer.Model.Style.AvaloniaControl.SecondaryContent;
+        AvaloniaControlIsCheckedEditor = SelectedLayer.Model.Style.AvaloniaControl.IsChecked;
+        AvaloniaControlMinimumEditor = SelectedLayer.Model.Style.AvaloniaControl.Minimum;
+        AvaloniaControlMaximumEditor = SelectedLayer.Model.Style.AvaloniaControl.Maximum;
+        AvaloniaControlValueEditor = SelectedLayer.Model.Style.AvaloniaControl.Value;
+        AvaloniaControlIsIndeterminateEditor = SelectedLayer.Model.Style.AvaloniaControl.IsIndeterminate;
+        AvaloniaControlSourceEditor = SelectedLayer.Model.Style.AvaloniaControl.Source;
         LayerRoleEditor = SelectedLayer.Model.Compositing.Role;
         LayerBlendModeEditor = SelectedLayer.Model.Compositing.BlendMode;
         MaskLayerCountEditor = Math.Max(1, SelectedLayer.Model.Compositing.MaskLayerCount);
@@ -4203,6 +4539,21 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadFrameRows();
         RefreshInspector();
         RefreshSelectionStateProperties();
+        RecordHistoryIfNeeded();
+        StatusMessage = statusMessage;
+    }
+
+    private void UpdateSelectedAvaloniaControl(Action<AvaloniaControlSettings> update, string statusMessage)
+    {
+        if (_suppressInspector || !CanEditAvaloniaControl || SelectedLayer is null)
+        {
+            return;
+        }
+
+        update(SelectedLayer.Model.Style.AvaloniaControl);
+        SelectedLayer.RefreshMetadata();
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshInspector();
         RecordHistoryIfNeeded();
         StatusMessage = statusMessage;
     }
@@ -4875,6 +5226,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanEditStyleSurface));
         OnPropertyChanged(nameof(CanEditPathPoints));
         OnPropertyChanged(nameof(CanAlignSelection));
+        OnPropertyChanged(nameof(CanEditAvaloniaControl));
         OnPropertyChanged(nameof(CanCaptureShapeKeyframe));
         OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
         OnPropertyChanged(nameof(CanToggleLayerState));
@@ -4882,6 +5234,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanEditCustomEasingCurve));
         OnPropertyChanged(nameof(SelectedLayerId));
         OnPropertyChanged(nameof(SelectedLayerIsPath));
+        OnPropertyChanged(nameof(SelectedLayerIsAvaloniaControl));
         OnPropertyChanged(nameof(SelectedLayerIsMask));
         OnPropertyChanged(nameof(SelectedLayerIsGuide));
         OnPropertyChanged(nameof(SelectedLayerIsCamera));

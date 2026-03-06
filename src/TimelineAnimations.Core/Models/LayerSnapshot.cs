@@ -18,4 +18,5 @@ public readonly record struct LayerSnapshot(
     string GradientTo,
     bool IsClosed,
     IReadOnlyList<VectorPointModel> PathPoints,
+    AvaloniaControlSettings AvaloniaControl,
     LayerCompositeSettings Compositing);
