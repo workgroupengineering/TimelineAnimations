@@ -65,7 +65,7 @@ public partial class MainWindow : Window
 
     private void HandlePaletteDropRequested(object? sender, CanvasPaletteDropRequestedEventArgs e)
     {
-        ViewModel?.AddLayerFromPalette(e.Kind, e.DocumentPosition);
+        ViewModel?.AddLayerFromPalette(e.Kind, e.DocumentPosition, e.AvaloniaControlKind);
     }
 
     private void HandleCanvasDrawingRequested(object? sender, CanvasDrawingRequestedEventArgs e)
@@ -217,17 +217,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var jsonFile = new FilePickerFileType("Timeline Document")
-        {
-            Patterns = ["*.timeline.json", "*.json"]
-        };
-
         var result = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open timeline document",
+            Title = "Open timeline document or animation",
             AllowMultiple = false,
-            FileTypeFilter = [jsonFile],
-            SuggestedFileType = jsonFile
+            FileTypeFilter = BuildSupportedDocumentFileTypes(),
+            SuggestedFileType = BuildNativeProjectFileType()
         });
 
         var file = result.FirstOrDefault();
@@ -236,10 +231,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        await using var stream = await file.OpenReadAsync();
-        var document = await DocumentSerializer.LoadAsync(stream);
-        ViewModel.LoadDocument(document, file.Name);
-        SceneCanvas.ResetViewport();
+        try
+        {
+            await using var stream = await file.OpenReadAsync();
+            var loaded = await TimelineDocumentFileService.LoadAsync(stream, file.Name);
+            ViewModel.LoadDocument(loaded.Document, file.Name, loaded.Format);
+            ViewModel.ApplyAnimationExchangeResult(loaded.Summary, loaded.Issues);
+            SceneCanvas.ResetViewport();
+        }
+        catch (Exception exception)
+        {
+            ViewModel.StatusMessage = $"Open failed: {exception.Message}";
+        }
     }
 
     private async void SaveDocumentClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -249,19 +252,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        var jsonFile = new FilePickerFileType("Timeline Document")
-        {
-            Patterns = ["*.timeline.json"],
-            MimeTypes = ["application/json"]
-        };
+        var documentFormat = ViewModel.CurrentDocumentFileFormat;
+        var fileType = BuildDocumentFileType(documentFormat);
 
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save timeline document",
-            SuggestedFileName = "scene.timeline.json",
-            DefaultExtension = "timeline.json",
-            FileTypeChoices = [jsonFile],
-            SuggestedFileType = jsonFile,
+            Title = $"Save {TimelineDocumentFileService.GetDisplayName(documentFormat)}",
+            SuggestedFileName = TimelineDocumentFileService.GetSuggestedFileName(ViewModel.DocumentName, documentFormat),
+            DefaultExtension = TimelineDocumentFileService.GetSuggestedExtension(documentFormat),
+            FileTypeChoices = [fileType],
+            SuggestedFileType = fileType,
             ShowOverwritePrompt = true
         });
 
@@ -276,8 +276,9 @@ public partial class MainWindow : Window
             stream.SetLength(0);
         }
 
-        await DocumentSerializer.SaveAsync(stream, ViewModel.CreateExportDocumentSnapshot());
-        ViewModel.SetDocumentLabel(file.Name);
+        var result = await TimelineDocumentFileService.SaveAsync(stream, ViewModel.CreateExportDocumentSnapshot(), documentFormat);
+        ViewModel.SetDocumentLabel(file.Name, result.Format);
+        ViewModel.ApplyAnimationExchangeResult($"{result.Summary} → {file.Name}", result.Issues);
     }
 
     private async void ExportFrameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -369,6 +370,130 @@ public partial class MainWindow : Window
         ViewModel.StatusMessage = "Rendering all scenes...";
         var sceneCount = await FrameExportService.ExportProjectSequenceAsync(ViewModel.CreateExportDocumentSnapshot(), folderPath);
         ViewModel.StatusMessage = $"Rendered {sceneCount} scenes to {Path.GetFileName(folderPath)}";
+    }
+
+    private async void ImportAnimationFormatClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ViewModel is null || !StorageProvider.CanOpen)
+        {
+            return;
+        }
+
+        var selectedFormat = ViewModel.SelectedAnimationExchangeFormat;
+        var fileType = selectedFormat switch
+        {
+            AnimationExchangeFormat.AvaloniaXaml => new FilePickerFileType("Avalonia XAML Animation")
+            {
+                Patterns = ["*.axaml", "*.xaml"],
+                MimeTypes = ["application/xml", "text/xml"]
+            },
+            AnimationExchangeFormat.SvgSmil => new FilePickerFileType("SVG Animation")
+            {
+                Patterns = ["*.svg"],
+                MimeTypes = ["image/svg+xml"]
+            },
+            AnimationExchangeFormat.HtmlCss => new FilePickerFileType("HTML Animation")
+            {
+                Patterns = ["*.html", "*.htm", "*.xhtml"],
+                MimeTypes = ["text/html", "application/xhtml+xml"]
+            },
+            _ => new FilePickerFileType("Animation File") { Patterns = ["*.*"] }
+        };
+
+        var result = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = $"Import {AnimationExchangeService.GetDisplayName(selectedFormat)}",
+            AllowMultiple = false,
+            FileTypeFilter = [fileType],
+            SuggestedFileType = fileType
+        });
+
+        var file = result.FirstOrDefault();
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ViewModel.StatusMessage = $"Importing {file.Name}...";
+            await using var stream = await file.OpenReadAsync();
+            using var reader = new StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+            var imported = AnimationExchangeService.Import(selectedFormat, content, file.Name);
+            ViewModel.LoadDocument(imported.Document, file.Name);
+            SceneCanvas.ResetViewport();
+            ViewModel.ApplyAnimationExchangeResult(imported.Summary, imported.Issues);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.StatusMessage = $"Import failed: {exception.Message}";
+        }
+    }
+
+    private async void ExportAnimationFormatClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ViewModel is null || !StorageProvider.CanSave)
+        {
+            return;
+        }
+
+        var selectedFormat = ViewModel.SelectedAnimationExchangeFormat;
+        var extension = AnimationExchangeService.GetSuggestedExtension(selectedFormat);
+        var export = AnimationExchangeService.Export(ViewModel.CreateExportDocumentSnapshot(), selectedFormat);
+        var fileType = selectedFormat switch
+        {
+            AnimationExchangeFormat.AvaloniaXaml => new FilePickerFileType("Avalonia XAML Animation")
+            {
+                Patterns = ["*.axaml", "*.xaml"],
+                MimeTypes = ["application/xml", "text/xml"]
+            },
+            AnimationExchangeFormat.SvgSmil => new FilePickerFileType("SVG Animation")
+            {
+                Patterns = ["*.svg"],
+                MimeTypes = ["image/svg+xml"]
+            },
+            AnimationExchangeFormat.HtmlCss => new FilePickerFileType("HTML Animation")
+            {
+                Patterns = ["*.html", "*.htm", "*.xhtml"],
+                MimeTypes = ["text/html", "application/xhtml+xml"]
+            },
+            _ => new FilePickerFileType("Animation File") { Patterns = ["*.*"] }
+        };
+
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = $"Export {AnimationExchangeService.GetDisplayName(selectedFormat)}",
+            SuggestedFileName = export.SuggestedFileName,
+            DefaultExtension = extension,
+            FileTypeChoices = [fileType],
+            SuggestedFileType = fileType,
+            ShowOverwritePrompt = true
+        });
+
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ViewModel.StatusMessage = $"Exporting {AnimationExchangeService.GetDisplayName(selectedFormat)}...";
+            await using var stream = await file.OpenWriteAsync();
+            if (stream.CanSeek)
+            {
+                stream.SetLength(0);
+            }
+
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(export.Content);
+            await writer.FlushAsync();
+            ViewModel.ApplyAnimationExchangeResult($"{export.Summary} → {file.Name}", export.Issues);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.StatusMessage = $"Export failed: {exception.Message}";
+        }
     }
 
     private async void ImportAudioClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -579,6 +704,54 @@ public partial class MainWindow : Window
         var sanitized = new string(seed.Select(character => invalidChars.Contains(character) ? '_' : character).ToArray()).Trim('_', ' ');
         var fileName = string.IsNullOrWhiteSpace(sanitized) ? "timeline_publish" : sanitized;
         return string.IsNullOrWhiteSpace(extension) ? fileName : $"{fileName}.{extension}";
+    }
+
+    private static IReadOnlyList<FilePickerFileType> BuildSupportedDocumentFileTypes()
+    {
+        return
+        [
+            new FilePickerFileType("Timeline Documents And Animations")
+            {
+                Patterns = ["*.timeline.json", "*.json", "*.axaml", "*.xaml", "*.svg", "*.html", "*.htm", "*.xhtml"]
+            },
+            BuildNativeProjectFileType(),
+            BuildDocumentFileType(TimelineDocumentFileFormat.AvaloniaXaml),
+            BuildDocumentFileType(TimelineDocumentFileFormat.SvgSmil),
+            BuildDocumentFileType(TimelineDocumentFileFormat.HtmlCss)
+        ];
+    }
+
+    private static FilePickerFileType BuildNativeProjectFileType()
+    {
+        return new FilePickerFileType("Timeline Project")
+        {
+            Patterns = ["*.timeline.json", "*.json"],
+            MimeTypes = ["application/json"]
+        };
+    }
+
+    private static FilePickerFileType BuildDocumentFileType(TimelineDocumentFileFormat format)
+    {
+        return format switch
+        {
+            TimelineDocumentFileFormat.NativeProject => BuildNativeProjectFileType(),
+            TimelineDocumentFileFormat.AvaloniaXaml => new FilePickerFileType("Avalonia XAML Animation")
+            {
+                Patterns = ["*.axaml", "*.xaml"],
+                MimeTypes = ["application/xml", "text/xml"]
+            },
+            TimelineDocumentFileFormat.SvgSmil => new FilePickerFileType("SVG Animation")
+            {
+                Patterns = ["*.svg"],
+                MimeTypes = ["image/svg+xml"]
+            },
+            TimelineDocumentFileFormat.HtmlCss => new FilePickerFileType("HTML Animation")
+            {
+                Patterns = ["*.html", "*.htm", "*.xhtml"],
+                MimeTypes = ["text/html", "application/xhtml+xml"]
+            },
+            _ => new FilePickerFileType("Timeline File") { Patterns = ["*.*"] }
+        };
     }
 
     private static string GetPublishFileTypeLabel(PublishOutputKind outputKind)
