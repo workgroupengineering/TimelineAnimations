@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:TimelineAnimations.App.Controls"
+        xmlns:models="using:TimelineAnimations.Core.Models"
         xmlns:vm="using:TimelineAnimations.App.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -20,203 +21,816 @@
     <vm:MainWindowViewModel />
   </Design.DataContext>
 
-  <Grid Margin="18"
-        RowDefinitions="Auto,*"
-        RowSpacing="18">
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*"
+        RowSpacing="10">
     <Border Grid.Row="0"
-            Classes="panel">
-      <Grid ColumnDefinitions="*,Auto"
-            ColumnSpacing="16">
-        <StackPanel Spacing="4">
+            Classes="chrome">
+      <Grid ColumnDefinitions="Auto,*,Auto"
+            ColumnSpacing="18">
+        <StackPanel Spacing="2">
           <TextBlock Classes="eyebrow"
-                     Text="TimelineAnimations" />
+                     Text="Macromedia Flash inspired shell" />
           <TextBlock Classes="title"
-                     Text="Timeline Atelier" />
-          <TextBlock Classes="micro-label"
-                     Text="A cinematic Avalonia editor for keyframed motion composition." />
+                     Text="TimelineAnimations MX" />
         </StackPanel>
 
         <StackPanel Grid.Column="1"
                     Orientation="Horizontal"
-                    Spacing="10"
+                    Spacing="18"
                     VerticalAlignment="Center">
-          <Button Content="Undo"
+          <TextBlock Classes="menu-label" Text="File" />
+          <TextBlock Classes="menu-label" Text="Edit" />
+          <TextBlock Classes="menu-label" Text="View" />
+          <TextBlock Classes="menu-label" Text="Insert" />
+          <TextBlock Classes="menu-label" Text="Modify" />
+          <TextBlock Classes="menu-label" Text="Text" />
+          <TextBlock Classes="menu-label" Text="Commands" />
+          <TextBlock Classes="menu-label" Text="Control" />
+          <TextBlock Classes="menu-label" Text="Window" />
+          <TextBlock Classes="menu-label" Text="Help" />
+        </StackPanel>
+
+        <Border Grid.Column="2"
+                Classes="workspace-tab active">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="eyebrow"
+                       Text="Document" />
+            <TextBlock Classes="strong-label"
+                       Text="{Binding DocumentName}" />
+            <TextBlock Classes="micro-label"
+                       Text="{Binding FileLabel}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            Classes="chrome-soft">
+      <Grid ColumnDefinitions="Auto,*,Auto"
+            ColumnSpacing="16">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalAlignment="Center">
+          <Border Classes="workspace-tab active">
+            <TextBlock Classes="strong-label"
+                       Text="Animate" />
+          </Border>
+          <Border Classes="workspace-tab">
+            <TextBlock Classes="strong-label"
+                       Text="Author" />
+          </Border>
+          <Border Classes="workspace-tab">
+            <TextBlock Classes="strong-label"
+                       Text="Library" />
+          </Border>
+          <Border Classes="workspace-tab">
+            <TextBlock Classes="strong-label"
+                       Text="Publish" />
+          </Border>
+        </StackPanel>
+
+        <TextBlock Grid.Column="1"
+                   Classes="micro-label"
+                   VerticalAlignment="Center"
+                   Text="Toolbox on the left, matte stage in the center, docked inspectors on the right, and a timeline panel below the stage." />
+
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalAlignment="Center">
+          <Button Classes="toolbar"
+                  Content="Edit Symbol"
+                  Command="{Binding EnterSelectedSymbolEditCommand}"
+                  IsEnabled="{Binding CanEnterSymbolEdit}" />
+          <Button Classes="toolbar warm"
+                  Content="Exit Symbol"
+                  Command="{Binding ExitSymbolEditCommand}"
+                  IsEnabled="{Binding CanExitSymbolEdit}" />
+          <Button Classes="toolbar warm"
+                  Content="Prototype"
+                  Command="{Binding TogglePrototypeModeCommand}" />
+          <Button Classes="toolbar"
+                  Content="Undo"
                   Command="{Binding UndoCommand}"
                   IsEnabled="{Binding CanUndo}" />
-          <Button Content="Redo"
+          <Button Classes="toolbar"
+                  Content="Redo"
                   Command="{Binding RedoCommand}"
                   IsEnabled="{Binding CanRedo}" />
-          <Button Content="Sample"
+          <Button Classes="toolbar"
+                  Content="Sample"
                   Command="{Binding ResetSampleCommand}" />
-          <Button Content="Open"
+          <Button Classes="toolbar"
+                  Content="Open"
                   Click="OpenDocumentClick" />
-          <Button Content="Save"
-                  Classes="accent"
+          <Button Classes="toolbar accent"
+                  Content="Save"
                   Click="SaveDocumentClick" />
-          <Button Content="Export Frame"
+          <Button Classes="toolbar"
+                  Content="Frame"
                   Click="ExportFrameClick" />
-          <Button Content="Render Sequence"
-                  Classes="warm"
+          <Button Classes="toolbar warm"
+                  Content="Sequence"
                   Click="RenderSequenceClick" />
-          <Border Classes="panel-soft"
-                  Padding="14,10">
-            <StackPanel Spacing="2">
-              <TextBlock Classes="eyebrow"
-                         Text="Document" />
-              <TextBlock Classes="strong-label"
-                         Text="{Binding FileLabel}" />
-            </StackPanel>
-          </Border>
+          <Button Classes="toolbar"
+                  Content="Project"
+                  Click="RenderProjectClick" />
         </StackPanel>
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1"
-          ColumnDefinitions="280,*,320"
-          ColumnSpacing="18">
-      <ScrollViewer Grid.Column="0"
-                    VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="18">
-          <Border Classes="panel">
-            <StackPanel Spacing="14">
-              <TextBlock Classes="eyebrow"
-                         Text="Composition" />
-              <TextBlock Classes="section-title"
-                         Text="{Binding DocumentName}" />
-              <Grid ColumnDefinitions="*,*"
-                    ColumnSpacing="10">
-                <Border Classes="panel-soft">
-                  <StackPanel Spacing="4">
+    <Grid Grid.Row="2"
+          ColumnDefinitions="300,*,360"
+          ColumnSpacing="12">
+      <Grid Grid.Column="0"
+            RowDefinitions="Auto,*"
+            RowSpacing="12">
+        <Border Classes="panel">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="eyebrow"
+                       Text="Tools" />
+            <TextBlock Classes="section-title"
+                       Text="Authoring toolbox" />
+            <UniformGrid Columns="2"
+                         Rows="4">
+              <Button Classes="tool"
+                      Content="Select"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Select" />
+              <Button Classes="tool"
+                      Content="Rectangle"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Rectangle" />
+              <Button Classes="tool"
+                      Content="Ellipse"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Ellipse" />
+              <Button Classes="tool"
+                      Content="Text"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Text" />
+              <Button Classes="tool"
+                      Content="Line"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Line" />
+              <Button Classes="tool"
+                      Content="Pen"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Pen" />
+              <Button Classes="tool"
+                      Content="Brush"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Brush" />
+              <Button Classes="tool accent"
+                      Content="Play / Pause"
+                      Command="{Binding TogglePlaybackCommand}" />
+            </UniformGrid>
+            <Border Classes="panel-soft">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="eyebrow"
+                           Text="Active tool" />
+                <TextBlock Classes="strong-label"
+                           Text="{Binding ToolModeLabel}" />
+                <TextBlock Classes="micro-label"
+                           Text="{Binding WorkspaceSummary}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <TabControl Grid.Row="1"
+                    Classes="dock-tabs">
+          <TabItem Header="Project">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="12">
+                <Border Classes="panel">
+                  <StackPanel Spacing="14"
+                              IsEnabled="{Binding CanEditScenes}">
                     <TextBlock Classes="eyebrow"
-                               Text="Duration" />
-                    <TextBlock Classes="strong-label"
-                               Text="{Binding DurationLabel}" />
-                  </StackPanel>
-                </Border>
-                <Border Grid.Column="1"
-                        Classes="panel-soft">
-                  <StackPanel Spacing="4">
-                    <TextBlock Classes="eyebrow"
-                               Text="Stage" />
-                    <TextBlock Classes="strong-label"
-                               Text="{Binding CanvasSizeLabel}" />
-                  </StackPanel>
-                </Border>
-              </Grid>
-              <TextBlock Classes="micro-label"
-                         Text="{Binding StatusMessage}"
-                         TextWrapping="Wrap" />
-            </StackPanel>
-          </Border>
-
-          <Border Classes="panel">
-            <StackPanel Spacing="14">
-              <TextBlock Classes="eyebrow"
-                         Text="Palette" />
-              <TextBlock Classes="section-title"
-                         Text="Drop new elements onto the stage" />
-              <ItemsControl ItemsSource="{Binding PaletteItems}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:PaletteItemViewModel">
-                    <controls:PaletteItemControl />
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="panel">
-            <StackPanel Spacing="14">
-              <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto"
-                    ColumnSpacing="8">
-                <StackPanel Spacing="4">
-                  <TextBlock Classes="eyebrow"
-                             Text="Layers" />
-                  <TextBlock Classes="section-title"
-                             Text="Composition stack" />
-                </StackPanel>
-                <Button Grid.Column="1"
-                        Content="+ Rect"
-                        Command="{Binding AddRectangleCommand}" />
-                <Button Grid.Column="2"
-                        Content="+ Orb"
-                        Classes="warm"
-                        Command="{Binding AddEllipseCommand}" />
-                <Button Grid.Column="3"
-                        Content="+ Text"
-                        Command="{Binding AddTextCommand}" />
-                <Button Grid.Column="4"
-                        Content="Copy"
-                        Command="{Binding DuplicateSelectionCommand}" />
-              </Grid>
-
-              <ListBox ItemsSource="{Binding Layers}"
-                       SelectedItem="{Binding SelectedLayer, Mode=TwoWay}">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:LayerViewModel">
-                    <Border Classes="layer-row">
-                      <Grid ColumnDefinitions="Auto,*,Auto"
-                            ColumnSpacing="12">
-                        <Border Width="14"
-                                Height="14"
-                                CornerRadius="7"
-                                VerticalAlignment="Center"
-                                Background="{Binding FillBrush}" />
-                        <StackPanel Grid.Column="1"
-                                    Spacing="2">
+                               Text="Composition" />
+                    <TextBlock Classes="section-title"
+                               Text="{Binding DocumentName}" />
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Selected scene" />
+                      <TextBox Text="{Binding SceneNameEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Frame rate" />
+                      <TextBox Text="{Binding SceneFrameRate, Mode=TwoWay}" />
+                    </StackPanel>
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding SelectedSceneSummary}"
+                               TextWrapping="Wrap" />
+                    <Grid ColumnDefinitions="*,*,*,*,*"
+                          ColumnSpacing="8">
+                      <Button Content="+ Scene"
+                              Command="{Binding AddSceneCommand}" />
+                      <Button Grid.Column="1"
+                              Content="Copy"
+                              Command="{Binding DuplicateSceneCommand}" />
+                      <Button Grid.Column="2"
+                              Content="Back"
+                              Command="{Binding MoveSceneBackwardCommand}"
+                              IsEnabled="{Binding CanMoveSceneBackward}" />
+                      <Button Grid.Column="3"
+                              Content="Next"
+                              Command="{Binding MoveSceneForwardCommand}"
+                              IsEnabled="{Binding CanMoveSceneForward}" />
+                      <Button Grid.Column="4"
+                              Content="Remove"
+                              Classes="warm"
+                              Command="{Binding DeleteSceneCommand}"
+                              IsEnabled="{Binding CanDeleteScene}" />
+                    </Grid>
+                    <ListBox ItemsSource="{Binding Scenes}"
+                             SelectedItem="{Binding SelectedScene, Mode=TwoWay}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SceneViewModel">
+                          <Border Classes="layer-row">
+                            <Grid ColumnDefinitions="82,*,Auto"
+                                  ColumnSpacing="12">
+                              <Border Width="82"
+                                      Height="46"
+                                      CornerRadius="10"
+                                      Background="{Binding PreviewBrush}">
+                                <Border Margin="8"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Top"
+                                        Padding="8,4"
+                                        Background="#44000000"
+                                        CornerRadius="8">
+                                  <TextBlock Classes="micro-label"
+                                             Text="{Binding Name}" />
+                                </Border>
+                              </Border>
+                              <StackPanel Grid.Column="1"
+                                          Spacing="2">
+                                <TextBlock Classes="strong-label"
+                                           Text="{Binding Name}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Subtitle}" />
+                              </StackPanel>
+                              <TextBlock Grid.Column="2"
+                                         Classes="micro-label"
+                                         VerticalAlignment="Center"
+                                         Text="Scene" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                      <Border Classes="panel-soft">
+                        <StackPanel Spacing="4">
+                          <TextBlock Classes="eyebrow"
+                                     Text="Duration" />
                           <TextBlock Classes="strong-label"
-                                     Text="{Binding Name}" />
-                          <TextBlock Classes="micro-label"
-                                     Text="{Binding Subtitle}" />
-                          <TextBlock Classes="micro-label"
-                                     Text="{Binding StateBadge}" />
+                                     Text="{Binding DurationLabel}" />
                         </StackPanel>
-                        <TextBlock Grid.Column="2"
+                      </Border>
+                      <Border Grid.Column="1"
+                              Classes="panel-soft">
+                        <StackPanel Spacing="4">
+                          <TextBlock Classes="eyebrow"
+                                     Text="Stage" />
+                          <TextBlock Classes="strong-label"
+                                     Text="{Binding CanvasSizeLabel}" />
+                        </StackPanel>
+                      </Border>
+                    </Grid>
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                  <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto"
+                          ColumnSpacing="8">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="eyebrow"
+                                   Text="Layers" />
+                        <TextBlock Classes="section-title"
+                                   Text="Composition stack" />
+                      </StackPanel>
+                      <Button Grid.Column="1"
+                              Content="+ Rect"
+                              Command="{Binding AddRectangleCommand}" />
+                      <Button Grid.Column="2"
+                              Content="+ Orb"
+                              Classes="warm"
+                              Command="{Binding AddEllipseCommand}" />
+                      <Button Grid.Column="3"
+                              Content="+ Text"
+                              Command="{Binding AddTextCommand}" />
+                      <Button Grid.Column="4"
+                              Content="+ Camera"
+                              Command="{Binding AddCameraLayerCommand}"
+                              IsEnabled="{Binding CanAddCameraLayer}" />
+                      <Button Grid.Column="5"
+                              Content="Copy"
+                              Command="{Binding DuplicateSelectionCommand}" />
+                    </Grid>
+
+                    <ListBox ItemsSource="{Binding Layers}"
+                             SelectedItem="{Binding SelectedLayer, Mode=TwoWay}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LayerViewModel">
+                          <Border Classes="layer-row">
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="12">
+                              <Border Width="14"
+                                      Height="14"
+                                      CornerRadius="7"
+                                      VerticalAlignment="Center"
+                                      Background="{Binding FillBrush}" />
+                              <StackPanel Grid.Column="1"
+                                          Spacing="2">
+                                <TextBlock Classes="strong-label"
+                                           Text="{Binding Name}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Subtitle}" />
+                                <TextBlock Classes="micro-label"
+                                           IsVisible="{Binding HasLibraryLink}"
+                                           Text="{Binding LibraryLinkLabel}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding StateBadge}" />
+                              </StackPanel>
+                              <TextBlock Grid.Column="2"
+                                         Classes="micro-label"
+                                         VerticalAlignment="Center"
+                                         Text="{Binding KindLabel}" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                      <Button Content="Forward"
+                              Command="{Binding BringForwardCommand}" />
+                      <Button Grid.Column="1"
+                              Content="Backward"
+                              Command="{Binding SendBackwardCommand}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                      <Button Content="{Binding SelectedLayerVisibilityLabel}"
+                              Command="{Binding ToggleSelectedLayerVisibilityCommand}"
+                              IsEnabled="{Binding CanToggleLayerState}" />
+                      <Button Grid.Column="1"
+                              Content="{Binding SelectedLayerLockLabel}"
+                              Command="{Binding ToggleSelectedLayerLockCommand}"
+                              IsEnabled="{Binding CanToggleLayerState}" />
+                    </Grid>
+
+                    <Button Content="Delete Selection"
+                            Classes="warm"
+                            Command="{Binding DeleteSelectionCommand}" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Assets">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="12">
+                <Border Classes="panel">
+                  <StackPanel Spacing="14">
+                    <TextBlock Classes="eyebrow"
+                               Text="Palette" />
+                    <TextBlock Classes="section-title"
+                               Text="Drop new elements onto the stage" />
+                    <ItemsControl ItemsSource="{Binding PaletteItems}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PaletteItemViewModel">
+                          <controls:PaletteItemControl />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                  <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="8">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="eyebrow"
+                                   Text="Library" />
+                        <TextBlock Classes="section-title"
+                                   Text="Reusable symbols" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1"
+                                  Orientation="Horizontal"
+                                  Spacing="8">
+                        <Button Content="Edit"
+                                Command="{Binding EnterSelectedSymbolEditCommand}"
+                                IsEnabled="{Binding CanEnterSymbolEdit}" />
+                        <Button Content="Place"
+                                Command="{Binding InsertSelectedLibraryItemCommand}"
+                                IsEnabled="{Binding CanInsertFromLibrary}" />
+                      </StackPanel>
+                    </Grid>
+
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding SelectedLibrarySummary}"
+                               TextWrapping="Wrap" />
+
+                    <StackPanel Spacing="6"
+                                IsVisible="{Binding EditingSymbolIsButton}">
+                      <TextBlock Classes="micro-label"
+                                 Text="Button state" />
+                      <ComboBox ItemsSource="{Binding AvailableButtonStates}"
+                                SelectedItem="{Binding EditingButtonState, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="New symbol type" />
+                      <ComboBox ItemsSource="{Binding AvailableSymbolKinds}"
+                                SelectedItem="{Binding SelectedLibrarySymbolKind, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                      <Button Content="Capture Selection"
+                              Command="{Binding CreateSymbolFromSelectionCommand}"
+                              IsEnabled="{Binding CanCreateSymbolFromSelection}" />
+                      <Button Grid.Column="1"
+                              Content="Update Symbol"
+                              Command="{Binding UpdateLinkedSymbolFromSelectionCommand}"
+                              IsEnabled="{Binding CanUpdateLinkedSymbol}" />
+                    </Grid>
+
+                    <ListBox ItemsSource="{Binding LibraryItems}"
+                             SelectedItem="{Binding SelectedLibraryItem, Mode=TwoWay}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                          <Border Classes="layer-row">
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="12">
+                              <Border Width="14"
+                                      Height="14"
+                                      CornerRadius="7"
+                                      VerticalAlignment="Center"
+                                      Background="{Binding PreviewBrush}" />
+                              <StackPanel Grid.Column="1"
+                                          Spacing="2">
+                                <TextBlock Classes="strong-label"
+                                           Text="{Binding Name}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Subtitle}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding SymbolKindLabel}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding TimelineLabel}" />
+                              </StackPanel>
+                              <TextBlock Grid.Column="2"
+                                         Classes="micro-label"
+                                         VerticalAlignment="Center"
+                                         Text="{Binding AssetKindLabel}" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                  <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto,Auto"
+                          ColumnSpacing="8">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="eyebrow"
+                                   Text="Components" />
+                        <TextBlock Classes="section-title"
+                                   Text="Interactive building blocks" />
+                      </StackPanel>
+                      <Button Grid.Column="1"
+                              Content="Capture"
+                              Command="{Binding CreateComponentFromSelectionCommand}"
+                              IsEnabled="{Binding CanCreateComponentFromSelection}" />
+                      <Button Grid.Column="2"
+                              Content="Place"
+                              Classes="warm"
+                              Command="{Binding InsertSelectedComponentCommand}"
+                              IsEnabled="{Binding CanInsertSelectedComponent}" />
+                    </Grid>
+
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding SelectedComponentSummary}"
+                               TextWrapping="Wrap" />
+
+                    <ListBox ItemsSource="{Binding ComponentItems}"
+                             SelectedItem="{Binding SelectedComponentItem, Mode=TwoWay}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                          <Border Classes="layer-row">
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="12">
+                              <Border Width="14"
+                                      Height="14"
+                                      CornerRadius="7"
+                                      VerticalAlignment="Center"
+                                      Background="{Binding PreviewBrush}" />
+                              <StackPanel Grid.Column="1"
+                                          Spacing="2">
+                                <TextBlock Classes="strong-label"
+                                           Text="{Binding Name}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Subtitle}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding TimelineLabel}" />
+                              </StackPanel>
+                              <TextBlock Grid.Column="2"
+                                         Classes="micro-label"
+                                         VerticalAlignment="Center"
+                                         Text="{Binding ComponentBadge}" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="panel">
+                  <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                          ColumnSpacing="8">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="eyebrow"
+                                   Text="Media" />
+                        <TextBlock Classes="section-title"
+                                   Text="Audio and video clips" />
+                      </StackPanel>
+                      <Button Grid.Column="1"
+                              Content="Import Audio"
+                              Click="ImportAudioClick" />
+                      <Button Grid.Column="2"
+                              Content="Import Video"
+                              Click="ImportVideoClick" />
+                      <Button Grid.Column="3"
+                              Content="Place"
+                              Classes="warm"
+                              Command="{Binding InsertSelectedMediaAssetCommand}"
+                              IsEnabled="{Binding CanInsertSelectedMediaAsset}" />
+                    </Grid>
+
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding SelectedMediaSummary}"
+                               TextWrapping="Wrap" />
+
+                    <ListBox ItemsSource="{Binding MediaAssets}"
+                             SelectedItem="{Binding SelectedMediaAsset, Mode=TwoWay}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MediaAssetViewModel">
+                          <Border Classes="layer-row">
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="12">
+                              <Border Width="14"
+                                      Height="14"
+                                      CornerRadius="7"
+                                      VerticalAlignment="Center"
+                                      Background="{Binding PreviewBrush}" />
+                              <StackPanel Grid.Column="1"
+                                          Spacing="2">
+                                <TextBlock Classes="strong-label"
+                                           Text="{Binding Name}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Subtitle}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding SourceLabel}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding TimelineLabel}" />
+                              </StackPanel>
+                              <TextBlock Grid.Column="2"
+                                         Classes="micro-label"
+                                         VerticalAlignment="Center"
+                                         Text="{Binding KindLabel}" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Output">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <Border Classes="panel">
+                <StackPanel Spacing="14"
+                            IsEnabled="{Binding CanEditPublishProfiles}">
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto"
+                        ColumnSpacing="8">
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="eyebrow"
+                                 Text="Publish" />
+                      <TextBlock Classes="section-title"
+                                 Text="Preview and export profiles" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="+ Profile"
+                            Command="{Binding AddPublishProfileCommand}" />
+                    <Button Grid.Column="2"
+                            Content="Copy"
+                            Command="{Binding DuplicatePublishProfileCommand}"
+                            IsEnabled="{Binding CanPreviewSelectedPublishProfile}" />
+                    <Button Grid.Column="3"
+                            Content="Preview"
+                            Click="PreviewPublishProfileClick"
+                            IsEnabled="{Binding CanPreviewSelectedPublishProfile}" />
+                    <Button Grid.Column="4"
+                            Content="Publish"
+                            Classes="accent"
+                            Click="ExportPublishProfileClick"
+                            IsEnabled="{Binding CanExportSelectedPublishProfile}" />
+                  </Grid>
+
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding SelectedPublishProfileSummary}"
+                             TextWrapping="Wrap" />
+
+                  <ListBox ItemsSource="{Binding PublishProfiles}"
+                           SelectedItem="{Binding SelectedPublishProfile, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:PublishProfileViewModel">
+                        <Border Classes="layer-row">
+                          <Grid ColumnDefinitions="Auto,*,Auto"
+                                ColumnSpacing="12">
+                            <Border Width="14"
+                                    Height="14"
+                                    CornerRadius="7"
+                                    VerticalAlignment="Center"
+                                    Background="#57C9FF" />
+                            <StackPanel Grid.Column="1"
+                                        Spacing="2">
+                              <TextBlock Classes="strong-label"
+                                         Text="{Binding Name}" />
+                              <TextBlock Classes="micro-label"
+                                         Text="{Binding FormatLabel}" />
+                              <TextBlock Classes="micro-label"
+                                         Text="{Binding Subtitle}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Classes="micro-label"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding OutputKind}" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+
+                  <Button Content="Remove Selected Profile"
+                          Classes="warm"
+                          Command="{Binding DeletePublishProfileCommand}"
+                          IsEnabled="{Binding CanDeletePublishProfile}" />
+
+                  <Border Classes="panel-soft">
+                    <StackPanel Spacing="12">
+                      <TextBlock Classes="eyebrow"
+                                 Text="Profile setup" />
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="micro-label"
+                                   Text="Name" />
+                        <TextBox Text="{Binding PublishProfileNameEditor, Mode=TwoWay}" />
+                      </StackPanel>
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="micro-label"
+                                   Text="Output format" />
+                        <ComboBox ItemsSource="{Binding AvailablePublishOutputs}"
+                                  SelectedItem="{Binding PublishOutputKindEditor, Mode=TwoWay}" />
+                      </StackPanel>
+                      <Grid ColumnDefinitions="*,*"
+                            ColumnSpacing="10">
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="micro-label"
+                                     Text="Width" />
+                          <TextBox Text="{Binding PublishWidthEditor, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1"
+                                    Spacing="6">
+                          <TextBlock Classes="micro-label"
+                                     Text="Height" />
+                          <TextBox Text="{Binding PublishHeightEditor, Mode=TwoWay}" />
+                        </StackPanel>
+                      </Grid>
+                      <Grid ColumnDefinitions="*,*"
+                            ColumnSpacing="10">
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="micro-label"
+                                     Text="Frame rate" />
+                          <TextBox Text="{Binding PublishFrameRateEditor, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1"
+                                    Spacing="6">
+                          <TextBlock Classes="micro-label"
+                                     Text="Quality" />
+                          <TextBox Text="{Binding PublishQualityEditor, Mode=TwoWay}" />
+                        </StackPanel>
+                      </Grid>
+                      <StackPanel Spacing="6"
+                                  IsVisible="{Binding PublishOutputIsSpriteSheet}">
+                        <TextBlock Classes="micro-label"
+                                   Text="Sprite sheet columns" />
+                        <TextBox Text="{Binding PublishSpriteSheetColumnsEditor, Mode=TwoWay}" />
+                      </StackPanel>
+                      <Grid ColumnDefinitions="*,*"
+                            ColumnSpacing="10">
+                        <CheckBox Content="Play all scenes"
+                                  IsChecked="{Binding PublishPlayAllScenesEditor, Mode=TwoWay}" />
+                        <CheckBox Grid.Column="1"
+                                  Content="Transparent background"
+                                  IsChecked="{Binding PublishTransparentBackgroundEditor, Mode=TwoWay}" />
+                      </Grid>
+                      <Grid ColumnDefinitions="*,*"
+                            ColumnSpacing="10">
+                        <CheckBox Content="Include scene graph"
+                                  IsChecked="{Binding PublishIncludeSceneGraphEditor, Mode=TwoWay}" />
+                        <CheckBox Grid.Column="1"
+                                  Content="Include validation report"
+                                  IsChecked="{Binding PublishIncludeValidationReportEditor, Mode=TwoWay}" />
+                      </Grid>
+                      <TextBlock Classes="micro-label"
+                                 IsVisible="{Binding PublishOutputRequiresDirectory}"
+                                 Text="This profile publishes into a folder. Supplemental files are written alongside the frame sequence." />
+                      <TextBlock Classes="micro-label"
+                                 IsVisible="{Binding PublishOutputIsSingleFile}"
+                                 Text="This profile publishes a single primary file and optional companion metadata beside it." />
+                    </StackPanel>
+                  </Border>
+
+                  <Border Classes="panel-soft">
+                    <StackPanel Spacing="10">
+                      <Grid ColumnDefinitions="*,Auto"
+                            ColumnSpacing="8">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="eyebrow"
+                                     Text="Validation" />
+                          <TextBlock Classes="strong-label"
+                                     Text="{Binding PublishValidationIssues.Count, StringFormat='{}{0} checks'}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1"
                                    Classes="micro-label"
                                    VerticalAlignment="Center"
-                                   Text="{Binding KindLabel}" />
+                                   Text="{Binding HasPublishErrors, StringFormat='Errors block export: {0}'}" />
                       </Grid>
-                    </Border>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
 
-              <Grid ColumnDefinitions="*,*"
-                    ColumnSpacing="10">
-                <Button Content="Forward"
-                        Command="{Binding BringForwardCommand}" />
-                <Button Grid.Column="1"
-                        Content="Backward"
-                        Command="{Binding SendBackwardCommand}" />
-              </Grid>
+                      <ItemsControl ItemsSource="{Binding PublishValidationIssues}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="models:PublishValidationIssue">
+                            <Border Classes="layer-row">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="strong-label"
+                                           Text="{Binding Severity}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Source}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Message}"
+                                           TextWrapping="Wrap" />
+                              </StackPanel>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
 
-              <Grid ColumnDefinitions="*,*"
-                    ColumnSpacing="10">
-                <Button Content="{Binding SelectedLayerVisibilityLabel}"
-                        Command="{Binding ToggleSelectedLayerVisibilityCommand}"
-                        IsEnabled="{Binding CanToggleLayerState}" />
-                <Button Grid.Column="1"
-                        Content="{Binding SelectedLayerLockLabel}"
-                        Command="{Binding ToggleSelectedLayerLockCommand}"
-                        IsEnabled="{Binding CanToggleLayerState}" />
-              </Grid>
-
-              <Button Content="Delete Selection"
-                      Classes="warm"
-                      Command="{Binding DeleteSelectionCommand}" />
-            </StackPanel>
-          </Border>
-        </StackPanel>
-      </ScrollViewer>
+                      <TextBlock Classes="micro-label"
+                                 Text="{Binding StatusMessage}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+              </Border>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Grid>
 
       <Grid Grid.Column="1"
-            RowDefinitions="*,340"
+            RowDefinitions="*,460"
             RowSpacing="18">
         <Border Classes="panel">
-          <Grid RowDefinitions="Auto,*"
+          <Grid RowDefinitions="Auto,Auto,Auto,*"
                 RowSpacing="16">
-            <Grid ColumnDefinitions="*,260,120"
+            <Grid ColumnDefinitions="*,240,220"
                   ColumnSpacing="12">
               <StackPanel Spacing="4">
                 <TextBlock Classes="eyebrow"
@@ -239,31 +853,77 @@
                       Padding="12,8">
                 <StackPanel Spacing="2">
                   <TextBlock Classes="eyebrow"
-                             Text="Playhead" />
+                             Text="Tool" />
                   <TextBlock Classes="strong-label"
+                             Text="{Binding ToolModeLabel}" />
+                  <TextBlock Classes="micro-label"
                              Text="{Binding CurrentTimeLabel}" />
                 </StackPanel>
               </Border>
             </Grid>
 
-            <controls:SceneCanvasControl x:Name="SceneCanvas"
-                                         Grid.Row="1"
-                                         Layers="{Binding Layers}"
-                                         SelectedLayer="{Binding SelectedLayer}"
-                                         CanvasZoom="{Binding CanvasZoom}"
-                                         SnapToGrid="{Binding SnapToGrid}"
-                                         DocumentWidth="{Binding CanvasWidth}"
-                                         DocumentHeight="{Binding CanvasHeight}"
-                                         BackgroundFrom="{Binding BackgroundFrom}"
-                                         BackgroundTo="{Binding BackgroundTo}" />
+            <Border Grid.Row="1"
+                    Classes="panel-soft"
+                    Padding="12,10"
+                    IsVisible="{Binding IsPrototypeMode}">
+              <TextBlock Classes="micro-label"
+                         Text="{Binding PrototypeSummary}"
+                         TextWrapping="Wrap" />
+            </Border>
+
+            <Border Grid.Row="2"
+                    Classes="panel-soft"
+                    Padding="12,10">
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                    ColumnSpacing="8">
+                <TextBlock
+                           Classes="micro-label"
+                           VerticalAlignment="Center"
+                           Text="The central matte emulates a Flash-style stage surround. Draw from the toolbox, drag assets from the left dock, and scrub timing below." />
+                <CheckBox Grid.Column="1"
+                          Content="Snap"
+                          IsChecked="{Binding SnapToGrid, Mode=TwoWay}" />
+                <CheckBox Grid.Column="2"
+                          Content="Onion"
+                          IsChecked="{Binding OnionSkinEnabled, Mode=TwoWay}" />
+                <Border Grid.Column="3"
+                        Classes="workspace-tab active">
+                  <TextBlock Classes="strong-label"
+                             Text="{Binding ToolModeLabel}" />
+                </Border>
+              </Grid>
+            </Border>
+
+            <Border Grid.Row="3"
+                    Classes="stage-workspace">
+              <controls:SceneCanvasControl x:Name="SceneCanvas"
+                                           Document="{Binding Document}"
+                                           Layers="{Binding Layers}"
+                                           SelectedLayer="{Binding SelectedLayer}"
+                                           CanvasZoom="{Binding CanvasZoom}"
+                                           DrawingTool="{Binding SelectedDrawingTool}"
+                                           CurrentTime="{Binding CurrentTime}"
+                                           FrameRate="{Binding SceneFrameRate}"
+                                           TotalFrames="{Binding TotalFrames}"
+                                           Duration="{Binding Duration}"
+                                           SnapToGrid="{Binding SnapToGrid}"
+                                           OnionSkinEnabled="{Binding OnionSkinEnabled}"
+                                           OnionSkinBefore="{Binding OnionSkinBefore}"
+                                           OnionSkinAfter="{Binding OnionSkinAfter}"
+                                           PrototypeMode="{Binding IsPrototypeMode}"
+                                           DocumentWidth="{Binding CanvasWidth}"
+                                           DocumentHeight="{Binding CanvasHeight}"
+                                           BackgroundFrom="{Binding BackgroundFrom}"
+                                           BackgroundTo="{Binding BackgroundTo}" />
+            </Border>
           </Grid>
         </Border>
 
         <Border Grid.Row="1"
                 Classes="panel">
-          <Grid RowDefinitions="Auto,*"
+          <Grid RowDefinitions="Auto,Auto,*,Auto,*"
                 RowSpacing="14">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,220"
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,180,160"
                   ColumnSpacing="10">
               <Button Content="Play / Pause"
                       Classes="accent"
@@ -274,7 +934,7 @@
               <Button Grid.Column="2"
                       Content="Add Key"
                       Command="{Binding AddCurrentKeyframeCommand}"
-                      IsEnabled="{Binding CanEditSelection}" />
+                      IsEnabled="{Binding CanEditPropertyTracks}" />
               <Button Grid.Column="3"
                       Content="Remove Key"
                       Command="{Binding DeleteCurrentKeyframeCommand}"
@@ -290,6 +950,8 @@
                           Margin="16,0,0,0">
                 <CheckBox Content="Loop playback"
                           IsChecked="{Binding LoopPlayback, Mode=TwoWay}" />
+                <CheckBox Content="Play all scenes"
+                          IsChecked="{Binding PlayAllScenes, Mode=TwoWay}" />
                 <CheckBox Content="Snap to grid"
                           IsChecked="{Binding SnapToGrid, Mode=TwoWay}" />
               </StackPanel>
@@ -302,9 +964,127 @@
                         Maximum="250"
                         Value="{Binding TimelineZoom, Mode=TwoWay}" />
               </StackPanel>
+
+              <Border Grid.Column="7"
+                      Classes="panel-soft"
+                      Padding="12,8">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="eyebrow"
+                             Text="Frame" />
+                  <TextBlock Classes="strong-label"
+                             Text="{Binding CurrentFrameLabel}" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding FrameRateLabel}" />
+                </StackPanel>
+              </Border>
             </Grid>
 
-            <ScrollViewer Grid.Row="1"
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,220,Auto,Auto,*,160"
+                  ColumnSpacing="10">
+              <Button Content="Add Cel"
+                      Command="{Binding AddFrameKeyframeCommand}"
+                      IsEnabled="{Binding CanEditPropertyTracks}" />
+              <Button Grid.Column="1"
+                      Content="Add Blank"
+                      Command="{Binding AddBlankFrameKeyframeCommand}"
+                      IsEnabled="{Binding CanEditPropertyTracks}" />
+              <Button Grid.Column="2"
+                      Content="Extend Hold"
+                      Command="{Binding ExtendFrameHoldCommand}"
+                      IsEnabled="{Binding CanEditPropertyTracks}" />
+              <Button Grid.Column="3"
+                      Content="Copy Range"
+                      Command="{Binding CopyFrameRangeCommand}"
+                      IsEnabled="{Binding CanCopyFrameRange}" />
+              <Button Grid.Column="4"
+                      Content="Paste Range"
+                      Command="{Binding PasteFrameRangeCommand}"
+                      IsEnabled="{Binding CanPasteFrameRange}" />
+              <TextBox Grid.Column="5"
+                       Watermark="Frame label"
+                       Text="{Binding FrameLabelEditor, Mode=TwoWay}" />
+              <Button Grid.Column="6"
+                      Content="Set Label"
+                      Command="{Binding AddOrUpdateFrameLabelCommand}" />
+              <Button Grid.Column="7"
+                      Content="Clear Label"
+                      Command="{Binding RemoveFrameLabelCommand}" />
+
+              <StackPanel Grid.Column="8"
+                          Orientation="Horizontal"
+                          Spacing="12"
+                          VerticalAlignment="Center">
+                <TextBlock Classes="micro-label"
+                           VerticalAlignment="Center"
+                           Text="{Binding SelectedFrameRangeSummary}" />
+                <CheckBox Content="Onion skin"
+                          IsChecked="{Binding OnionSkinEnabled, Mode=TwoWay}" />
+                <TextBlock Classes="micro-label"
+                           VerticalAlignment="Center"
+                           Text="Prev" />
+                <NumericUpDown Width="64"
+                               Minimum="0"
+                               Maximum="6"
+                               Value="{Binding OnionSkinBefore, Mode=TwoWay}" />
+                <TextBlock Classes="micro-label"
+                           VerticalAlignment="Center"
+                           Text="Next" />
+                <NumericUpDown Width="64"
+                               Minimum="0"
+                               Maximum="6"
+                               Value="{Binding OnionSkinAfter, Mode=TwoWay}" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="9"
+                          Spacing="6">
+                <TextBlock Classes="eyebrow"
+                           Text="Frame zoom" />
+                <Slider Minimum="10"
+                        Maximum="32"
+                        Value="{Binding FrameTimelineZoom, Mode=TwoWay}" />
+              </StackPanel>
+            </Grid>
+
+            <ScrollViewer Grid.Row="2"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+              <controls:FrameTimelineControl x:Name="FrameTimeline"
+                                             Width="{Binding FrameTimelineSurfaceWidth}"
+                                             Height="{Binding FrameTimelineSurfaceHeight}"
+                                             Rows="{Binding FrameRows}"
+                                             Labels="{Binding SceneFrameLabels}"
+                                             CurrentFrame="{Binding CurrentFrame}"
+                                             TotalFrames="{Binding TotalFrames}"
+                                             PixelsPerFrame="{Binding FrameTimelineZoom}"
+                                             SelectedLayerId="{Binding SelectedLayerId}"
+                                             SelectionStartFrame="{Binding SelectionStartFrame}"
+                                             SelectionEndFrame="{Binding SelectionEndFrame}" />
+            </ScrollViewer>
+
+            <Grid Grid.Row="3"
+                  ColumnDefinitions="*,180"
+                  ColumnSpacing="10">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="eyebrow"
+                           Text="Property Curves" />
+                <TextBlock Classes="micro-label"
+                           Text="Classic keyframe interpolation layered under cel exposures." />
+              </StackPanel>
+
+              <Border Grid.Column="1"
+                      Classes="panel-soft"
+                      Padding="12,8">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="eyebrow"
+                             Text="Playhead" />
+                  <TextBlock Classes="strong-label"
+                             Text="{Binding CurrentTimeLabel}" />
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <ScrollViewer Grid.Row="4"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto">
               <controls:TimelineEditorControl x:Name="TimelineEditor"
@@ -313,16 +1093,20 @@
                                               Rows="{Binding TimelineRows}"
                                               CurrentTime="{Binding CurrentTime}"
                                               Duration="{Binding Duration}"
+                                              SelectedProperty="{Binding SelectedProperty}"
+                                              SelectedKeyframeId="{Binding SelectedKeyframeId}"
                                               PixelsPerSecond="{Binding TimelineZoom}" />
             </ScrollViewer>
           </Grid>
         </Border>
       </Grid>
 
-      <ScrollViewer Grid.Column="2"
-                    VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="18">
+      <TabControl Grid.Column="2"
+                  Classes="dock-tabs">
+        <TabItem Header="Properties">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="12">
           <Border Classes="panel">
             <StackPanel Spacing="14">
               <TextBlock Classes="eyebrow"
@@ -333,6 +1117,41 @@
                 <TextBlock Classes="micro-label"
                            Text="{Binding SelectedLayerStateLabel}"
                            TextWrapping="Wrap" />
+              </Border>
+
+              <Border Classes="panel-soft"
+                      IsVisible="{Binding SelectedLayerIsSymbolInstance}">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Symbol Instance" />
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Playback mode" />
+                    <ComboBox ItemsSource="{Binding AvailableSymbolPlaybackModes}"
+                              SelectedItem="{Binding SymbolPlaybackModeEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Time offset" />
+                      <TextBox Text="{Binding SymbolPlaybackOffsetEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Locked frame" />
+                      <TextBox Text="{Binding SymbolLockedFrameEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Spacing="6"
+                              IsVisible="{Binding SelectedSymbolInstanceIsButton}">
+                    <TextBlock Classes="micro-label"
+                               Text="Button preview state" />
+                    <ComboBox ItemsSource="{Binding AvailableButtonStates}"
+                              SelectedItem="{Binding SymbolButtonStateEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                </StackPanel>
               </Border>
 
               <StackPanel Spacing="14"
@@ -378,7 +1197,8 @@
                   </StackPanel>
                   <StackPanel Grid.Row="2"
                               Grid.Column="1"
-                              Spacing="6">
+                              Spacing="6"
+                              IsVisible="{Binding SelectedLayerSupportsCornerRadius}">
                     <TextBlock Classes="micro-label"
                                Text="Corner radius" />
                     <TextBox Text="{Binding InspectorCornerRadius, Mode=TwoWay}" />
@@ -398,13 +1218,42 @@
                           Maximum="1"
                           Value="{Binding InspectorOpacity, Mode=TwoWay}" />
                 </StackPanel>
+
+                <StackPanel Spacing="8"
+                            IsEnabled="{Binding CanAlignSelection}">
+                  <TextBlock Classes="micro-label"
+                             Text="Align to stage" />
+                  <Grid ColumnDefinitions="*,*,*"
+                        ColumnSpacing="8"
+                        RowDefinitions="Auto,Auto">
+                    <Button Content="Left"
+                            Command="{Binding AlignLeftCommand}" />
+                    <Button Grid.Column="1"
+                            Content="Center"
+                            Command="{Binding AlignCenterCommand}" />
+                    <Button Grid.Column="2"
+                            Content="Right"
+                            Command="{Binding AlignRightCommand}" />
+                    <Button Grid.Row="1"
+                            Content="Top"
+                            Command="{Binding AlignTopCommand}" />
+                    <Button Grid.Row="1"
+                            Grid.Column="1"
+                            Content="Middle"
+                            Command="{Binding AlignMiddleCommand}" />
+                    <Button Grid.Row="1"
+                            Grid.Column="2"
+                            Content="Bottom"
+                            Command="{Binding AlignBottomCommand}" />
+                  </Grid>
+                </StackPanel>
               </StackPanel>
             </StackPanel>
           </Border>
 
           <Border Classes="panel">
             <StackPanel Spacing="14"
-                        IsEnabled="{Binding CanEditSelection}">
+                        IsEnabled="{Binding CanEditStyleSurface}">
               <TextBlock Classes="eyebrow"
                          Text="Style" />
               <TextBlock Classes="section-title"
@@ -414,6 +1263,12 @@
                 <TextBlock Classes="micro-label"
                            Text="Fill" />
                 <TextBox Text="{Binding FillHexEditor, Mode=TwoWay}" />
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Stroke" />
+                <TextBox Text="{Binding StrokeHexEditor, Mode=TwoWay}" />
               </StackPanel>
 
               <UniformGrid Columns="4"
@@ -444,6 +1299,75 @@
                         CommandParameter="#B093FF" />
               </UniformGrid>
 
+              <UniformGrid Columns="4"
+                           Rows="2">
+                <Button Background="#FFFFFF"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#FFFFFF" />
+                <Button Background="#FFE6D1"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#FFE6D1" />
+                <Button Background="#93A6D8"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#93A6D8" />
+                <Button Background="#9BFFF0"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#9BFFF0" />
+                <Button Background="#FFD166"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#FFD166" />
+                <Button Background="#FF5F79"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#FF5F79" />
+                <Button Background="#61E6FF"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#61E6FF" />
+                <Button Background="#A7FF5A"
+                        Command="{Binding ApplyStrokePresetCommand}"
+                        CommandParameter="#A7FF5A" />
+              </UniformGrid>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Stroke width" />
+                  <TextBox Text="{Binding StrokeThicknessEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Gradient fill" />
+                  <CheckBox Content="Use gradient"
+                            IsChecked="{Binding UseGradientEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10"
+                    IsVisible="{Binding UseGradientEditor}">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Gradient from" />
+                  <TextBox Text="{Binding GradientFromEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Gradient to" />
+                  <TextBox Text="{Binding GradientToEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Spacing="6"
+                          IsVisible="{Binding SelectedLayerIsPath}">
+                <CheckBox Content="Close path"
+                          IsChecked="{Binding PathClosedEditor, Mode=TwoWay}" />
+                <TextBlock Classes="micro-label"
+                           IsVisible="{Binding CanEditPathPoints}"
+                           Text="Drag vector points directly on the stage to reshape the selected path." />
+              </StackPanel>
+
               <StackPanel IsVisible="{Binding SelectedLayerIsText}"
                           Spacing="6">
                 <TextBlock Classes="micro-label"
@@ -456,6 +1380,444 @@
                            Text="Font size" />
                 <TextBox Text="{Binding InspectorFontSize, Mode=TwoWay}" />
               </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel">
+            <StackPanel Spacing="14"
+                        IsEnabled="{Binding CanEditSelection}">
+              <TextBlock Classes="eyebrow"
+                         Text="Compositing" />
+              <TextBlock Classes="section-title"
+                         Text="Masks, blends, effects" />
+              <TextBlock Classes="micro-label"
+                         Text="{Binding CompositingSummary}"
+                         TextWrapping="Wrap" />
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Layer role" />
+                  <ComboBox ItemsSource="{Binding AvailableCompositeRoles}"
+                            SelectedItem="{Binding LayerRoleEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Blend mode" />
+                  <ComboBox ItemsSource="{Binding AvailableBlendModes}"
+                            SelectedItem="{Binding LayerBlendModeEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Spacing="6"
+                          IsVisible="{Binding SelectedLayerIsMask}">
+                <TextBlock Classes="micro-label"
+                           Text="Mask target count" />
+                <TextBox Text="{Binding MaskLayerCountEditor, Mode=TwoWay}" />
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Parallax depth" />
+                <TextBox Text="{Binding LayerParallaxDepthEditor, Mode=TwoWay}" />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Blur radius" />
+                  <TextBox Text="{Binding LayerBlurEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Brightness" />
+                  <TextBox Text="{Binding LayerBrightnessEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Tint color" />
+                  <TextBox Text="{Binding LayerTintColorEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Tint strength" />
+                  <TextBox Text="{Binding LayerTintStrengthEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
+                  <TextBlock Classes="micro-label"
+                             Text="Saturation" />
+                  <TextBlock Grid.Column="1"
+                             Classes="micro-label"
+                             Text="{Binding LayerSaturationEditor, StringFormat='{}{0:0.00}'}" />
+                </Grid>
+                <Slider Minimum="0"
+                        Maximum="2"
+                        Value="{Binding LayerSaturationEditor, Mode=TwoWay}" />
+              </StackPanel>
+
+              <Border Classes="panel-soft">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Glow" />
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Color" />
+                      <TextBox Text="{Binding LayerGlowColorEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Size" />
+                      <TextBox Text="{Binding LayerGlowSizeEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="10">
+                      <TextBlock Classes="micro-label"
+                                 Text="Opacity" />
+                      <TextBlock Grid.Column="1"
+                                 Classes="micro-label"
+                                 Text="{Binding LayerGlowOpacityEditor, StringFormat='{}{0:0.00}'}" />
+                    </Grid>
+                    <Slider Minimum="0"
+                            Maximum="1"
+                            Value="{Binding LayerGlowOpacityEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel-soft">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Shadow" />
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10"
+                        RowDefinitions="Auto,Auto">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Color" />
+                      <TextBox Text="{Binding LayerShadowColorEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Blur" />
+                      <TextBox Text="{Binding LayerShadowBlurEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Offset X" />
+                      <TextBox Text="{Binding LayerShadowOffsetXEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1"
+                                Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Offset Y" />
+                      <TextBox Text="{Binding LayerShadowOffsetYEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="10">
+                      <TextBlock Classes="micro-label"
+                                 Text="Opacity" />
+                      <TextBlock Grid.Column="1"
+                                 Classes="micro-label"
+                                 Text="{Binding LayerShadowOpacityEditor, StringFormat='{}{0:0.00}'}" />
+                    </Grid>
+                    <Slider Minimum="0"
+                            Maximum="1"
+                            Value="{Binding LayerShadowOpacityEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel">
+            <StackPanel Spacing="14"
+                        IsEnabled="{Binding CanEditSelection}"
+                        IsVisible="{Binding SelectedLayerIsMedia}">
+              <TextBlock Classes="eyebrow"
+                         Text="Media" />
+              <TextBlock Classes="section-title"
+                         Text="Clip timing and playback" />
+              <TextBlock Classes="micro-label"
+                         Text="{Binding MediaLayerSummary}"
+                         TextWrapping="Wrap" />
+
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Playback mode" />
+                <ComboBox ItemsSource="{Binding AvailableMediaPlaybackModes}"
+                          SelectedItem="{Binding MediaPlaybackModeEditor, Mode=TwoWay}" />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Start time" />
+                  <TextBox Text="{Binding MediaStartTimeEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Clip offset" />
+                  <TextBox Text="{Binding MediaClipOffsetEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Clip duration" />
+                  <TextBox Text="{Binding MediaClipDurationEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Looping" />
+                  <CheckBox Content="Loop clip"
+                            IsChecked="{Binding MediaLoopEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
+                  <TextBlock Classes="micro-label"
+                             Text="Volume" />
+                  <TextBlock Grid.Column="1"
+                             Classes="micro-label"
+                             Text="{Binding MediaVolumeEditor, StringFormat='{}{0:0.00}'}" />
+                </Grid>
+                <Slider Minimum="0"
+                        Maximum="1"
+                        Value="{Binding MediaVolumeEditor, Mode=TwoWay}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Motion + Actions">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="12">
+
+          <Border Classes="panel">
+            <StackPanel Spacing="14">
+              <Grid ColumnDefinitions="*,Auto,Auto"
+                    ColumnSpacing="8">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="eyebrow"
+                             Text="Behaviors" />
+                  <TextBlock Classes="section-title"
+                             Text="Events and lightweight actions" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="+ Event"
+                        Command="{Binding AddBehaviorCommand}"
+                        IsEnabled="{Binding CanAddBehavior}" />
+                <Button Grid.Column="2"
+                        Content="Remove"
+                        Classes="warm"
+                        Command="{Binding DeleteSelectedBehaviorCommand}"
+                        IsEnabled="{Binding CanDeleteSelectedBehavior}" />
+              </Grid>
+
+              <TextBlock Classes="micro-label"
+                         Text="{Binding SelectedBehaviorSummary}"
+                         TextWrapping="Wrap" />
+
+              <ListBox ItemsSource="{Binding Behaviors}"
+                       SelectedItem="{Binding SelectedBehavior, Mode=TwoWay}"
+                       MinHeight="120">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:InteractionBehaviorViewModel">
+                    <Border Classes="layer-row">
+                      <StackPanel Spacing="2">
+                        <TextBlock Classes="strong-label"
+                                   Text="{Binding Name}" />
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding Summary}" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+
+              <StackPanel Spacing="10"
+                          IsEnabled="{Binding CanEditBehaviors}">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Behavior name" />
+                  <TextBox Text="{Binding SelectedBehaviorNameEditor, Mode=TwoWay}" />
+                </StackPanel>
+
+                <CheckBox Content="Enabled"
+                          IsChecked="{Binding SelectedBehaviorEnabledEditor, Mode=TwoWay}" />
+
+                <Grid ColumnDefinitions="*,*"
+                      ColumnSpacing="10">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Trigger" />
+                    <ComboBox ItemsSource="{Binding AvailableInteractionTriggers}"
+                              SelectedItem="{Binding SelectedBehaviorTriggerEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1"
+                              Spacing="6"
+                              IsVisible="{Binding SelectedBehaviorUsesTriggerArgument}">
+                    <TextBlock Classes="micro-label"
+                               Text="Frame label" />
+                    <TextBox Text="{Binding SelectedBehaviorTriggerArgumentEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                </Grid>
+
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Action" />
+                  <ComboBox ItemsSource="{Binding AvailableInteractionActions}"
+                            SelectedItem="{Binding SelectedBehaviorActionEditor, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel Spacing="6"
+                            IsVisible="{Binding SelectedBehaviorUsesTargetScene}">
+                  <TextBlock Classes="micro-label"
+                             Text="Target scene" />
+                  <ComboBox ItemsSource="{Binding Scenes}"
+                            SelectedItem="{Binding SelectedBehaviorTargetScene, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:SceneViewModel">
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+
+                <StackPanel Spacing="6"
+                            IsVisible="{Binding SelectedBehaviorUsesTargetFrameLabel}">
+                  <TextBlock Classes="micro-label"
+                             Text="Target frame label" />
+                  <TextBox Text="{Binding SelectedBehaviorTargetFrameLabelEditor, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel Spacing="6"
+                            IsVisible="{Binding SelectedBehaviorUsesTargetLayer}">
+                  <TextBlock Classes="micro-label"
+                             Text="Target layer" />
+                  <ComboBox ItemsSource="{Binding Layers}"
+                            SelectedItem="{Binding SelectedBehaviorTargetLayer, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LayerViewModel">
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+
+                <StackPanel Spacing="6"
+                            IsVisible="{Binding SelectedBehaviorUsesButtonState}">
+                  <TextBlock Classes="micro-label"
+                             Text="Button state" />
+                  <ComboBox ItemsSource="{Binding AvailableButtonStates}"
+                            SelectedItem="{Binding SelectedBehaviorTargetButtonStateEditor, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel Spacing="6"
+                            IsVisible="{Binding SelectedBehaviorUsesBoolValue}">
+                  <CheckBox Content="Show target layer"
+                            IsChecked="{Binding SelectedBehaviorBoolValueEditor, Mode=TwoWay}" />
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,*"
+                      ColumnSpacing="10"
+                      IsVisible="{Binding SelectedBehaviorUsesVariable}">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Variable" />
+                    <TextBox Text="{Binding SelectedBehaviorVariableNameEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Value" />
+                    <TextBox Text="{Binding SelectedBehaviorVariableValueEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="eyebrow"
+                         Text="Actions" />
+              <TextBlock Classes="section-title"
+                         Text="Frame scripts and behavior code" />
+
+              <Border Classes="panel-soft"
+                      IsEnabled="{Binding CanEditCurrentFrameActionScript}">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Current frame action" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding CurrentFrameActionSummary}"
+                             TextWrapping="Wrap" />
+                  <TextBox Text="{Binding FrameActionScriptEditor, Mode=TwoWay}"
+                           AcceptsReturn="True"
+                           Height="132"
+                           TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel-soft"
+                      IsEnabled="{Binding CanEditSelectedBehaviorScript}">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Selected behavior script" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding SelectedBehaviorScriptSummary}"
+                             TextWrapping="Wrap" />
+                  <TextBox Text="{Binding SelectedBehaviorScriptEditor, Mode=TwoWay}"
+                           AcceptsReturn="True"
+                           Height="148"
+                           TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel-soft">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="eyebrow"
+                             Text="Command set" />
+                  <TextBlock Classes="micro-label"
+                             Text='play, stop, goto_scene "Scene", goto_label "Label", goto_frame 24, show "Layer", hide "Layer", set_var score 10, set_text "Layer" "HELLO", set_button "Layer" Over, trace "message"'
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
             </StackPanel>
           </Border>
 
@@ -475,6 +1837,68 @@
                           SelectedItem="{Binding SelectedKeyframeEasing, Mode=TwoWay}"
                           IsEnabled="{Binding CanDeleteSelectedKeyframe}" />
               </StackPanel>
+              <Border Classes="panel-soft"
+                      IsVisible="{Binding HasSelectedCustomEasing}">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Custom Curve" />
+                  <controls:EasingCurveEditorControl Height="220"
+                                                    ControlPoint1X="{Binding CustomEaseControl1X, Mode=TwoWay}"
+                                                    ControlPoint1Y="{Binding CustomEaseControl1Y, Mode=TwoWay}"
+                                                    ControlPoint2X="{Binding CustomEaseControl2X, Mode=TwoWay}"
+                                                    ControlPoint2Y="{Binding CustomEaseControl2Y, Mode=TwoWay}"
+                                                    IsEnabled="{Binding CanEditCustomEasingCurve}" />
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10"
+                        RowDefinitions="Auto,Auto">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Handle A X" />
+                      <TextBox Text="{Binding CustomEaseControl1X, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Handle A Y" />
+                      <TextBox Text="{Binding CustomEaseControl1Y, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Handle B X" />
+                      <TextBox Text="{Binding CustomEaseControl2X, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1"
+                                Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Handle B Y" />
+                      <TextBox Text="{Binding CustomEaseControl2Y, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                </StackPanel>
+              </Border>
+              <Border Classes="panel-soft"
+                      IsVisible="{Binding SelectedLayerIsPath}">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Shape Tween" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding ShapeTweenSummary}"
+                             TextWrapping="Wrap" />
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <Button Content="Capture Morph Key"
+                            Command="{Binding CaptureShapeKeyframeCommand}"
+                            IsEnabled="{Binding CanCaptureShapeKeyframe}" />
+                    <Button Grid.Column="1"
+                            Content="Delete Morph Key"
+                            Classes="warm"
+                            Command="{Binding DeleteCurrentShapeKeyframeCommand}"
+                            IsEnabled="{Binding CanDeleteCurrentShapeKeyframe}" />
+                  </Grid>
+                </StackPanel>
+              </Border>
               <Border Classes="panel-soft">
                 <StackPanel Spacing="4">
                   <TextBlock Classes="eyebrow"
@@ -485,12 +1909,17 @@
                 </StackPanel>
               </Border>
               <TextBlock Classes="micro-label"
+                         Text="Selecting a layer on the stage now reveals its motion path and animated waypoints directly on the canvas."
+                         TextWrapping="Wrap" />
+              <TextBlock Classes="micro-label"
                          Text="Sequence rendering exports 30 fps PNG frames to the selected folder."
                          TextWrapping="Wrap" />
             </StackPanel>
           </Border>
-        </StackPanel>
-      </ScrollViewer>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+      </TabControl>
     </Grid>
   </Grid>
 </Window>
