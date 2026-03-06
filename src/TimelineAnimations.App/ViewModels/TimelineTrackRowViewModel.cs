@@ -60,6 +60,8 @@ public partial class TimelineTrackRowViewModel : ViewModelBase
     public void LoadFromLayer(
         TimelineLayer layer,
         double time,
+        double frameRate,
+        int totalFrames,
         Guid? selectedLayerId,
         AnimatedProperty selectedProperty,
         Guid? selectedKeyframeId,
@@ -71,7 +73,7 @@ public partial class TimelineTrackRowViewModel : ViewModelBase
         IsSelected = selectedLayerId == layer.Id && selectedProperty == Property;
         IsLocked = layer.IsLocked;
         IsFirstForLayer = firstForLayer;
-        CurrentValue = TimelineInterpolationService.SampleProperty(layer, Property, time);
+        CurrentValue = FrameTimelineService.SampleProperty(layer, Property, time, frameRate, totalFrames);
         OnPropertyChanged(nameof(CurrentValueLabel));
 
         Keyframes.Clear();
@@ -88,9 +90,9 @@ public partial class TimelineTrackRowViewModel : ViewModelBase
         }
     }
 
-    public void RefreshCurrentValue(TimelineLayer layer, double time)
+    public void RefreshCurrentValue(TimelineLayer layer, double time, double frameRate, int totalFrames)
     {
-        CurrentValue = TimelineInterpolationService.SampleProperty(layer, Property, time);
+        CurrentValue = FrameTimelineService.SampleProperty(layer, Property, time, frameRate, totalFrames);
         OnPropertyChanged(nameof(CurrentValueLabel));
     }
 

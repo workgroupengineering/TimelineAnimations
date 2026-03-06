@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\TimelineAnimations.App\TimelineAnimations.App.csproj" />
     <ProjectReference Include="..\..\src\TimelineAnimations.Core\TimelineAnimations.Core.csproj" />
   </ItemGroup>
 

@@ -1,8 +1,5 @@
-using System.Globalization;
 using Avalonia;
-using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using TimelineAnimations.App.Helpers;
 using TimelineAnimations.Core.Models;
 using TimelineAnimations.Core.Services;
 
@@ -12,7 +9,7 @@ public static class FrameExportService
 {
     public static async Task ExportFrameAsync(TimelineDocument document, double time, Stream stream, CancellationToken cancellationToken = default)
     {
-        using var bitmap = RenderFrame(document, time);
+        using var bitmap = RenderFrameBitmap(document, time);
         bitmap.Save(stream);
         await stream.FlushAsync(cancellationToken);
     }
@@ -20,20 +17,32 @@ public static class FrameExportService
     public static async Task<int> ExportSequenceAsync(
         TimelineDocument document,
         string folderPath,
-        double framesPerSecond = 30,
+        double framesPerSecond = 0,
+        bool playAllScenes = false,
+        int outputWidth = 0,
+        int outputHeight = 0,
+        bool transparentBackground = false,
         CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(folderPath);
 
-        var frameCount = Math.Max(1, (int)Math.Ceiling(document.Duration * framesPerSecond) + 1);
+        var exportFrameRate = GetPlaybackFrameRate(document, framesPerSecond);
+        var frameCount = GetFrameCount(document, exportFrameRate, playAllScenes);
         for (var frame = 0; frame < frameCount; frame++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var time = Math.Min(frame / framesPerSecond, document.Duration);
+            var time = Math.Min(frame / exportFrameRate, GetPlaybackDuration(document, playAllScenes));
             var filePath = Path.Combine(folderPath, $"frame_{frame:0000}.png");
 
             await using var stream = File.Create(filePath);
-            using var bitmap = RenderFrame(document, time);
+            using var bitmap = RenderFrameBitmap(
+                document,
+                time,
+                outputWidth,
+                outputHeight,
+                exportFrameRate,
+                playAllScenes,
+                transparentBackground);
             bitmap.Save(stream);
             await stream.FlushAsync(cancellationToken);
         }
@@ -41,125 +50,161 @@ public static class FrameExportService
         return frameCount;
     }
 
-    private static RenderTargetBitmap RenderFrame(TimelineDocument document, double time)
+    public static async Task<int> ExportProjectSequenceAsync(
+        TimelineDocument document,
+        string folderPath,
+        double framesPerSecond = 0,
+        CancellationToken cancellationToken = default)
     {
-        var pixelSize = new PixelSize(
-            Math.Max(1, (int)Math.Ceiling(document.CanvasWidth)),
-            Math.Max(1, (int)Math.Ceiling(document.CanvasHeight)));
+        Directory.CreateDirectory(folderPath);
+        SceneEditingService.EnsureScenes(document);
 
-        var bitmap = new RenderTargetBitmap(pixelSize, new Vector(96, 96));
-        using var context = bitmap.CreateDrawingContext(true);
-
-        var stageRect = new Rect(0, 0, document.CanvasWidth, document.CanvasHeight);
-        DrawBackground(context, stageRect, document);
-
-        foreach (var layer in document.Layers.OrderBy(item => item.ZIndex))
+        var sceneCount = 0;
+        foreach (var scene in document.Scenes)
         {
-            if (!layer.IsVisible)
-            {
-                continue;
-            }
-
-            DrawLayer(context, layer, time);
+            cancellationToken.ThrowIfCancellationRequested();
+            var sceneFolderName = $"{sceneCount + 1:00}_{SanitizeFileName(scene.Name)}";
+            var sceneFolderPath = Path.Combine(folderPath, sceneFolderName);
+            await ExportSequenceAsync(
+                BuildSceneDocument(document, scene),
+                sceneFolderPath,
+                framesPerSecond,
+                playAllScenes: false,
+                cancellationToken: cancellationToken);
+            sceneCount++;
         }
 
+        return sceneCount;
+    }
+
+    public static RenderTargetBitmap RenderFrameBitmap(
+        TimelineDocument document,
+        double time,
+        int outputWidth = 0,
+        int outputHeight = 0,
+        double framesPerSecond = 0,
+        bool playAllScenes = false,
+        bool transparentBackground = false)
+    {
+        SceneEditingService.EnsureScenes(document);
+        var playbackFrame = ResolvePlaybackFrame(document, time, playAllScenes);
+        var sourceWidth = Math.Max(1, (int)Math.Round(playbackFrame.Scene.CanvasWidth));
+        var sourceHeight = Math.Max(1, (int)Math.Round(playbackFrame.Scene.CanvasHeight));
+        var targetWidth = outputWidth > 0 ? outputWidth : sourceWidth;
+        var targetHeight = outputHeight > 0 ? outputHeight : sourceHeight;
+
+        using var rendered = RenderSceneBitmap(document, playbackFrame.Scene, playbackFrame.LocalTime, transparentBackground);
+        var bitmap = new RenderTargetBitmap(new PixelSize(targetWidth, targetHeight), new Vector(96, 96));
+        using var context = bitmap.CreateDrawingContext(transparentBackground);
+        context.DrawImage(rendered, new Rect(0, 0, targetWidth, targetHeight));
         return bitmap;
     }
 
-    private static void DrawBackground(DrawingContext context, Rect stageRect, TimelineDocument document)
+    public static double GetPlaybackDuration(TimelineDocument document, bool playAllScenes)
     {
-        var stageBrush = new LinearGradientBrush
+        SceneEditingService.EnsureScenes(document);
+        if (!playAllScenes)
         {
-            StartPoint = new RelativePoint(0.15, 0, RelativeUnit.Relative),
-            EndPoint = new RelativePoint(0.9, 1, RelativeUnit.Relative),
-            GradientStops =
-            [
-                new GradientStop(ColorHelpers.Parse(document.BackgroundFrom, "#09111F"), 0),
-                new GradientStop(ColorHelpers.Parse(document.BackgroundTo, "#182748"), 1)
-            ]
+            return GetActiveScene(document)?.Duration ?? document.Duration;
+        }
+
+        return Math.Max(0.1d, document.Scenes.Sum(scene => Math.Max(0.1d, scene.Duration)));
+    }
+
+    public static double GetPlaybackFrameRate(TimelineDocument document, double framesPerSecond = 0)
+    {
+        if (framesPerSecond > 0d)
+        {
+            return framesPerSecond;
+        }
+
+        SceneEditingService.EnsureScenes(document);
+        return GetActiveScene(document)?.FrameRate
+            ?? document.Scenes.FirstOrDefault()?.FrameRate
+            ?? 24d;
+    }
+
+    public static int GetFrameCount(TimelineDocument document, double framesPerSecond = 0, bool playAllScenes = false)
+    {
+        var frameRate = GetPlaybackFrameRate(document, framesPerSecond);
+        var duration = GetPlaybackDuration(document, playAllScenes);
+        return Math.Max(1, (int)Math.Ceiling(duration * frameRate) + 1);
+    }
+
+    private static WriteableBitmap RenderSceneBitmap(TimelineDocument document, SceneModel scene, double time, bool transparentBackground)
+    {
+        var stageRect = new Rect(0, 0, scene.CanvasWidth, scene.CanvasHeight);
+        var sceneDocument = BuildSceneDocument(document, scene);
+        var state = CompositeFrameRenderer.BuildSceneState(
+            sceneDocument,
+            scene.Layers,
+            time,
+            scene.Duration,
+            scene.FrameRate,
+            stageRect.Width,
+            stageRect.Height,
+            scene.BackgroundFrom,
+            scene.BackgroundTo);
+        return CompositeFrameRenderer.RenderBitmap(state, includeBackground: !transparentBackground);
+    }
+
+    private static TimelineDocument BuildSceneDocument(TimelineDocument document, SceneModel scene)
+    {
+        return new TimelineDocument
+        {
+            Name = document.Name,
+            Duration = scene.Duration,
+            CanvasWidth = scene.CanvasWidth,
+            CanvasHeight = scene.CanvasHeight,
+            BackgroundFrom = scene.BackgroundFrom,
+            BackgroundTo = scene.BackgroundTo,
+            ActiveSceneId = scene.Id,
+            Scenes = [DocumentSerializer.Clone(scene)],
+            LibraryItems = [.. document.LibraryItems.Select(DocumentSerializer.Clone)],
+            MediaAssets = [.. document.MediaAssets.Select(DocumentSerializer.Clone)],
+            PublishProfiles = [.. document.PublishProfiles.Select(DocumentSerializer.Clone)],
+            Layers = [.. scene.Layers.Select(DocumentSerializer.Clone)]
         };
-
-        context.DrawRectangle(stageBrush, null, stageRect);
-        context.DrawEllipse(new SolidColorBrush(Color.FromArgb(30, 36, 229, 193)), null, new Point(stageRect.Width * 0.22, stageRect.Height * 0.2), 150, 120);
-        context.DrawEllipse(new SolidColorBrush(Color.FromArgb(24, 255, 138, 76)), null, new Point(stageRect.Width * 0.84, stageRect.Height * 0.76), 170, 130);
     }
 
-    private static void DrawLayer(DrawingContext context, TimelineLayer layer, double time)
+    private static PlaybackFrame ResolvePlaybackFrame(TimelineDocument document, double time, bool playAllScenes)
     {
-        var snapshot = TimelineInterpolationService.SampleLayer(layer, time);
-        var rect = new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height);
-        var fillColor = ApplyAlpha(ColorHelpers.Parse(snapshot.Fill), (byte)(Math.Clamp(snapshot.Opacity, 0, 1) * 255));
-        var glowBrush = new SolidColorBrush(ApplyAlpha(fillColor, 32));
-        var fillBrush = new SolidColorBrush(fillColor);
-        var strokeBrush = new SolidColorBrush(ApplyAlpha(ColorHelpers.Parse(snapshot.Stroke), (byte)(Math.Clamp(snapshot.Opacity, 0, 1) * 220)));
-
-        context.DrawRectangle(glowBrush, null, rect.Inflate(10), snapshot.CornerRadius + 10, snapshot.CornerRadius + 10);
-
-        switch (layer.Kind)
+        SceneEditingService.EnsureScenes(document);
+        var scenes = document.Scenes;
+        if (!playAllScenes || scenes.Count == 0)
         {
-            case LayerKind.Rectangle:
-                using (PushRotation(context, rect, snapshot.Rotation))
-                {
-                    context.DrawRectangle(fillBrush, new Pen(strokeBrush, 1.4), rect, snapshot.CornerRadius, snapshot.CornerRadius);
-                }
-
-                break;
-            case LayerKind.Ellipse:
-                using (PushRotation(context, rect, snapshot.Rotation))
-                {
-                    context.DrawEllipse(fillBrush, new Pen(strokeBrush, 1.4), rect.Center, rect.Width / 2, rect.Height / 2);
-                }
-
-                break;
-            case LayerKind.Text:
-                context.DrawRectangle(new SolidColorBrush(ApplyAlpha(Color.Parse("#102038"), (byte)(Math.Clamp(snapshot.Opacity, 0, 1) * 180))), new Pen(new SolidColorBrush(Color.Parse("#385886")), 1), rect, 24, 24);
-                DrawText(context, rect, snapshot.Text, snapshot.Fill, snapshot.FontSize);
-                break;
-        }
-    }
-
-    private static void DrawText(DrawingContext context, Rect rect, string text, string fill, double fontSize)
-    {
-        var formattedText = new FormattedText(
-            text,
-            CultureInfo.InvariantCulture,
-            FlowDirection.LeftToRight,
-            new Typeface(FontFamily.Default),
-            Math.Max(14, fontSize),
-            ColorHelpers.Brush(fill, "#FFFFFF"));
-
-        var point = new Point(rect.X + 22, rect.Y + Math.Max(16, (rect.Height - formattedText.Height) / 2));
-        context.DrawText(formattedText, point);
-    }
-
-    private static Color ApplyAlpha(Color color, byte alpha)
-    {
-        return Color.FromArgb(alpha, color.R, color.G, color.B);
-    }
-
-    private static IDisposable PushRotation(DrawingContext context, Rect rect, double angle)
-    {
-        if (Math.Abs(angle) < 0.01d)
-        {
-            return EmptyDisposable.Instance;
+            var activeScene = GetActiveScene(document) ?? scenes.First();
+            return new PlaybackFrame(activeScene, TimelineMath.Clamp(time, 0d, activeScene.Duration));
         }
 
-        var radians = angle * Math.PI / 180d;
-        var center = rect.Center;
-        var matrix =
-            Matrix.CreateTranslation(-center.X, -center.Y) *
-            Matrix.CreateRotation(radians) *
-            Matrix.CreateTranslation(center.X, center.Y);
-
-        return context.PushTransform(matrix);
-    }
-
-    private sealed class EmptyDisposable : IDisposable
-    {
-        public static readonly EmptyDisposable Instance = new();
-
-        public void Dispose()
+        var remaining = Math.Max(0d, time);
+        foreach (var scene in scenes)
         {
+            var duration = Math.Max(0.1d, scene.Duration);
+            if (remaining <= duration)
+            {
+                return new PlaybackFrame(scene, TimelineMath.Clamp(remaining, 0d, duration));
+            }
+
+            remaining -= duration;
         }
+
+        var lastScene = scenes[^1];
+        return new PlaybackFrame(lastScene, lastScene.Duration);
     }
+
+    private static SceneModel? GetActiveScene(TimelineDocument document)
+    {
+        return document.Scenes.FirstOrDefault(scene => scene.Id == document.ActiveSceneId)
+            ?? document.Scenes.FirstOrDefault();
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var sanitized = new string(value.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray());
+        return string.IsNullOrWhiteSpace(sanitized) ? "scene" : sanitized;
+    }
+
+    private readonly record struct PlaybackFrame(SceneModel Scene, double LocalTime);
 }

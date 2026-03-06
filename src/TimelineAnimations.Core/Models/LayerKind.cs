@@ -4,5 +4,8 @@ public enum LayerKind
 {
     Rectangle,
     Ellipse,
-    Text
+    Text,
+    Path,
+    Video,
+    Audio
 }

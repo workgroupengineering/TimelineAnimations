@@ -57,9 +57,35 @@ public partial class PropertyTrackViewModel : ViewModelBase
         OnPropertyChanged(nameof(CurrentValueLabel));
     }
 
+    public void LoadFromLayer(TimelineLayer layer, double time, double frameRate, int totalFrames, Guid? selectedKeyframeId)
+    {
+        CurrentValue = FrameTimelineService.SampleProperty(layer, Property, time, frameRate, totalFrames);
+        Keyframes.Clear();
+
+        var track = layer.Tracks.FirstOrDefault(item => item.Property == Property);
+        if (track is not null)
+        {
+            foreach (var keyframe in track.Keyframes.OrderBy(item => item.Time))
+            {
+                Keyframes.Add(new KeyframeViewModel(keyframe)
+                {
+                    IsSelected = keyframe.Id == selectedKeyframeId
+                });
+            }
+        }
+
+        OnPropertyChanged(nameof(CurrentValueLabel));
+    }
+
     public void RefreshCurrentValue(TimelineLayer layer, double time)
     {
         CurrentValue = TimelineInterpolationService.SampleProperty(layer, Property, time);
+        OnPropertyChanged(nameof(CurrentValueLabel));
+    }
+
+    public void RefreshCurrentValue(TimelineLayer layer, double time, double frameRate, int totalFrames)
+    {
+        CurrentValue = FrameTimelineService.SampleProperty(layer, Property, time, frameRate, totalFrames);
         OnPropertyChanged(nameof(CurrentValueLabel));
     }
 

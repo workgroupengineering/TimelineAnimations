@@ -20,6 +20,9 @@ public static class TimelineEditingService
             LayerKind.Rectangle => new LayerDefaults { X = x, Y = y, Width = 240, Height = 152, Opacity = 1 },
             LayerKind.Ellipse => new LayerDefaults { X = x, Y = y, Width = 184, Height = 184, Opacity = 0.9 },
             LayerKind.Text => new LayerDefaults { X = x, Y = y, Width = 360, Height = 92, Opacity = 1 },
+            LayerKind.Path => new LayerDefaults { X = x, Y = y, Width = 240, Height = 120, Opacity = 1 },
+            LayerKind.Video => new LayerDefaults { X = x, Y = y, Width = 420, Height = 236, Opacity = 1 },
+            LayerKind.Audio => new LayerDefaults { X = 0, Y = 0, Width = 0, Height = 0, Opacity = 1 },
             _ => new LayerDefaults { X = x, Y = y }
         };
 
@@ -27,9 +30,15 @@ public static class TimelineEditingService
         {
             Fill = fill,
             Stroke = "#FFFFFF",
+            StrokeThickness = kind == LayerKind.Path ? 3.2d : 1.6d,
             Text = kind == LayerKind.Text ? text : string.Empty,
             FontSize = kind == LayerKind.Text ? 48 : 42,
-            CornerRadius = kind == LayerKind.Rectangle ? 28 : 999
+            CornerRadius = kind is LayerKind.Rectangle or LayerKind.Video ? 28 : 999,
+            GradientFrom = fill,
+            GradientTo = "#FFFFFF",
+            PathPoints = kind == LayerKind.Path
+                ? [new VectorPointModel { X = 0, Y = 1 }, new VectorPointModel { X = 1, Y = 0 }]
+                : []
         };
 
         return new TimelineLayer
@@ -41,6 +50,123 @@ public static class TimelineEditingService
             Style = style,
             Tracks = CreateDefaultTracks(defaults)
         };
+    }
+
+    public static TimelineLayer CreatePathLayer(
+        string name,
+        string fill,
+        string stroke,
+        IEnumerable<VectorPointModel> points,
+        bool isClosed,
+        int zIndex,
+        double strokeThickness,
+        bool useGradient = false,
+        string? gradientFrom = null,
+        string? gradientTo = null)
+    {
+        var (defaults, pathPoints) = VectorPathService.CreateLayerGeometry(points);
+        var style = new LayerStyle
+        {
+            Fill = fill,
+            Stroke = stroke,
+            StrokeThickness = Math.Max(1d, strokeThickness),
+            Text = string.Empty,
+            FontSize = 42,
+            CornerRadius = 0,
+            UseGradient = useGradient,
+            GradientFrom = string.IsNullOrWhiteSpace(gradientFrom) ? fill : gradientFrom!,
+            GradientTo = string.IsNullOrWhiteSpace(gradientTo) ? stroke : gradientTo!,
+            IsClosed = isClosed,
+            PathPoints = pathPoints
+        };
+
+        return new TimelineLayer
+        {
+            Name = name,
+            Kind = LayerKind.Path,
+            ZIndex = zIndex,
+            Defaults = defaults,
+            Style = style,
+            Tracks = CreateDefaultTracks(defaults)
+        };
+    }
+
+    public static TimelineLayer CreateCameraLayer(string name, double canvasWidth, double canvasHeight, int zIndex)
+    {
+        var defaults = new LayerDefaults
+        {
+            X = 0,
+            Y = 0,
+            Width = Math.Max(320d, canvasWidth),
+            Height = Math.Max(180d, canvasHeight),
+            Rotation = 0,
+            Opacity = 1
+        };
+
+        return new TimelineLayer
+        {
+            Name = name,
+            Kind = LayerKind.Rectangle,
+            ZIndex = zIndex,
+            Defaults = defaults,
+            Style = new LayerStyle
+            {
+                Fill = "#15223A",
+                Stroke = "#FFD166",
+                StrokeThickness = 2.4d,
+                CornerRadius = 28d
+            },
+            Compositing = new LayerCompositeSettings
+            {
+                Role = LayerCompositeRole.Camera
+            },
+            Tracks = CreateDefaultTracks(defaults)
+        };
+    }
+
+    public static TimelineLayer CreateVideoLayer(MediaAsset asset, double x, double y, int zIndex, double startTime)
+    {
+        var aspectWidth = asset.Width > 0 ? asset.Width : 640;
+        var aspectHeight = asset.Height > 0 ? asset.Height : 360;
+        var targetWidth = Math.Min(520d, aspectWidth);
+        var targetHeight = Math.Max(120d, targetWidth * (aspectHeight / (double)Math.Max(1, aspectWidth)));
+        var layer = CreateLayer(LayerKind.Video, asset.Name, asset.PreviewFill, string.Empty, x, y, zIndex);
+        layer.Defaults.Width = targetWidth;
+        layer.Defaults.Height = targetHeight;
+        layer.Style.Fill = asset.PreviewFill;
+        layer.Style.Stroke = asset.PreviewAccent;
+        layer.Style.CornerRadius = 24d;
+        layer.Media = new LayerMediaSettings
+        {
+            SourceMediaAssetId = asset.Id,
+            PlaybackMode = MediaPlaybackMode.Stream,
+            StartTime = Math.Max(0d, startTime),
+            ClipDuration = Math.Max(0.1d, asset.Duration),
+            ClipOffset = 0d,
+            Loop = false,
+            Volume = 1d
+        };
+        layer.Tracks = CreateDefaultTracks(layer.Defaults);
+        return layer;
+    }
+
+    public static TimelineLayer CreateAudioLayer(MediaAsset asset, int zIndex, double startTime)
+    {
+        var layer = CreateLayer(LayerKind.Audio, asset.Name, asset.PreviewFill, string.Empty, 0, 0, zIndex);
+        layer.Style.Fill = asset.PreviewFill;
+        layer.Style.Stroke = asset.PreviewAccent;
+        layer.Media = new LayerMediaSettings
+        {
+            SourceMediaAssetId = asset.Id,
+            PlaybackMode = MediaPlaybackMode.Stream,
+            StartTime = Math.Max(0d, startTime),
+            ClipDuration = Math.Max(0.1d, asset.Duration),
+            ClipOffset = 0d,
+            Loop = false,
+            Volume = 1d
+        };
+        layer.Tracks = [];
+        return layer;
     }
 
     public static TimelineLayer DuplicateLayer(TimelineLayer source, int newZIndex)
@@ -59,6 +185,144 @@ public static class TimelineEditingService
         }
 
         return clone;
+    }
+
+    public static LibraryItem CreateLibraryItemFromLayer(TimelineLayer source, string name, SymbolKind symbolKind)
+    {
+        var symbolLayers = CreateSymbolTimelineFromLayer(source);
+        var template = BuildSymbolTemplate(symbolLayers, source.Kind, source.Style.Fill, name);
+
+        return new LibraryItem
+        {
+            Name = name,
+            SymbolKind = symbolKind,
+            Duration = GetTimelineDuration(symbolLayers),
+            FrameRate = 24,
+            Template = template,
+            Layers = symbolLayers,
+            ButtonStates = symbolKind == SymbolKind.Button
+                ? CreateDefaultButtonStates(symbolLayers)
+                : []
+        };
+    }
+
+    public static void AddLibraryItem(TimelineDocument document, LibraryItem item)
+    {
+        document.LibraryItems.Add(item);
+    }
+
+    public static void UpdateLibraryItemFromLayer(LibraryItem item, TimelineLayer source)
+    {
+        var symbolLayers = CreateSymbolTimelineFromLayer(source);
+        item.Duration = GetTimelineDuration(symbolLayers);
+        item.Template = BuildSymbolTemplate(symbolLayers, source.Kind, source.Style.Fill, item.Name);
+
+        if (item.SymbolKind == SymbolKind.Button)
+        {
+            EnsureButtonStates(item);
+            SetButtonStateLayers(item, ButtonVisualState.Up, symbolLayers);
+        }
+        else
+        {
+            item.Layers = symbolLayers;
+        }
+    }
+
+    public static TimelineLayer CreateLayerFromLibraryItem(LibraryItem item, double x, double y, int zIndex)
+    {
+        var layer = CloneLibraryTemplate(item.Template);
+        var offsetX = x - layer.Defaults.X;
+        var offsetY = y - layer.Defaults.Y;
+
+        OffsetAnimatedProperty(layer, AnimatedProperty.X, offsetX);
+        OffsetAnimatedProperty(layer, AnimatedProperty.Y, offsetY);
+
+        layer.Name = item.Name;
+        layer.ZIndex = zIndex;
+        layer.IsVisible = true;
+        layer.IsLocked = false;
+        layer.SourceLibraryItemId = item.Id;
+        layer.SymbolPlaybackMode = item.SymbolKind switch
+        {
+            SymbolKind.MovieClip => SymbolPlaybackMode.IndependentLoop,
+            _ => SymbolPlaybackMode.SceneTime
+        };
+        layer.SymbolPlaybackOffset = 0;
+        layer.SymbolLockedFrame = 0;
+        layer.SymbolButtonState = ButtonVisualState.Up;
+        layer.Behaviors = InteractionBehaviorService.CloneBehaviors(item.DefaultBehaviors);
+        return layer;
+    }
+
+    public static int SynchronizeLibraryItemInstances(TimelineDocument document, Guid libraryItemId)
+    {
+        var libraryItem = document.LibraryItems.FirstOrDefault(item => item.Id == libraryItemId);
+        if (libraryItem is null)
+        {
+            return 0;
+        }
+
+        var updated = 0;
+        foreach (var scene in document.Scenes)
+        {
+            updated += SynchronizeLibraryItemInstances(scene.Layers, libraryItem);
+        }
+
+        if (document.Scenes.Count == 0)
+        {
+            updated += SynchronizeLibraryItemInstances(document.Layers, libraryItem);
+        }
+
+        NormalizeZOrder(document);
+        return updated;
+    }
+
+    public static List<TimelineLayer> GetEditableSymbolLayers(LibraryItem item, ButtonVisualState state)
+    {
+        return CloneLayerGraph(GetSymbolLayers(item, state));
+    }
+
+    public static IReadOnlyList<TimelineLayer> GetSymbolLayers(LibraryItem item, ButtonVisualState state)
+    {
+        if (item.SymbolKind == SymbolKind.Button)
+        {
+            EnsureButtonStates(item);
+            return item.ButtonStates.First(buttonState => buttonState.State == state).Layers;
+        }
+
+        if (item.Layers.Count == 0)
+        {
+            item.Layers = [CloneLibraryTemplate(item.Template)];
+        }
+
+        return item.Layers;
+    }
+
+    public static void SetEditableSymbolLayers(
+        LibraryItem item,
+        IEnumerable<TimelineLayer> layers,
+        double duration,
+        double frameRate,
+        ButtonVisualState state)
+    {
+        var normalizedLayers = NormalizeSymbolLayers(layers);
+        item.Duration = Math.Max(0.1d, duration);
+        item.FrameRate = Math.Max(1, frameRate);
+        item.Template = BuildSymbolTemplate(
+            normalizedLayers,
+            normalizedLayers.FirstOrDefault()?.Kind ?? item.Template.Kind,
+            normalizedLayers.FirstOrDefault()?.Style.Fill ?? item.Template.Style.Fill,
+            item.Name);
+
+        if (item.SymbolKind == SymbolKind.Button)
+        {
+            EnsureButtonStates(item);
+            SetButtonStateLayers(item, state, normalizedLayers);
+        }
+        else
+        {
+            item.Layers = normalizedLayers;
+        }
     }
 
     public static void AddLayer(TimelineDocument document, TimelineLayer layer)
@@ -156,6 +420,91 @@ public static class TimelineEditingService
         }
 
         UpdateDefaultValue(layer, property, value);
+    }
+
+    public static ShapeKeyframeModel SetShapeKeyframe(
+        TimelineLayer layer,
+        double time,
+        IReadOnlyList<VectorPointModel> pathPoints,
+        bool isClosed,
+        double duration)
+    {
+        var clampedTime = TimelineMath.Clamp(time, 0, duration);
+        var existing = layer.ShapeKeyframes.FirstOrDefault(item => Math.Abs(item.Time - clampedTime) < TimeTolerance);
+        if (existing is not null)
+        {
+            existing.PathPoints = VectorPathService.ClonePoints(pathPoints);
+            existing.IsClosed = isClosed;
+            SortShapeKeyframes(layer);
+            return existing;
+        }
+
+        var shapeKeyframe = new ShapeKeyframeModel
+        {
+            Time = clampedTime,
+            IsClosed = isClosed,
+            PathPoints = VectorPathService.ClonePoints(pathPoints)
+        };
+        layer.ShapeKeyframes.Add(shapeKeyframe);
+        SortShapeKeyframes(layer);
+        return shapeKeyframe;
+    }
+
+    public static ShapeKeyframeModel CaptureShapeKeyframe(TimelineLayer layer, double time, double duration)
+    {
+        var sampled = TimelineInterpolationService.SamplePathGeometry(layer, time);
+        return SetShapeKeyframe(layer, time, sampled.PathPoints, sampled.IsClosed, duration);
+    }
+
+    public static bool ApplyPathPoint(
+        TimelineLayer layer,
+        int pointIndex,
+        VectorPointModel documentPoint,
+        LayerSnapshot snapshot,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathService.TryMovePoint(target.PathPoints, snapshot with { PathPoints = target.PathPoints }, pointIndex, documentPoint);
+        }
+
+        return VectorPathService.TryMovePoint(layer, snapshot, pointIndex, documentPoint);
+    }
+
+    public static bool ApplyPathClosed(TimelineLayer layer, bool isClosed, double time, bool createKeyframe, double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            target.IsClosed = isClosed;
+            return true;
+        }
+
+        if (layer.Style.IsClosed == isClosed)
+        {
+            return false;
+        }
+
+        layer.Style.IsClosed = isClosed;
+        return true;
+    }
+
+    public static bool RemoveShapeKeyframe(TimelineLayer layer, Guid keyframeId)
+    {
+        return layer.ShapeKeyframes.RemoveAll(item => item.Id == keyframeId) > 0;
     }
 
     public static void UpdateDefaultValue(TimelineLayer layer, AnimatedProperty property, double value)
@@ -276,8 +625,248 @@ public static class TimelineEditingService
         ];
     }
 
+    private static TimelineLayer CloneLibraryTemplate(TimelineLayer source)
+    {
+        var clone = DocumentSerializer.Clone(source);
+        clone.Id = Guid.NewGuid();
+        clone.SourceLibraryItemId = null;
+        clone.IsLocked = false;
+
+        foreach (var track in clone.Tracks)
+        {
+            foreach (var keyframe in track.Keyframes)
+            {
+                keyframe.Id = Guid.NewGuid();
+            }
+        }
+
+        return clone;
+    }
+
+    private static List<TimelineLayer> CreateSymbolTimelineFromLayer(TimelineLayer source)
+    {
+        return NormalizeSymbolLayers([CloneLibraryTemplate(source)]);
+    }
+
+    private static List<TimelineLayer> NormalizeSymbolLayers(IEnumerable<TimelineLayer> layers)
+    {
+        var clone = CloneLayerGraph(layers);
+        if (clone.Count == 0)
+        {
+            return [];
+        }
+
+        var minX = clone
+            .Select(layer => TimelineInterpolationService.SampleLayer(layer, 0))
+            .Min(snapshot => snapshot.X);
+        var minY = clone
+            .Select(layer => TimelineInterpolationService.SampleLayer(layer, 0))
+            .Min(snapshot => snapshot.Y);
+
+        foreach (var layer in clone)
+        {
+            OffsetAnimatedProperty(layer, AnimatedProperty.X, -minX);
+            OffsetAnimatedProperty(layer, AnimatedProperty.Y, -minY);
+        }
+
+        return clone;
+    }
+
+    private static List<TimelineLayer> CloneLayerGraph(IEnumerable<TimelineLayer> layers)
+    {
+        var clone = DocumentSerializer.Clone(layers.ToList());
+        foreach (var layer in clone)
+        {
+            layer.Id = Guid.NewGuid();
+            layer.SourceLibraryItemId = layer.SourceLibraryItemId;
+            foreach (var track in layer.Tracks)
+            {
+                foreach (var keyframe in track.Keyframes)
+                {
+                    keyframe.Id = Guid.NewGuid();
+                }
+            }
+        }
+
+        return clone;
+    }
+
+    private static TimelineLayer BuildSymbolTemplate(
+        IReadOnlyList<TimelineLayer> layers,
+        LayerKind fallbackKind,
+        string fallbackFill,
+        string name)
+    {
+        if (layers.Count == 0)
+        {
+            return CreateLayer(fallbackKind, name, fallbackFill, string.Empty, 0, 0, 0);
+        }
+
+        var snapshots = layers.Select(layer => TimelineInterpolationService.SampleLayer(layer, 0)).ToList();
+        var minX = snapshots.Min(snapshot => snapshot.X);
+        var minY = snapshots.Min(snapshot => snapshot.Y);
+        var maxRight = snapshots.Max(snapshot => snapshot.X + snapshot.Width);
+        var maxBottom = snapshots.Max(snapshot => snapshot.Y + snapshot.Height);
+        var first = layers[0];
+
+        var template = CreateLayer(
+            first.Kind,
+            name,
+            first.Style.Fill,
+            first.Style.Text,
+            0,
+            0,
+            0);
+        template.Defaults.X = 0;
+        template.Defaults.Y = 0;
+        template.Defaults.Width = Math.Max(24, maxRight - minX);
+        template.Defaults.Height = Math.Max(24, maxBottom - minY);
+        template.Defaults.Rotation = 0;
+        template.Defaults.Opacity = 1;
+        template.Style = DocumentSerializer.Clone(first.Style);
+        if (template.Kind == LayerKind.Text)
+        {
+            template.Style.Text = name;
+        }
+
+        template.Tracks = CreateDefaultTracks(template.Defaults);
+        return template;
+    }
+
+    private static double GetTimelineDuration(IEnumerable<TimelineLayer> layers)
+    {
+        var duration = layers
+            .SelectMany(layer => layer.Tracks)
+            .SelectMany(track => track.Keyframes)
+            .DefaultIfEmpty()
+            .Max(keyframe => keyframe?.Time ?? 0);
+        return Math.Max(0.1d, duration);
+    }
+
+    private static List<SymbolButtonStateModel> CreateDefaultButtonStates(IReadOnlyList<TimelineLayer> symbolLayers)
+    {
+        return
+        [
+            new SymbolButtonStateModel
+            {
+                State = ButtonVisualState.Up,
+                Layers = CloneLayerGraph(symbolLayers)
+            },
+            new SymbolButtonStateModel
+            {
+                State = ButtonVisualState.Over,
+                Layers = CloneLayerGraph(symbolLayers)
+            },
+            new SymbolButtonStateModel
+            {
+                State = ButtonVisualState.Down,
+                Layers = CloneLayerGraph(symbolLayers)
+            },
+            new SymbolButtonStateModel
+            {
+                State = ButtonVisualState.Hit,
+                Layers = CloneLayerGraph(symbolLayers)
+            }
+        ];
+    }
+
+    private static void EnsureButtonStates(LibraryItem item)
+    {
+        if (item.ButtonStates.Count == 0)
+        {
+            item.ButtonStates = CreateDefaultButtonStates(item.Layers.Count > 0 ? item.Layers : [CloneLibraryTemplate(item.Template)]);
+        }
+
+        foreach (var state in Enum.GetValues<ButtonVisualState>())
+        {
+            if (item.ButtonStates.Any(buttonState => buttonState.State == state))
+            {
+                continue;
+            }
+
+            var seed = item.ButtonStates.FirstOrDefault(buttonState => buttonState.State == ButtonVisualState.Up)?.Layers
+                ?? item.Layers;
+            item.ButtonStates.Add(new SymbolButtonStateModel
+            {
+                State = state,
+                Layers = CloneLayerGraph(seed)
+            });
+        }
+    }
+
+    private static void SetButtonStateLayers(LibraryItem item, ButtonVisualState state, IReadOnlyList<TimelineLayer> layers)
+    {
+        var targetState = item.ButtonStates.First(buttonState => buttonState.State == state);
+        targetState.Layers = CloneLayerGraph(layers);
+    }
+
+    private static int SynchronizeLibraryItemInstances(List<TimelineLayer> layers, LibraryItem libraryItem)
+    {
+        var updated = 0;
+        for (var index = 0; index < layers.Count; index++)
+        {
+            var layer = layers[index];
+            if (layer.SourceLibraryItemId != libraryItem.Id)
+            {
+                continue;
+            }
+
+            if (layer.Kind == libraryItem.Template.Kind)
+            {
+                layer.Style = DocumentSerializer.Clone(libraryItem.Template.Style);
+            }
+
+            if (libraryItem.IsComponent)
+            {
+                layer.Behaviors = InteractionBehaviorService.CloneBehaviors(libraryItem.DefaultBehaviors);
+            }
+
+            updated++;
+        }
+
+        return updated;
+    }
+
+    private static void OffsetAnimatedProperty(TimelineLayer layer, AnimatedProperty property, double delta)
+    {
+        if (Math.Abs(delta) < TimeTolerance)
+        {
+            return;
+        }
+
+        switch (property)
+        {
+            case AnimatedProperty.X:
+                layer.Defaults.X += delta;
+                break;
+            case AnimatedProperty.Y:
+                layer.Defaults.Y += delta;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(property), property, null);
+        }
+
+        var track = layer.Tracks.FirstOrDefault(item => item.Property == property);
+        if (track is null)
+        {
+            return;
+        }
+
+        foreach (var keyframe in track.Keyframes)
+        {
+            keyframe.Value += delta;
+        }
+
+        SortTrack(track);
+    }
+
     private static void SortTrack(LayerTrack track)
     {
         track.Keyframes.Sort(static (left, right) => left.Time.CompareTo(right.Time));
+    }
+
+    private static void SortShapeKeyframes(TimelineLayer layer)
+    {
+        layer.ShapeKeyframes.Sort(static (left, right) => left.Time.CompareTo(right.Time));
     }
 }

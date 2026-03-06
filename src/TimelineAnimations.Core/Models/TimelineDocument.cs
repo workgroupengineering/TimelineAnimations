@@ -14,5 +14,15 @@ public sealed class TimelineDocument
 
     public string BackgroundTo { get; set; } = "#171F3D";
 
+    public Guid? ActiveSceneId { get; set; }
+
+    public List<SceneModel> Scenes { get; set; } = [];
+
+    public List<LibraryItem> LibraryItems { get; set; } = [];
+
+    public List<MediaAsset> MediaAssets { get; set; } = [];
+
+    public List<PublishProfile> PublishProfiles { get; set; } = [];
+
     public List<TimelineLayer> Layers { get; set; } = [];
 }

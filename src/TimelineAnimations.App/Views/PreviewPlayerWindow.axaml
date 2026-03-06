@@ -1,0 +1,140 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TimelineAnimations.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="TimelineAnimations.App.Views.PreviewPlayerWindow"
+        x:DataType="vm:PreviewPlayerViewModel"
+        d:DesignWidth="1400"
+        d:DesignHeight="920"
+        Width="1400"
+        Height="920"
+        MinWidth="980"
+        MinHeight="680"
+        Title="{Binding Title}">
+
+  <Grid Margin="18"
+        RowDefinitions="Auto,*,Auto"
+        RowSpacing="18">
+    <Border Grid.Row="0"
+            Classes="panel">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="16">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="eyebrow"
+                     Text="Publish Preview" />
+          <TextBlock Classes="title"
+                     Text="{Binding Title}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding ProfileSummary}" />
+        </StackPanel>
+
+        <Border Grid.Column="1"
+                Classes="panel-soft"
+                Padding="14,10">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="eyebrow"
+                       Text="Scope" />
+            <TextBlock Classes="strong-label"
+                       Text="{Binding SceneScopeLabel}" />
+            <TextBlock Classes="micro-label"
+                       Text="{Binding CurrentTimeLabel}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1"
+          ColumnDefinitions="*,300"
+          ColumnSpacing="18">
+      <Border Classes="panel">
+        <Border Classes="panel-soft"
+                Background="#07101C"
+                BorderBrush="#27405F"
+                BorderThickness="1"
+                CornerRadius="28"
+                Padding="18">
+          <Image Source="{Binding FrameBitmap}"
+                 Stretch="Uniform"
+                 HorizontalAlignment="Stretch"
+                 VerticalAlignment="Stretch" />
+        </Border>
+      </Border>
+
+      <StackPanel Grid.Column="1"
+                  Spacing="18">
+        <Border Classes="panel">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="eyebrow"
+                       Text="Playback" />
+            <TextBlock Classes="section-title"
+                       Text="Transport" />
+            <Button Content="{Binding PlaybackButtonLabel}"
+                    Classes="accent"
+                    Command="{Binding TogglePlaybackCommand}" />
+            <Button Content="Stop"
+                    Command="{Binding StopPlaybackCommand}" />
+            <Button Content="Restart"
+                    Classes="warm"
+                    Command="{Binding RestartPlaybackCommand}" />
+            <CheckBox Content="Loop playback"
+                      IsChecked="{Binding LoopPlayback, Mode=TwoWay}" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="eyebrow"
+                       Text="Output" />
+            <TextBlock Classes="section-title"
+                       Text="Publish profile" />
+            <Border Classes="panel-soft">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="strong-label"
+                           Text="{Binding ProfileSummary}" />
+                <TextBlock Classes="micro-label"
+                           Text="{Binding SceneScopeLabel}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="panel-soft">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="eyebrow"
+                           Text="Frame rate" />
+                <TextBlock Classes="strong-label"
+                           Text="{Binding PlaybackFrameRate, StringFormat='{}{0:0.#} fps'}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="panel-soft">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="eyebrow"
+                           Text="Duration" />
+                <TextBlock Classes="strong-label"
+                           Text="{Binding Duration, StringFormat='{}{0:0.00}s'}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="2"
+            Classes="panel">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto"
+              ColumnSpacing="12">
+          <Slider Minimum="0"
+                  Maximum="{Binding Duration}"
+                  Value="{Binding CurrentTime, Mode=TwoWay}" />
+          <TextBlock Grid.Column="1"
+                     Classes="strong-label"
+                     VerticalAlignment="Center"
+                     Text="{Binding CurrentTimeLabel}" />
+        </Grid>
+        <TextBlock Classes="micro-label"
+                   Text="The preview player renders the selected publish profile directly from the live document snapshot, so framing, scene scope, and transparency match export settings."
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

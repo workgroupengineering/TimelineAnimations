@@ -23,15 +23,65 @@ public partial class LayerViewModel : ViewModelBase
 
     public LayerKind Kind => Model.Kind;
 
-    public string KindLabel => Kind switch
+    public LayerCompositeRole CompositeRole => Model.Compositing.Role;
+
+    public LayerBlendMode BlendMode => Model.Compositing.BlendMode;
+
+    public string RoleLabel => CompositeRole switch
     {
-        LayerKind.Rectangle => "Card",
-        LayerKind.Ellipse => "Orb",
-        LayerKind.Text => "Caption",
+        LayerCompositeRole.Mask => "Mask",
+        LayerCompositeRole.Guide => "Guide",
+        LayerCompositeRole.Camera => "Camera",
         _ => "Layer"
     };
 
-    public string Subtitle => $"{KindLabel} • {Math.Round(Width):0}×{Math.Round(Height):0}";
+    public string BlendModeLabel => BlendMode == LayerBlendMode.Normal
+        ? "Normal"
+        : BlendMode.ToString();
+
+    public string KindLabel => CompositeRole switch
+    {
+        LayerCompositeRole.Mask => "Mask",
+        LayerCompositeRole.Guide => "Guide",
+        LayerCompositeRole.Camera => "Camera",
+        _ => Kind switch
+        {
+            LayerKind.Rectangle => "Card",
+            LayerKind.Ellipse => "Orb",
+            LayerKind.Text => "Caption",
+            LayerKind.Path => "Vector",
+            LayerKind.Video => "Video",
+            LayerKind.Audio => "Audio",
+            _ => "Layer"
+        }
+    };
+
+    public string Subtitle
+    {
+        get
+        {
+            var sizeLabel = Kind == LayerKind.Path
+                ? $"{Model.Style.PathPoints.Count} pts • {Math.Round(Width):0}×{Math.Round(Height):0}"
+                : Kind == LayerKind.Audio
+                    ? $"{Math.Max(0.05d, Model.Media.ClipDuration):0.00}s • {Model.Media.PlaybackMode}"
+                : $"{Math.Round(Width):0}×{Math.Round(Height):0}";
+
+            return CompositeRole switch
+            {
+                LayerCompositeRole.Mask => $"{sizeLabel} • masks {Math.Max(1, Model.Compositing.MaskLayerCount)} layer(s)",
+                LayerCompositeRole.Guide => $"{sizeLabel} • stage guide",
+                LayerCompositeRole.Camera => $"{sizeLabel} • viewport",
+                _ when BlendMode != LayerBlendMode.Normal => $"{KindLabel} • {sizeLabel} • {BlendModeLabel}",
+                _ => $"{KindLabel} • {sizeLabel}"
+            };
+        }
+    }
+
+    public bool HasLibraryLink => !string.IsNullOrWhiteSpace(LibraryLinkLabel);
+
+    public bool IsRenderable => IsStageRenderable && IsVisible && IsFrameVisible;
+
+    public bool IsStageRenderable => MediaTimelineService.IsStageRenderable(Model);
 
     public string StateBadge
     {
@@ -39,20 +89,28 @@ public partial class LayerViewModel : ViewModelBase
         {
             if (IsLocked && !IsVisible)
             {
-                return "Hidden • Locked";
+                return CompositeRole == LayerCompositeRole.Normal
+                    ? "Hidden • Locked"
+                    : $"{RoleLabel} • Hidden • Locked";
             }
 
             if (IsLocked)
             {
-                return "Locked";
+                return CompositeRole == LayerCompositeRole.Normal
+                    ? "Locked"
+                    : $"{RoleLabel} • Locked";
             }
 
             if (!IsVisible)
             {
-                return "Hidden";
+                return CompositeRole == LayerCompositeRole.Normal
+                    ? "Hidden"
+                    : $"{RoleLabel} • Hidden";
             }
 
-            return "Visible";
+            return CompositeRole == LayerCompositeRole.Normal
+                ? "Visible"
+                : $"{RoleLabel} • Visible";
         }
     }
 
@@ -60,7 +118,13 @@ public partial class LayerViewModel : ViewModelBase
     private string name = string.Empty;
 
     [ObservableProperty]
+    private string libraryLinkLabel = string.Empty;
+
+    [ObservableProperty]
     private bool isVisible;
+
+    [ObservableProperty]
+    private bool isFrameVisible = true;
 
     [ObservableProperty]
     private bool isLocked;
@@ -121,11 +185,22 @@ public partial class LayerViewModel : ViewModelBase
         TextContent = Model.Style.Text;
         FontSize = Model.Style.FontSize;
         CornerRadius = Model.Style.CornerRadius;
-        FillBrush = ColorHelpers.Brush(FillHex, "#FFFFFF");
+        var previewFill = Model.Kind switch
+        {
+            LayerKind.Path => Model.Style.Stroke,
+            LayerKind.Audio or LayerKind.Video => Model.Style.Fill,
+            _ => Model.Style.UseGradient ? Model.Style.GradientFrom : FillHex
+        };
+        FillBrush = ColorHelpers.Brush(previewFill, "#FFFFFF");
         StrokeBrush = ColorHelpers.Brush(StrokeHex, "#FFFFFF");
         OnPropertyChanged(nameof(KindLabel));
+        OnPropertyChanged(nameof(RoleLabel));
+        OnPropertyChanged(nameof(BlendModeLabel));
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(StateBadge));
+        OnPropertyChanged(nameof(HasLibraryLink));
+        OnPropertyChanged(nameof(IsStageRenderable));
+        OnPropertyChanged(nameof(IsRenderable));
     }
 
     public void UpdatePreview(double time)
@@ -140,7 +215,78 @@ public partial class LayerViewModel : ViewModelBase
         CornerRadius = snapshot.CornerRadius;
         TextContent = snapshot.Text;
         FontSize = snapshot.FontSize;
+        IsFrameVisible = true;
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(StateBadge));
+        OnPropertyChanged(nameof(HasLibraryLink));
+        OnPropertyChanged(nameof(IsRenderable));
+    }
+
+    public void UpdatePreview(double time, double frameRate, int totalFrames)
+    {
+        var snapshot = FrameTimelineService.SampleLayer(Model, time, frameRate, totalFrames);
+        if (snapshot is null)
+        {
+            var fallback = TimelineInterpolationService.SampleLayer(Model, time);
+            X = fallback.X;
+            Y = fallback.Y;
+            Width = fallback.Width;
+            Height = fallback.Height;
+            Rotation = fallback.Rotation;
+            Opacity = fallback.Opacity;
+            CornerRadius = fallback.CornerRadius;
+            TextContent = fallback.Text;
+            FontSize = fallback.FontSize;
+            IsFrameVisible = false;
+            OnPropertyChanged(nameof(Subtitle));
+            OnPropertyChanged(nameof(IsRenderable));
+            return;
+        }
+
+        X = snapshot.Value.X;
+        Y = snapshot.Value.Y;
+        Width = snapshot.Value.Width;
+        Height = snapshot.Value.Height;
+        Rotation = snapshot.Value.Rotation;
+        Opacity = snapshot.Value.Opacity;
+        CornerRadius = snapshot.Value.CornerRadius;
+        TextContent = snapshot.Value.Text;
+        FontSize = snapshot.Value.FontSize;
+        IsFrameVisible = true;
+        OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(StateBadge));
+        OnPropertyChanged(nameof(HasLibraryLink));
+        OnPropertyChanged(nameof(IsRenderable));
+    }
+
+    public void SetLibraryLink(string? symbolName, SymbolKind? symbolKind)
+    {
+        LibraryLinkLabel = string.IsNullOrWhiteSpace(symbolName)
+            ? string.Empty
+            : symbolKind is null
+                ? symbolName
+                : $"{symbolName} • {symbolKind.Value switch
+                {
+                    SymbolKind.Graphic => "Graphic",
+                    SymbolKind.MovieClip => "Movie Clip",
+                    SymbolKind.Button => "Button",
+                    _ => symbolKind.Value.ToString()
+                }}";
+        OnPropertyChanged(nameof(HasLibraryLink));
+    }
+
+    public void SetMediaLink(string? mediaName, MediaAssetKind? mediaKind)
+    {
+        LibraryLinkLabel = string.IsNullOrWhiteSpace(mediaName)
+            ? string.Empty
+            : mediaKind is null
+                ? mediaName
+                : $"{mediaName} • {mediaKind.Value switch
+                {
+                    MediaAssetKind.Audio => "Audio Clip",
+                    MediaAssetKind.Video => "Video Clip",
+                    _ => mediaKind.Value.ToString()
+                }}";
+        OnPropertyChanged(nameof(HasLibraryLink));
     }
 }

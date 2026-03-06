@@ -7,5 +7,6 @@ public enum EasingKind
     EaseOut,
     EaseInOut,
     BackOut,
-    Hold
+    Hold,
+    Custom
 }

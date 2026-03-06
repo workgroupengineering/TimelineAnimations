@@ -6,6 +6,7 @@ public static class TimelineInterpolationService
 {
     public static LayerSnapshot SampleLayer(TimelineLayer layer, double time)
     {
+        var shapeGeometry = SamplePathGeometry(layer, time);
         return new LayerSnapshot(
             X: SampleProperty(layer, AnimatedProperty.X, time),
             Y: SampleProperty(layer, AnimatedProperty.Y, time),
@@ -17,7 +18,79 @@ public static class TimelineInterpolationService
             Fill: layer.Style.Fill,
             Stroke: layer.Style.Stroke,
             Text: layer.Style.Text,
-            FontSize: layer.Style.FontSize);
+            FontSize: layer.Style.FontSize,
+            StrokeThickness: layer.Style.StrokeThickness,
+            UseGradient: layer.Style.UseGradient,
+            GradientFrom: layer.Style.GradientFrom,
+            GradientTo: layer.Style.GradientTo,
+            IsClosed: shapeGeometry.IsClosed,
+            PathPoints: shapeGeometry.PathPoints,
+            Compositing: layer.Compositing.Clone());
+    }
+
+    public static (bool IsClosed, IReadOnlyList<VectorPointModel> PathPoints) SamplePathGeometry(TimelineLayer layer, double time)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return (layer.Style.IsClosed, VectorPathService.ClonePoints(layer.Style.PathPoints));
+        }
+
+        var ordered = layer.ShapeKeyframes
+            .OrderBy(item => item.Time)
+            .ToList();
+        if (ordered.Count == 0)
+        {
+            return (layer.Style.IsClosed, VectorPathService.ClonePoints(layer.Style.PathPoints));
+        }
+
+        ShapeKeyframeModel? previous = null;
+        ShapeKeyframeModel? next = null;
+        foreach (var keyframe in ordered)
+        {
+            if (keyframe.Time <= time)
+            {
+                previous = keyframe;
+            }
+
+            if (keyframe.Time >= time)
+            {
+                next = keyframe;
+                break;
+            }
+        }
+
+        if (previous is null)
+        {
+            var first = next!;
+            if (Math.Abs(first.Time) < 0.0001d || Math.Abs(first.Time - time) < 0.0001d)
+            {
+                return (first.IsClosed, VectorPathService.ClonePoints(first.PathPoints));
+            }
+
+            var defaultPoints = VectorPathService.ClonePoints(layer.Style.PathPoints);
+            if (CanInterpolate(defaultPoints, first.PathPoints))
+            {
+                var progress = first.Time < 0.0001d ? 1d : time / first.Time;
+                var eased = TimelineEasingService.Apply(first, progress);
+                return (ResolveClosedState(layer.Style.IsClosed, first.IsClosed, eased), InterpolatePathPoints(defaultPoints, first.PathPoints, eased));
+            }
+
+            return (layer.Style.IsClosed, defaultPoints);
+        }
+
+        if (next is null || ReferenceEquals(previous, next) || Math.Abs(next.Time - previous.Time) < 0.0001d)
+        {
+            return (previous.IsClosed, VectorPathService.ClonePoints(previous.PathPoints));
+        }
+
+        if (!CanInterpolate(previous.PathPoints, next.PathPoints))
+        {
+            return (previous.IsClosed, VectorPathService.ClonePoints(previous.PathPoints));
+        }
+
+        var morphProgress = (time - previous.Time) / (next.Time - previous.Time);
+        var easedProgress = TimelineEasingService.Apply(next, morphProgress);
+        return (ResolveClosedState(previous.IsClosed, next.IsClosed, easedProgress), InterpolatePathPoints(previous.PathPoints, next.PathPoints, easedProgress));
     }
 
     public static double SampleProperty(TimelineLayer layer, AnimatedProperty property, double time)
@@ -64,7 +137,7 @@ public static class TimelineInterpolationService
         }
 
         var progress = (time - previous.Time) / (next.Time - previous.Time);
-        var easedProgress = TimelineEasingService.Apply(next.Easing, progress);
+        var easedProgress = TimelineEasingService.Apply(next, progress);
         return previous.Value + ((next.Value - previous.Value) * easedProgress);
     }
 
@@ -80,5 +153,36 @@ public static class TimelineInterpolationService
             AnimatedProperty.Opacity => layer.Defaults.Opacity,
             _ => throw new ArgumentOutOfRangeException(nameof(property), property, null)
         };
+    }
+
+    private static bool CanInterpolate(IReadOnlyList<VectorPointModel> previous, IReadOnlyList<VectorPointModel> next)
+    {
+        return previous.Count > 0 && previous.Count == next.Count;
+    }
+
+    private static List<VectorPointModel> InterpolatePathPoints(IReadOnlyList<VectorPointModel> previous, IReadOnlyList<VectorPointModel> next, double progress)
+    {
+        var eased = TimelineMath.Clamp(progress, 0, 1);
+        var points = new List<VectorPointModel>(previous.Count);
+        for (var index = 0; index < previous.Count; index++)
+        {
+            points.Add(new VectorPointModel
+            {
+                X = previous[index].X + ((next[index].X - previous[index].X) * eased),
+                Y = previous[index].Y + ((next[index].Y - previous[index].Y) * eased)
+            });
+        }
+
+        return points;
+    }
+
+    private static bool ResolveClosedState(bool previous, bool next, double progress)
+    {
+        if (previous == next)
+        {
+            return previous;
+        }
+
+        return progress > 0.5d ? next : previous;
     }
 }

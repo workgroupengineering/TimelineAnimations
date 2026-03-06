@@ -496,7 +496,7 @@ public sealed class TimelineEditorControl : Control
         }
 
         var progress = (time - previous.Time) / (next.Time - previous.Time);
-        var easedProgress = TimelineEasingService.Apply(next.Easing, progress);
+        var easedProgress = TimelineEasingService.Apply(next.Model, progress);
         return previous.Value + ((next.Value - previous.Value) * easedProgress);
     }
 

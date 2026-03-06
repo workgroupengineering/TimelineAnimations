@@ -11,4 +11,11 @@ public readonly record struct LayerSnapshot(
     string Fill,
     string Stroke,
     string Text,
-    double FontSize);
+    double FontSize,
+    double StrokeThickness,
+    bool UseGradient,
+    string GradientFrom,
+    string GradientTo,
+    bool IsClosed,
+    IReadOnlyList<VectorPointModel> PathPoints,
+    LayerCompositeSettings Compositing);
