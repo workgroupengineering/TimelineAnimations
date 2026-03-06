@@ -20,24 +20,22 @@ This is not a goal to recreate SWF or the exact Flash runtime. The goal is a mod
 The app already has:
 
 - a WYSIWYG stage
-- rectangle, ellipse, text, and path/vector layers
-- keyframe tracks for transform and opacity
+- rectangle, ellipse, text, audio, video, and path/vector layers
+- keyframe tracks for transform, opacity, easing, and morph keys
 - direct canvas manipulation
 - playback, easing, custom bezier curves, and undo/redo
 - multi-layer timeline rows
 - reusable symbols and a library panel
 - scene-based authoring
 - frame spans, blank keys, frame labels, and onion skin
-- vector drawing tools with editable path points
+- vector drawing tools with editable path points and gradient styling
 - visible motion paths and path morph keyframes
-- PNG frame and sequence export
-
-The app does not yet have:
-
-- shape tweens and morph editing
-- masks, guide layers, or cameras
+- masks, guide layers, filters, color effects, and cameras
 - audio and video timeline tracks
-- scripting, components, or publish targets beyond image export
+- components, prototype behaviors, and lightweight action scripting
+- publish profiles, preview playback, and multi-format export
+
+The original Flash parity roadmap is complete through Phase 11. Follow-on work now continues in [Post Parity Roadmap](./plans/PostParityRoadmap.md).
 
 ## Flash Feature Inventory
 
@@ -371,7 +369,7 @@ Acceptance:
 
 ## Implementation Order
 
-The order is driven by dependency, not by visual appeal:
+The original order was driven by dependency, not by visual appeal:
 
 1. Library and symbol foundations
 2. Scenes
@@ -386,7 +384,7 @@ The order is driven by dependency, not by visual appeal:
 
 ## Immediate Execution Plan
 
-The first implementation slice should be:
+The first implementation slice for parity was:
 
 1. Add `LibraryItem` and `SymbolKind` to the core document.
 2. Link stage layers to optional symbol/library definitions.
