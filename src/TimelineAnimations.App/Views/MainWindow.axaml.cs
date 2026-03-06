@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using TimelineAnimations.App.Controls;
 using TimelineAnimations.App.Services;
@@ -10,6 +12,10 @@ namespace TimelineAnimations.App.Views;
 
 public partial class MainWindow : Window
 {
+    private bool _isTimelineResizeDragging;
+    private Point _timelineResizeOrigin;
+    private double _timelineResizeHeightOrigin;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -151,6 +157,59 @@ public partial class MainWindow : Window
         ViewModel?.SelectFrameRange(e.LayerId, e.StartFrame, e.EndFrame);
     }
 
+    private void CanvasFitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        SceneCanvas.ResetViewport();
+    }
+
+    private void CanvasActualSizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        SceneCanvas.ZoomToActualSize();
+    }
+
+    private void TimelineResizeGripPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (ViewModel is null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        _isTimelineResizeDragging = true;
+        _timelineResizeOrigin = e.GetPosition(this);
+        _timelineResizeHeightOrigin = ViewModel.TimelineDockHeight.Value;
+        e.Pointer.Capture(sender as IInputElement);
+        e.Handled = true;
+    }
+
+    private void TimelineResizeGripPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isTimelineResizeDragging || ViewModel is null)
+        {
+            return;
+        }
+
+        var deltaY = e.GetPosition(this).Y - _timelineResizeOrigin.Y;
+        ViewModel.SetTimelineDockHeightPixels(_timelineResizeHeightOrigin - deltaY);
+        e.Handled = true;
+    }
+
+    private void TimelineResizeGripPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isTimelineResizeDragging)
+        {
+            return;
+        }
+
+        _isTimelineResizeDragging = false;
+        e.Pointer.Capture(null);
+        e.Handled = true;
+    }
+
+    private void TimelineResizeGripPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        _isTimelineResizeDragging = false;
+    }
+
     private async void OpenDocumentClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (ViewModel is null || !StorageProvider.CanOpen)
@@ -180,6 +239,7 @@ public partial class MainWindow : Window
         await using var stream = await file.OpenReadAsync();
         var document = await DocumentSerializer.LoadAsync(stream);
         ViewModel.LoadDocument(document, file.Name);
+        SceneCanvas.ResetViewport();
     }
 
     private async void SaveDocumentClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

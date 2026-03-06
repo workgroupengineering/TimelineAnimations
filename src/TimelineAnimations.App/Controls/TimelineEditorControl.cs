@@ -13,9 +13,9 @@ namespace TimelineAnimations.App.Controls;
 
 public sealed class TimelineEditorControl : Control
 {
-    private const double LabelWidth = 168;
-    private const double HeaderHeight = 34;
-    private const double TrackHeight = 48;
+    private const double LabelWidth = 176;
+    private const double HeaderHeight = 38;
+    private const double TrackHeight = 58;
     private const double MarkerHalf = 7;
 
     private bool _isScrubbing;
@@ -225,7 +225,7 @@ public sealed class TimelineEditorControl : Control
         var headerRect = new Rect(rect.X, rect.Y, rect.Width, HeaderHeight);
         context.DrawRectangle(new SolidColorBrush(Color.Parse("#0C1524")), new Pen(new SolidColorBrush(Color.Parse("#223354")), 1), headerRect, 20, 20);
 
-        DrawLabel(context, "Property", new Point(18, 9), 13, Color.Parse("#B9C7E8"));
+        DrawLabel(context, "Property", new Point(18, 11), 13, Color.Parse("#B9C7E8"));
 
         var majorTickPen = new Pen(new SolidColorBrush(Color.Parse("#243757")), 1);
         for (var second = 0d; second <= Duration + 0.0001d; second += 0.5d)
@@ -241,7 +241,7 @@ public sealed class TimelineEditorControl : Control
 
             if (Math.Abs(second % 1) < 0.001)
             {
-                DrawLabel(context, $"{second:0.0}s", new Point(x + 6, 8), 12, Color.Parse("#8CA6D6"));
+                DrawLabel(context, $"{second:0.0}s", new Point(x + 6, 10), 12, Color.Parse("#8CA6D6"));
             }
         }
     }
@@ -276,24 +276,24 @@ public sealed class TimelineEditorControl : Control
 
             if (row.IsFirstForLayer)
             {
-                context.DrawRectangle(new SolidColorBrush(Color.Parse("#18263C")), null, new Rect(0, rowY, rect.Width, 6));
-                context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 11, 12, 12), 6, 6);
-                DrawLabel(context, row.LayerName, new Point(38, rowY + 8), 13, Color.Parse("#B7C8EA"));
-                DrawLabel(context, row.TrackTitle, new Point(18, rowY + 24), 12, Color.Parse("#E8EFFD"));
+                context.DrawRectangle(new SolidColorBrush(Color.Parse("#18263C")), null, new Rect(0, rowY, rect.Width, 7));
+                context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 14, 12, 12), 6, 6);
+                DrawLabel(context, row.LayerName, new Point(38, rowY + 10), 13, Color.Parse("#B7C8EA"));
+                DrawLabel(context, row.TrackTitle, new Point(18, rowY + 31), 12, Color.Parse("#E8EFFD"));
             }
             else
             {
-                context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 14, 10, 10), 5, 5);
-                DrawLabel(context, row.TrackTitle, new Point(36, rowY + 10), 13, Color.Parse("#E8EFFD"));
-                DrawLabel(context, row.LayerName, new Point(36, rowY + 26), 11, Color.Parse("#7E95BD"));
+                context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 18, 10, 10), 5, 5);
+                DrawLabel(context, row.TrackTitle, new Point(36, rowY + 12), 13, Color.Parse("#E8EFFD"));
+                DrawLabel(context, row.LayerName, new Point(36, rowY + 31), 11, Color.Parse("#7E95BD"));
             }
 
             if (row.IsLocked)
             {
-                DrawLabel(context, "Locked", new Point(LabelWidth - 92, rowY + 4), 10, Color.Parse("#FFB685"));
+                DrawLabel(context, "Locked", new Point(LabelWidth - 92, rowY + 6), 10, Color.Parse("#FFB685"));
             }
 
-            DrawLabel(context, row.CurrentValueLabel, new Point(LabelWidth - 28, rowY + 18), 12, Color.Parse("#86A0CF"));
+            DrawLabel(context, row.CurrentValueLabel, new Point(LabelWidth - 34, rowY + 22), 12, Color.Parse("#86A0CF"));
 
             for (var second = 0d; second <= Duration + 0.0001d; second += 0.5d)
             {
@@ -502,8 +502,8 @@ public sealed class TimelineEditorControl : Control
 
     private double GetCurveY(TimelineTrackRowViewModel row, double rowY, double value)
     {
-        var top = rowY + 8;
-        var bottom = rowY + TrackHeight - 8;
+        var top = rowY + 10;
+        var bottom = rowY + TrackHeight - 10;
 
         double minimum;
         double maximum;

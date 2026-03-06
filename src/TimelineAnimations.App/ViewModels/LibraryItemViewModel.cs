@@ -2,6 +2,7 @@ using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using TimelineAnimations.App.Helpers;
 using TimelineAnimations.Core.Models;
+using TimelineAnimations.Core.Services;
 
 namespace TimelineAnimations.App.ViewModels;
 
@@ -43,6 +44,16 @@ public partial class LibraryItemViewModel : ViewModelBase
 
     public string TimelineLabel => $"{GetPrimaryLayerCount(Model)} layers • {Model.Duration:0.##} s • {Model.FrameRate:0.#} fps";
 
+    public string FolderPathLabel => LibraryManagementService.GetDisplayFolderPath(Model.FolderPath);
+
+    public string LinkageLabel => string.IsNullOrWhiteSpace(Model.LinkageId)
+        ? "No linkage id"
+        : $"Linkage • {Model.LinkageId}";
+
+    public string SourceAssetLabel => string.IsNullOrWhiteSpace(Model.SourceAssetPath)
+        ? "Embedded asset"
+        : $"Source • {Model.SourceAssetPath}";
+
     [ObservableProperty]
     private string name = string.Empty;
 
@@ -67,6 +78,9 @@ public partial class LibraryItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsComponent));
         OnPropertyChanged(nameof(ComponentBadge));
         OnPropertyChanged(nameof(TimelineLabel));
+        OnPropertyChanged(nameof(FolderPathLabel));
+        OnPropertyChanged(nameof(LinkageLabel));
+        OnPropertyChanged(nameof(SourceAssetLabel));
     }
 
     private static string BuildSubtitle(TimelineLayer template)

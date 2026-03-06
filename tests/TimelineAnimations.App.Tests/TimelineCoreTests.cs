@@ -1,4 +1,5 @@
 using System.Text.Json;
+using TimelineAnimations.App.Models;
 using TimelineAnimations.App.Services;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.Core.Models;
@@ -94,6 +95,89 @@ public class TimelineCoreTests
         Assert.Equal(document.Scenes[0].Layers[2].FrameSpans.Count, restored.Scenes[0].Layers[2].FrameSpans.Count);
         Assert.Equal(document.Layers[4].Media.SourceMediaAssetId, restored.Layers[4].Media.SourceMediaAssetId);
         Assert.Equal(document.Layers[5].Kind, restored.Layers[5].Kind);
+    }
+
+    [Fact]
+    public void WorkspaceLayoutPersistenceService_RoundTrips_LayoutState()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.workspace.json");
+        var state = new WorkspaceLayoutState
+        {
+            SelectedPreset = WorkspaceLayoutPreset.Custom,
+            LeftPanelMode = WorkspacePanelMode.Hidden,
+            RightPanelMode = WorkspacePanelMode.Overlay,
+            TimelinePanelMode = WorkspacePanelMode.Docked,
+            LeftRestoreMode = WorkspacePanelMode.Overlay,
+            RightRestoreMode = WorkspacePanelMode.Docked,
+            TimelineRestoreMode = WorkspacePanelMode.Hidden,
+            LeftDockWidth = 250,
+            RightDockWidth = 324,
+            TimelineDockHeight = 360
+        };
+
+        try
+        {
+            Assert.True(WorkspaceLayoutPersistenceService.Save(path, state));
+
+            var restored = WorkspaceLayoutPersistenceService.Load(path);
+
+            Assert.Equal(WorkspaceLayoutPreset.Custom, restored.SelectedPreset);
+            Assert.Equal(WorkspacePanelMode.Hidden, restored.LeftPanelMode);
+            Assert.Equal(WorkspacePanelMode.Overlay, restored.RightPanelMode);
+            Assert.Equal(WorkspacePanelMode.Docked, restored.TimelinePanelMode);
+            Assert.Equal(WorkspacePanelMode.Overlay, restored.LeftRestoreMode);
+            Assert.Equal(WorkspacePanelMode.Docked, restored.RightRestoreMode);
+            Assert.Equal(WorkspacePanelMode.Docked, restored.TimelineRestoreMode);
+            Assert.Equal(250, restored.LeftDockWidth);
+            Assert.Equal(324, restored.RightDockWidth);
+            Assert.Equal(360, restored.TimelineDockHeight);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void MainWindowViewModel_Switches_TimelineWorkspaceViews()
+    {
+        var viewModel = new MainWindowViewModel();
+
+        Assert.True(viewModel.IsFramesTimelineViewActive);
+        Assert.False(viewModel.IsCurvesTimelineViewActive);
+
+        viewModel.SetTimelineWorkspaceViewCommand.Execute("Curves");
+
+        Assert.True(viewModel.IsCurvesTimelineViewActive);
+        Assert.False(viewModel.IsFramesTimelineViewActive);
+        Assert.Equal("Curves", viewModel.TimelineWorkspaceViewLabel);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_Updates_OnionSkinCount_FromCommand()
+    {
+        var viewModel = new MainWindowViewModel();
+
+        viewModel.SetOnionSkinCountCommand.Execute("before:4");
+        viewModel.SetOnionSkinCountCommand.Execute("after:1");
+
+        Assert.Equal(4, viewModel.OnionSkinBefore);
+        Assert.Equal(1, viewModel.OnionSkinAfter);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_Clamps_CanvasZoom_And_TimelineHeight()
+    {
+        var viewModel = new MainWindowViewModel
+        {
+            CanvasZoom = 12
+        };
+
+        viewModel.SetTimelineDockHeightPixels(120);
+
+        Assert.Equal(8, viewModel.CanvasZoom);
+        Assert.Equal("800%", viewModel.CanvasZoomLabel);
+        Assert.Equal(300, viewModel.TimelineDockHeight.Value);
     }
 
     [Fact]
@@ -233,6 +317,109 @@ public class TimelineCoreTests
         Assert.Equal("#61E6FF", sample.Snapshot.Fill);
         Assert.Equal(420, synchronized.Defaults.X);
         Assert.Equal(480, sample.Snapshot.X);
+    }
+
+    [Fact]
+    public void LibraryManagementService_EnsuresMetadata_ForLegacyLibraryItems()
+    {
+        var document = new TimelineDocument
+        {
+            LibraryItems =
+            [
+                new LibraryItem
+                {
+                    Name = "Hero Symbol",
+                    SymbolKind = SymbolKind.Graphic
+                },
+                new LibraryItem
+                {
+                    Name = "Hero Symbol",
+                    SymbolKind = SymbolKind.MovieClip,
+                    LinkageId = "Hero Symbol"
+                },
+                new LibraryItem
+                {
+                    Name = "CTA Button",
+                    SymbolKind = SymbolKind.Button,
+                    IsComponent = true,
+                    ComponentCategory = "Controls"
+                }
+            ]
+        };
+
+        LibraryManagementService.EnsureLibraryMetadata(document);
+
+        Assert.Equal("Symbols/Graphics", document.LibraryItems[0].FolderPath);
+        Assert.Equal("hero_symbol", document.LibraryItems[0].LinkageId);
+        Assert.Equal("Hero Symbol 2", document.LibraryItems[1].Name);
+        Assert.Equal("hero_symbol_2", document.LibraryItems[1].LinkageId);
+        Assert.Equal("Components/Controls", document.LibraryItems[2].FolderPath);
+    }
+
+    [Fact]
+    public void LibraryManagementService_FiltersItems_ByFolderAndSearch()
+    {
+        var items = new[]
+        {
+            new LibraryItem
+            {
+                Name = "Hero Card",
+                FolderPath = "Symbols/Graphics",
+                LinkageId = "hero_card",
+                SourceAssetPath = "assets/hero.svg"
+            },
+            new LibraryItem
+            {
+                Name = "Ambient Loop",
+                FolderPath = "Media/Audio",
+                LinkageId = "ambient_loop",
+                SourceAssetPath = "audio/ambient.wav"
+            }
+        };
+
+        var filtered = LibraryManagementService.FilterItems(items, "hero", "Symbols/Graphics").ToList();
+
+        var match = Assert.Single(filtered);
+        Assert.Equal("Hero Card", match.Name);
+    }
+
+    [Fact]
+    public void LibraryManagementService_RelinksLayerToLibraryItem_PreservesInstanceState()
+    {
+        var sourceItem = TimelineEditingService.CreateLibraryItemFromLayer(
+            TimelineEditingService.CreateLayer(LayerKind.Rectangle, "Card", "#24E5C1", string.Empty, 100, 80, 0),
+            "Card Symbol",
+            SymbolKind.Graphic);
+        var targetItem = TimelineEditingService.CreateLibraryItemFromLayer(
+            TimelineEditingService.CreateLayer(LayerKind.Text, "Caption", "#F7F5ED", "HELLO", 200, 120, 0),
+            "Caption Symbol",
+            SymbolKind.MovieClip);
+        var instance = TimelineEditingService.CreateLayerFromLibraryItem(sourceItem, 320, 240, 4);
+        instance.Name = "Instance A";
+        instance.Defaults.Width = 540;
+        instance.Defaults.Height = 180;
+        instance.Defaults.Rotation = 18;
+        instance.Defaults.Opacity = 0.72;
+        instance.SymbolPlaybackMode = SymbolPlaybackMode.IndependentLoop;
+        instance.SymbolPlaybackOffset = 0.8;
+        instance.SymbolLockedFrame = 6;
+        instance.Behaviors.Add(InteractionBehaviorService.CreateBehavior("Hover"));
+
+        var relinked = LibraryManagementService.RelinkLayerToLibraryItem(instance, targetItem);
+
+        Assert.Equal(instance.Id, relinked.Id);
+        Assert.Equal("Instance A", relinked.Name);
+        Assert.Equal(targetItem.Id, relinked.SourceLibraryItemId);
+        Assert.Equal(320, relinked.Defaults.X);
+        Assert.Equal(240, relinked.Defaults.Y);
+        Assert.Equal(540, relinked.Defaults.Width);
+        Assert.Equal(180, relinked.Defaults.Height);
+        Assert.Equal(18, relinked.Defaults.Rotation);
+        Assert.Equal(0.72, relinked.Defaults.Opacity);
+        Assert.Equal(SymbolPlaybackMode.IndependentLoop, relinked.SymbolPlaybackMode);
+        Assert.Equal(0.8, relinked.SymbolPlaybackOffset);
+        Assert.Equal(6, relinked.SymbolLockedFrame);
+        Assert.Single(relinked.Behaviors);
     }
 
     [Fact]
@@ -952,6 +1139,25 @@ public class TimelineCoreTests
 
         Assert.False(viewModel.IsPrototypeMode);
         Assert.Equal(introSceneId, viewModel.SelectedScene?.Id);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_WorkspaceCommands_UpdatePanelModes()
+    {
+        var viewModel = new MainWindowViewModel();
+
+        viewModel.FocusWorkspaceAreaCommand.Execute("inspector");
+        viewModel.SetWorkspacePanelModeCommand.Execute("right:over");
+        viewModel.SetWorkspacePanelModeCommand.Execute("timeline:hide");
+
+        Assert.Equal(WorkspacePanelMode.Hidden, viewModel.LeftPanelMode);
+        Assert.Equal(WorkspacePanelMode.Overlay, viewModel.RightPanelMode);
+        Assert.Equal(WorkspacePanelMode.Hidden, viewModel.TimelinePanelMode);
+        Assert.True(viewModel.IsRightPanelOverlay);
+        Assert.True(viewModel.IsTimelinePanelHidden);
+        Assert.True(viewModel.IsTimelinePanelCollapsedHandleVisible);
+        Assert.Contains("Ctrl+1", viewModel.WorkspaceShortcutSummary, StringComparison.Ordinal);
+        Assert.Contains("Ctrl+Shift+3", viewModel.WorkspaceShortcutSummary, StringComparison.Ordinal);
     }
 
     [Fact]

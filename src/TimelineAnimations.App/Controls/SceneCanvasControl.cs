@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Input;
 using Avalonia.Media;
 using TimelineAnimations.App.Helpers;
@@ -16,8 +17,11 @@ namespace TimelineAnimations.App.Controls;
 
 public sealed class SceneCanvasControl : Control
 {
-    private const double SurfacePadding = 26;
+    private const double SurfacePadding = 18;
     private const double HandleSize = 12;
+    private const double MinZoomFactor = 0.25d;
+    private const double MaxZoomFactor = 8d;
+    private const double MinVisibleStageExtent = 96d;
     private InteractionMode _interactionMode;
     private Guid? _activeLayerId;
     private int? _activePathPointIndex;
@@ -30,6 +34,9 @@ public sealed class SceneCanvasControl : Control
     private List<Point> _draftPoints = [];
     private Guid? _prototypeHoverLayerId;
     private Guid? _prototypePressedLayerId;
+    private Vector _viewportPan;
+    private Vector _viewportPanOrigin;
+    private bool _isSpacePressed;
 
     public static readonly StyledProperty<IReadOnlyList<LayerViewModel>?> LayersProperty =
         AvaloniaProperty.Register<SceneCanvasControl, IReadOnlyList<LayerViewModel>?>(nameof(Layers));
@@ -41,7 +48,7 @@ public sealed class SceneCanvasControl : Control
         AvaloniaProperty.Register<SceneCanvasControl, TimelineDocument?>(nameof(Document));
 
     public static readonly StyledProperty<double> CanvasZoomProperty =
-        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CanvasZoom), 0.74d);
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CanvasZoom), 1d);
 
     public static readonly StyledProperty<double> DocumentWidthProperty =
         AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(DocumentWidth), 1280d);
@@ -111,6 +118,7 @@ public sealed class SceneCanvasControl : Control
     public SceneCanvasControl()
     {
         ClipToBounds = true;
+        Focusable = true;
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, HandleDragOver);
         AddHandler(DragDrop.DropEvent, HandleDrop);
@@ -254,6 +262,33 @@ public sealed class SceneCanvasControl : Control
             _prototypeHoverLayerId = null;
             _prototypePressedLayerId = null;
         }
+
+        if (change.Property == CanvasZoomProperty ||
+            change.Property == DocumentWidthProperty ||
+            change.Property == DocumentHeightProperty)
+        {
+            NormalizeViewportPan();
+        }
+    }
+
+    public void ResetViewport()
+    {
+        _viewportPan = default;
+        CanvasZoom = 1d;
+        InvalidateVisual();
+    }
+
+    public void ZoomToActualSize()
+    {
+        var fitScale = GetFitScale();
+        if (fitScale <= 0.0001d)
+        {
+            return;
+        }
+
+        _viewportPan = default;
+        CanvasZoom = Math.Clamp(1d / fitScale, MinZoomFactor, MaxZoomFactor);
+        InvalidateVisual();
     }
 
     public override void Render(DrawingContext context)
@@ -320,8 +355,18 @@ public sealed class SceneCanvasControl : Control
         base.OnPointerPressed(e);
         Focus();
 
-        var stageRect = GetStageRect();
         var pointer = e.GetPosition(this);
+        if (ShouldStartViewportPan(e, this, _isSpacePressed))
+        {
+            _interactionMode = InteractionMode.PanViewport;
+            _pointerOrigin = pointer;
+            _viewportPanOrigin = _viewportPan;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        var stageRect = GetStageRect();
         var documentPoint = ToWorldPoint(stageRect, pointer);
         _pointerOrigin = pointer;
         _interactionMode = InteractionMode.None;
@@ -414,6 +459,14 @@ public sealed class SceneCanvasControl : Control
 
         if (_interactionMode == InteractionMode.None)
         {
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.PanViewport)
+        {
+            var delta = e.GetPosition(this) - _pointerOrigin;
+            ApplyViewportPan(_viewportPanOrigin + delta);
+            e.Handled = true;
             return;
         }
 
@@ -546,12 +599,67 @@ public sealed class SceneCanvasControl : Control
         _activeLayerId = null;
         _activePathPointIndex = null;
         ClearGuides();
-        if (wasInteracting)
+        if (wasInteracting && interactionMode != InteractionMode.PanViewport)
         {
             TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(false, completionMessage));
         }
 
         e.Pointer.Capture(null);
+    }
+
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+
+        if (Bounds.Width <= 0 || Bounds.Height <= 0)
+        {
+            return;
+        }
+
+        var pointer = e.GetPosition(this);
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta))
+        {
+            var stageRect = GetStageRect();
+            var viewportPoint = ToViewportPoint(stageRect, pointer);
+            var nextZoom = Math.Clamp(CanvasZoom * Math.Pow(1.12d, e.Delta.Y), MinZoomFactor, MaxZoomFactor);
+            ZoomAround(pointer, viewportPoint, nextZoom);
+        }
+        else
+        {
+            var horizontalDelta = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? e.Delta.Y : e.Delta.X;
+            var verticalDelta = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 0d : e.Delta.Y;
+            ApplyViewportPan(_viewportPan + new Vector(horizontalDelta * 42d, verticalDelta * 42d));
+        }
+
+        e.Handled = true;
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        if (e.Key == Key.Space)
+        {
+            _isSpacePressed = true;
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnKeyUp(KeyEventArgs e)
+    {
+        base.OnKeyUp(e);
+
+        if (e.Key == Key.Space)
+        {
+            _isSpacePressed = false;
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnLostFocus(RoutedEventArgs e)
+    {
+        base.OnLostFocus(e);
+        _isSpacePressed = false;
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
@@ -639,19 +747,20 @@ public sealed class SceneCanvasControl : Control
 
     private void DrawGrid(DrawingContext context, Rect stageRect)
     {
+        var scale = GetStageScale();
         var minorPen = new Pen(new SolidColorBrush(Color.Parse("#13253C")), 1);
         var majorPen = new Pen(new SolidColorBrush(Color.Parse("#1F3555")), 1);
 
         for (var x = 0d; x <= DocumentWidth; x += 80)
         {
-            var screenX = stageRect.X + (x * CanvasZoom);
+            var screenX = stageRect.X + (x * scale);
             var pen = Math.Abs(x % 320) < 0.001 ? majorPen : minorPen;
             context.DrawLine(pen, new Point(screenX, stageRect.Y), new Point(screenX, stageRect.Bottom));
         }
 
         for (var y = 0d; y <= DocumentHeight; y += 80)
         {
-            var screenY = stageRect.Y + (y * CanvasZoom);
+            var screenY = stageRect.Y + (y * scale);
             var pen = Math.Abs(y % 320) < 0.001 ? majorPen : minorPen;
             context.DrawLine(pen, new Point(stageRect.X, screenY), new Point(stageRect.Right, screenY));
         }
@@ -732,7 +841,7 @@ public sealed class SceneCanvasControl : Control
         var glowBrush = new SolidColorBrush(ApplyAlpha(fillColor, (byte)Math.Clamp(28 * opacityScale, 0, 255)));
         var fillBrush = CreateFillBrush(snapshot, rect, fillColor, gradientFrom, gradientTo, opacity);
         var strokeBrush = new SolidColorBrush(ApplyAlpha(strokeBase, (byte)(opacity * 220)));
-        var strokePen = new Pen(strokeBrush, Math.Max(1, snapshot.StrokeThickness * CanvasZoom));
+        var strokePen = new Pen(strokeBrush, Math.Max(1, snapshot.StrokeThickness * GetStageScale()));
 
         switch (kind)
         {
@@ -798,7 +907,7 @@ public sealed class SceneCanvasControl : Control
         var plateColor = tint is null ? Color.Parse("#102038") : Blend(Color.Parse("#102038"), tint.Value, 0.4);
         var textPlate = new SolidColorBrush(ApplyAlpha(plateColor, (byte)(opacity * 180)));
         context.DrawRectangle(textPlate, strokePen, rect, 24, 24);
-        DrawTextBlock(context, rect, snapshot.Text, fillBrush, snapshot.FontSize * CanvasZoom);
+        DrawTextBlock(context, rect, snapshot.Text, fillBrush, snapshot.FontSize * GetStageScale());
     }
 
     private void DrawTextBlock(DrawingContext context, Rect rect, string text, IBrush brush, double fontSize)
@@ -965,11 +1074,10 @@ public sealed class SceneCanvasControl : Control
 
     private Rect GetStageRect()
     {
-        var width = DocumentWidth * CanvasZoom;
-        var height = DocumentHeight * CanvasZoom;
-        var x = Math.Max(SurfacePadding, (Bounds.Width - width) / 2);
-        var y = Math.Max(SurfacePadding, (Bounds.Height - height) / 2);
-        return new Rect(x, y, width, height);
+        var scale = GetStageScale();
+        var centeredRect = GetCenteredStageRect(scale);
+        var pan = GetClampedViewportPan(scale);
+        return new Rect(centeredRect.X + pan.X, centeredRect.Y + pan.Y, centeredRect.Width, centeredRect.Height);
     }
 
     private LayerViewModel? HitTestLayer(Rect stageRect, Point point)
@@ -1068,25 +1176,28 @@ public sealed class SceneCanvasControl : Control
 
     private Rect ToScreenRect(Rect stageRect, Rect documentRect)
     {
+        var scale = GetStageScale();
         return new Rect(
-            stageRect.X + (documentRect.X * CanvasZoom),
-            stageRect.Y + (documentRect.Y * CanvasZoom),
-            documentRect.Width * CanvasZoom,
-            documentRect.Height * CanvasZoom);
+            stageRect.X + (documentRect.X * scale),
+            stageRect.Y + (documentRect.Y * scale),
+            documentRect.Width * scale,
+            documentRect.Height * scale);
     }
 
     private Point ToScreenPoint(Rect stageRect, VectorPointModel point)
     {
+        var scale = GetStageScale();
         return new Point(
-            stageRect.X + (point.X * CanvasZoom),
-            stageRect.Y + (point.Y * CanvasZoom));
+            stageRect.X + (point.X * scale),
+            stageRect.Y + (point.Y * scale));
     }
 
     private Point ToViewportPoint(Rect stageRect, Point point)
     {
+        var scale = GetStageScale();
         return new Point(
-            TimelineAnimations.Core.Services.TimelineMath.Clamp((point.X - stageRect.X) / CanvasZoom, 0, DocumentWidth),
-            TimelineAnimations.Core.Services.TimelineMath.Clamp((point.Y - stageRect.Y) / CanvasZoom, 0, DocumentHeight));
+            TimelineAnimations.Core.Services.TimelineMath.Clamp((point.X - stageRect.X) / scale, 0, DocumentWidth),
+            TimelineAnimations.Core.Services.TimelineMath.Clamp((point.Y - stageRect.Y) / scale, 0, DocumentHeight));
     }
 
     private Point ToWorldPoint(Rect stageRect, Point point, LayerViewModel? layer = null)
@@ -1188,12 +1299,12 @@ public sealed class SceneCanvasControl : Control
             : ColorHelpers.Parse(snapshot.Stroke, "#FFFFFF");
         var glowPen = new Pen(
             new SolidColorBrush(ApplyAlpha(glowColor, (byte)Math.Clamp(52 * opacityScale, 0, 255))),
-            Math.Max(8, (snapshot.StrokeThickness + 10) * CanvasZoom),
+            Math.Max(8, (snapshot.StrokeThickness + 10) * GetStageScale()),
             lineCap: PenLineCap.Round,
             lineJoin: PenLineJoin.Round);
         var strokePen = new Pen(
             strokeBrush,
-            Math.Max(1, snapshot.StrokeThickness * CanvasZoom),
+            Math.Max(1, snapshot.StrokeThickness * GetStageScale()),
             lineCap: PenLineCap.Round,
             lineJoin: PenLineJoin.Round);
         using (PushLayerRotation(context, rect, snapshot.Rotation))
@@ -1446,6 +1557,93 @@ public sealed class SceneCanvasControl : Control
         ];
     }
 
+    private static bool ShouldStartViewportPan(PointerPressedEventArgs e, Control control, bool isSpacePressed)
+    {
+        var properties = e.GetCurrentPoint(control).Properties;
+        return properties.IsMiddleButtonPressed || (isSpacePressed && properties.IsLeftButtonPressed);
+    }
+
+    private double GetFitScale()
+    {
+        var availableWidth = Math.Max(120d, Bounds.Width - (SurfacePadding * 2d));
+        var availableHeight = Math.Max(120d, Bounds.Height - (SurfacePadding * 2d));
+        if (DocumentWidth <= 0 || DocumentHeight <= 0)
+        {
+            return 1d;
+        }
+
+        return Math.Max(0.05d, Math.Min(availableWidth / DocumentWidth, availableHeight / DocumentHeight));
+    }
+
+    private double GetStageScale()
+    {
+        return Math.Max(0.05d, GetFitScale() * CanvasZoom);
+    }
+
+    private Rect GetCenteredStageRect(double scale)
+    {
+        var width = DocumentWidth * scale;
+        var height = DocumentHeight * scale;
+        return new Rect((Bounds.Width - width) / 2d, (Bounds.Height - height) / 2d, width, height);
+    }
+
+    private Vector GetClampedViewportPan(double scale, Vector? candidatePan = null)
+    {
+        var centeredRect = GetCenteredStageRect(scale);
+        var pan = candidatePan ?? _viewportPan;
+        var minX = GetMinimumStageOrigin(centeredRect.Width, Bounds.Width);
+        var maxX = GetMaximumStageOrigin(centeredRect.Width, Bounds.Width);
+        var minY = GetMinimumStageOrigin(centeredRect.Height, Bounds.Height);
+        var maxY = GetMaximumStageOrigin(centeredRect.Height, Bounds.Height);
+        var stageX = TimelineAnimations.Core.Services.TimelineMath.Clamp(centeredRect.X + pan.X, minX, maxX);
+        var stageY = TimelineAnimations.Core.Services.TimelineMath.Clamp(centeredRect.Y + pan.Y, minY, maxY);
+        return new Vector(stageX - centeredRect.X, stageY - centeredRect.Y);
+    }
+
+    private static double GetMinimumStageOrigin(double stageExtent, double hostExtent)
+    {
+        var visibleExtent = Math.Min(MinVisibleStageExtent, stageExtent);
+        return stageExtent <= hostExtent - (SurfacePadding * 2d)
+            ? SurfacePadding
+            : SurfacePadding + visibleExtent - stageExtent;
+    }
+
+    private static double GetMaximumStageOrigin(double stageExtent, double hostExtent)
+    {
+        var visibleExtent = Math.Min(MinVisibleStageExtent, stageExtent);
+        return stageExtent <= hostExtent - (SurfacePadding * 2d)
+            ? Math.Max(SurfacePadding, hostExtent - SurfacePadding - stageExtent)
+            : hostExtent - SurfacePadding - visibleExtent;
+    }
+
+    private void NormalizeViewportPan()
+    {
+        _viewportPan = GetClampedViewportPan(GetStageScale());
+    }
+
+    private void ApplyViewportPan(Vector nextPan)
+    {
+        _viewportPan = GetClampedViewportPan(GetStageScale(), nextPan);
+        InvalidateVisual();
+    }
+
+    private void ZoomAround(Point pointer, Point viewportPoint, double nextZoom)
+    {
+        if (Math.Abs(nextZoom - CanvasZoom) < 0.0001d)
+        {
+            return;
+        }
+
+        var fitScale = GetFitScale();
+        var nextScale = Math.Max(0.05d, fitScale * nextZoom);
+        var centeredRect = GetCenteredStageRect(nextScale);
+        var desiredStageX = pointer.X - (viewportPoint.X * nextScale);
+        var desiredStageY = pointer.Y - (viewportPoint.Y * nextScale);
+        CanvasZoom = nextZoom;
+        _viewportPan = GetClampedViewportPan(nextScale, new Vector(desiredStageX - centeredRect.X, desiredStageY - centeredRect.Y));
+        InvalidateVisual();
+    }
+
     private void HandleDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = e.DataTransfer.TryGetText()?.StartsWith("palette:", StringComparison.Ordinal) == true
@@ -1695,6 +1893,7 @@ public sealed class SceneCanvasControl : Control
     private enum InteractionMode
     {
         None,
+        PanViewport,
         Move,
         MovePathPoint,
         ResizeTopLeft,

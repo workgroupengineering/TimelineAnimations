@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,6 +15,10 @@ namespace TimelineAnimations.App.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private const double MinCanvasZoomFactor = 0.25d;
+    private const double MaxCanvasZoomFactor = 8d;
+    private const double MinTimelineDockHeight = 300d;
+    private const double MaxTimelineDockHeight = 960d;
     private readonly DispatcherTimer _playbackTimer;
     private readonly Stopwatch _playbackClock = new();
     private TimelineDocument _document = SampleProjectFactory.Create();
@@ -30,6 +36,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _suppressBehaviorEditor;
     private bool _suppressPublishProfileEditor;
     private bool _suppressFrameActionScriptEditor;
+    private bool _suppressLibraryItemEditor;
+    private bool _suppressLibraryFilterSelection;
+    private bool _suppressWorkspacePreset;
+    private bool _isApplyingWorkspaceLayout;
+    private bool _workspaceLayoutLoaded;
     private double _playbackOriginTime;
     private FrameRangeClipboard? _frameClipboard;
     private Guid? _editingLibraryItemId;
@@ -37,6 +48,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private Guid? _editingSceneLayerId;
     private EditorStateSnapshot? _prototypeSnapshot;
     private readonly Dictionary<string, string> _prototypeVariables = new(StringComparer.OrdinalIgnoreCase);
+    private WorkspacePanelMode _leftRestoreMode = WorkspacePanelMode.Docked;
+    private WorkspacePanelMode _rightRestoreMode = WorkspacePanelMode.Docked;
+    private WorkspacePanelMode _timelineRestoreMode = WorkspacePanelMode.Docked;
 
     public MainWindowViewModel()
     {
@@ -70,6 +84,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _playbackTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Background, HandlePlaybackTick);
         LoadDocument(SampleProjectFactory.Create(), "Sample Composition");
+        RestoreWorkspaceLayout();
+        _workspaceLayoutLoaded = true;
     }
 
     public ObservableCollection<LayerViewModel> Layers { get; } = [];
@@ -77,6 +93,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public ObservableCollection<SceneViewModel> Scenes { get; } = [];
 
     public ObservableCollection<LibraryItemViewModel> LibraryItems { get; } = [];
+
+    public ObservableCollection<string> LibraryFolderFilters { get; } = [];
 
     public ObservableCollection<LibraryItemViewModel> ComponentItems { get; } = [];
 
@@ -118,6 +136,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public IReadOnlyList<MediaPlaybackMode> AvailableMediaPlaybackModes { get; } = Enum.GetValues<MediaPlaybackMode>();
 
+    public IReadOnlyList<WorkspacePanelMode> AvailableWorkspacePanelModes { get; } = Enum.GetValues<WorkspacePanelMode>();
+
+    public IReadOnlyList<WorkspaceLayoutPreset> AvailableWorkspacePresets { get; } = Enum.GetValues<WorkspaceLayoutPreset>();
+
+    public IReadOnlyList<string> AvailableWorkspaceFocusTargets { get; } = ["Classic", "Stage", "Timeline", "Tools", "Inspector"];
+
     public TimelineDocument Document => _document;
 
     public bool IsEditingSymbol => _editingLibraryItemId is not null;
@@ -134,6 +158,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string CanvasSizeLabel => $"{CanvasWidth:0} × {CanvasHeight:0}";
 
+    public string CanvasZoomLabel => $"{CanvasZoom * 100:0}%";
+
+    public string CanvasViewportHint => "Wheel pans, Ctrl/Cmd+wheel zooms, middle-drag pans, and Fit restores the stage.";
+
     public int TotalFrames => FrameTimelineService.GetTotalFrames(Duration, SceneFrameRate);
 
     public int CurrentFrame => FrameTimelineService.TimeToFrame(CurrentTime, SceneFrameRate, TotalFrames);
@@ -142,11 +170,115 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public double TimelineSurfaceWidth => Math.Max(920, (Duration * TimelineZoom) + 200);
 
-    public double TimelineSurfaceHeight => Math.Max(322, 34 + (TimelineRows.Count * 48) + 8);
+    public double TimelineSurfaceHeight => Math.Max(402, 38 + (TimelineRows.Count * 58) + 12);
 
     public double FrameTimelineSurfaceWidth => Math.Max(920, 206 + (TotalFrames * FrameTimelineZoom) + 32);
 
-    public double FrameTimelineSurfaceHeight => Math.Max(120, 38 + (FrameRows.Count * 36) + 8);
+    public double FrameTimelineSurfaceHeight => Math.Max(162, 42 + (FrameRows.Count * 44) + 12);
+
+    public GridLength LeftPanelColumnWidth => LeftPanelMode == WorkspacePanelMode.Docked ? LeftDockWidth : new GridLength(0);
+
+    public GridLength LeftSplitterColumnWidth => LeftPanelMode == WorkspacePanelMode.Docked ? new GridLength(6) : new GridLength(0);
+
+    public GridLength RightPanelColumnWidth => RightPanelMode == WorkspacePanelMode.Docked ? RightDockWidth : new GridLength(0);
+
+    public GridLength RightSplitterColumnWidth => RightPanelMode == WorkspacePanelMode.Docked ? new GridLength(6) : new GridLength(0);
+
+    public GridLength TimelinePanelRowHeight => TimelinePanelMode == WorkspacePanelMode.Docked ? TimelineDockHeight : new GridLength(0);
+
+    public GridLength TimelineSplitterRowHeight => TimelinePanelMode == WorkspacePanelMode.Docked ? new GridLength(6) : new GridLength(0);
+
+    public int LeftPanelColumnSpan => LeftPanelMode == WorkspacePanelMode.Overlay ? 3 : 1;
+
+    public double LeftPanelHostWidth => LeftPanelMode == WorkspacePanelMode.Overlay ? Math.Max(244, LeftDockWidth.Value) : double.NaN;
+
+    public HorizontalAlignment LeftPanelHorizontalAlignment => LeftPanelMode == WorkspacePanelMode.Overlay ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+
+    public Thickness LeftPanelHostMargin => LeftPanelMode == WorkspacePanelMode.Overlay ? new Thickness(0, 0, 8, 0) : new Thickness(0);
+
+    public int LeftPanelZIndex => LeftPanelMode == WorkspacePanelMode.Overlay ? 12 : 0;
+
+    public bool IsLeftPanelVisible => LeftPanelMode != WorkspacePanelMode.Hidden;
+
+    public int RightPanelGridColumn => RightPanelMode == WorkspacePanelMode.Overlay ? 2 : 4;
+
+    public int RightPanelColumnSpan => RightPanelMode == WorkspacePanelMode.Overlay ? 3 : 1;
+
+    public double RightPanelHostWidth => RightPanelMode == WorkspacePanelMode.Overlay ? Math.Max(292, RightDockWidth.Value) : double.NaN;
+
+    public HorizontalAlignment RightPanelHorizontalAlignment => RightPanelMode == WorkspacePanelMode.Overlay ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
+
+    public Thickness RightPanelHostMargin => RightPanelMode == WorkspacePanelMode.Overlay ? new Thickness(8, 0, 0, 0) : new Thickness(0);
+
+    public int RightPanelZIndex => RightPanelMode == WorkspacePanelMode.Overlay ? 12 : 0;
+
+    public bool IsRightPanelVisible => RightPanelMode != WorkspacePanelMode.Hidden;
+
+    public int TimelinePanelGridRow => TimelinePanelMode == WorkspacePanelMode.Overlay ? 0 : 2;
+
+    public int TimelinePanelRowSpan => TimelinePanelMode == WorkspacePanelMode.Overlay ? 3 : 1;
+
+    public double TimelinePanelHostHeight => TimelinePanelMode == WorkspacePanelMode.Overlay ? Math.Max(MinTimelineDockHeight, TimelineDockHeight.Value) : double.NaN;
+
+    public VerticalAlignment TimelinePanelVerticalAlignment => TimelinePanelMode == WorkspacePanelMode.Overlay ? VerticalAlignment.Bottom : VerticalAlignment.Stretch;
+
+    public Thickness TimelinePanelHostMargin => TimelinePanelMode == WorkspacePanelMode.Overlay ? new Thickness(0, 16, 0, 0) : new Thickness(0);
+
+    public int TimelinePanelZIndex => TimelinePanelMode == WorkspacePanelMode.Overlay ? 14 : 0;
+
+    public bool IsTimelinePanelVisible => TimelinePanelMode != WorkspacePanelMode.Hidden;
+
+    public string LeftPanelToggleLabel => LeftPanelMode == WorkspacePanelMode.Hidden ? "Show Tools" : "Hide Tools";
+
+    public string RightPanelToggleLabel => RightPanelMode == WorkspacePanelMode.Hidden ? "Show Inspector" : "Hide Inspector";
+
+    public string TimelinePanelToggleLabel => TimelinePanelMode == WorkspacePanelMode.Hidden ? "Show Timeline" : "Hide Timeline";
+
+    public string WorkspaceLayoutLabel => SelectedWorkspacePreset == WorkspaceLayoutPreset.Custom
+        ? "Custom"
+        : SelectedWorkspacePreset.ToString();
+
+    public string WorkspaceLayoutSummary =>
+        $"{WorkspaceLayoutLabel} • Tools {GetWorkspacePanelStateLabel(LeftPanelMode)} • Inspector {GetWorkspacePanelStateLabel(RightPanelMode)} • Timeline {GetWorkspacePanelStateLabel(TimelinePanelMode)}";
+
+    public string WorkspaceShortcutSummary =>
+        "Focus: Ctrl+1 Classic, Ctrl+2 Stage, Ctrl+3 Timeline, Ctrl+4 Tools, Ctrl+5 Inspector. Toggle: Ctrl+Shift+1 Tools, Ctrl+Shift+2 Inspector, Ctrl+Shift+3 Timeline.";
+
+    public bool IsLeftPanelCollapsedHandleVisible => LeftPanelMode == WorkspacePanelMode.Hidden;
+
+    public bool IsRightPanelCollapsedHandleVisible => RightPanelMode == WorkspacePanelMode.Hidden;
+
+    public bool IsTimelinePanelCollapsedHandleVisible => TimelinePanelMode == WorkspacePanelMode.Hidden;
+
+    public bool IsLeftPanelDocked => LeftPanelMode == WorkspacePanelMode.Docked;
+
+    public bool IsLeftPanelOverlay => LeftPanelMode == WorkspacePanelMode.Overlay;
+
+    public bool IsLeftPanelHidden => LeftPanelMode == WorkspacePanelMode.Hidden;
+
+    public bool IsRightPanelDocked => RightPanelMode == WorkspacePanelMode.Docked;
+
+    public bool IsRightPanelOverlay => RightPanelMode == WorkspacePanelMode.Overlay;
+
+    public bool IsRightPanelHidden => RightPanelMode == WorkspacePanelMode.Hidden;
+
+    public bool IsTimelinePanelDocked => TimelinePanelMode == WorkspacePanelMode.Docked;
+
+    public bool IsTimelinePanelOverlay => TimelinePanelMode == WorkspacePanelMode.Overlay;
+
+    public bool IsTimelinePanelHidden => TimelinePanelMode == WorkspacePanelMode.Hidden;
+
+    public bool IsFramesTimelineViewActive => SelectedTimelineView == TimelineWorkspaceView.Frames;
+
+    public bool IsCurvesTimelineViewActive => SelectedTimelineView == TimelineWorkspaceView.Curves;
+
+    public string TimelineWorkspaceViewLabel => SelectedTimelineView == TimelineWorkspaceView.Frames
+        ? "Frames"
+        : "Curves";
+
+    public string TimelineWorkspaceViewSummary => SelectedTimelineView == TimelineWorkspaceView.Frames
+        ? "Exposure sheet, cels, labels, and onion controls."
+        : "Property graph editor with keyframes and interpolation curves.";
 
     public bool CanUndo => !IsPrototypeMode && _history?.CanUndo == true;
 
@@ -208,11 +340,20 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool CanInsertFromLibrary => SelectedLibraryItem is not null && !IsPrototypeMode;
 
+    public bool CanEditSelectedLibraryItem => SelectedLibraryItem is not null && !IsPrototypeMode;
+
     public bool CanCreateSymbolFromSelection => SelectedLayer is not null && !IsPrototypeMode;
 
     public bool CanCreateComponentFromSelection => SelectedLayer is not null && !IsEditingSymbol && !IsPrototypeMode;
 
     public bool CanUpdateLinkedSymbol => SelectedLayer?.Model.SourceLibraryItemId is not null && !IsPrototypeMode;
+
+    public bool CanRelinkSelectionToSelectedLibraryItem =>
+        !IsPrototypeMode &&
+        !IsEditingSymbol &&
+        SelectedLayer?.Model.SourceLibraryItemId is not null &&
+        SelectedLibraryItem is not null &&
+        SelectedLayer.Model.SourceLibraryItemId != SelectedLibraryItem.Id;
 
     public bool CanEnterSymbolEdit => !IsPrototypeMode && !IsEditingSymbol && (SelectedLibraryItem is not null || SelectedLayer?.Model.SourceLibraryItemId is not null);
 
@@ -288,7 +429,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string SelectedLibrarySummary => SelectedLibraryItem is null
         ? "No library symbol selected"
-        : $"{SelectedLibraryItem.Name} • {SelectedLibraryItem.SymbolKindLabel} • {SelectedLibraryItem.AssetKindLabel}";
+        : $"{SelectedLibraryItem.Name} • {SelectedLibraryItem.SymbolKindLabel} • {SelectedLibraryItem.FolderPathLabel} • {SelectedLibraryItem.LinkageLabel}";
 
     public string SelectedComponentSummary => SelectedComponentItem is null
         ? "No component selected"
@@ -502,6 +643,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private LibraryItemViewModel? selectedLibraryItem;
 
     [ObservableProperty]
+    private string librarySearchText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedLibraryFolderFilter = "All folders";
+
+    [ObservableProperty]
     private LibraryItemViewModel? selectedComponentItem;
 
     [ObservableProperty]
@@ -517,6 +664,18 @@ public partial class MainWindowViewModel : ViewModelBase
     private SymbolKind selectedLibrarySymbolKind = SymbolKind.Graphic;
 
     [ObservableProperty]
+    private string libraryItemNameEditor = string.Empty;
+
+    [ObservableProperty]
+    private string libraryFolderEditor = string.Empty;
+
+    [ObservableProperty]
+    private string libraryLinkageIdEditor = string.Empty;
+
+    [ObservableProperty]
+    private string librarySourceAssetPathEditor = string.Empty;
+
+    [ObservableProperty]
     private ButtonVisualState editingButtonState = ButtonVisualState.Up;
 
     [ObservableProperty]
@@ -529,13 +688,40 @@ public partial class MainWindowViewModel : ViewModelBase
     private double currentTime;
 
     [ObservableProperty]
-    private double canvasZoom = 0.74d;
+    private double canvasZoom = 1d;
 
     [ObservableProperty]
     private double timelineZoom = 150d;
 
     [ObservableProperty]
     private double frameTimelineZoom = 18d;
+
+    [ObservableProperty]
+    private GridLength leftDockWidth = new(252);
+
+    [ObservableProperty]
+    private GridLength rightDockWidth = new(300);
+
+    [ObservableProperty]
+    private GridLength timelineDockHeight = new(460);
+
+    [ObservableProperty]
+    private WorkspacePanelMode leftPanelMode = WorkspacePanelMode.Docked;
+
+    [ObservableProperty]
+    private WorkspacePanelMode rightPanelMode = WorkspacePanelMode.Docked;
+
+    [ObservableProperty]
+    private WorkspacePanelMode timelinePanelMode = WorkspacePanelMode.Docked;
+
+    [ObservableProperty]
+    private WorkspaceLayoutPreset selectedWorkspacePreset = WorkspaceLayoutPreset.Classic;
+
+    [ObservableProperty]
+    private string selectedWorkspaceFocusTarget = "Stage";
+
+    [ObservableProperty]
+    private TimelineWorkspaceView selectedTimelineView = TimelineWorkspaceView.Frames;
 
     [ObservableProperty]
     private bool isPlaying;
@@ -885,7 +1071,129 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedLibraryItemChanged(LibraryItemViewModel? oldValue, LibraryItemViewModel? newValue)
     {
+        RefreshSelectedLibraryItemEditor();
         RefreshLibraryStateProperties();
+    }
+
+    partial void OnLibrarySearchTextChanged(string value)
+    {
+        ReloadLibraryItems();
+    }
+
+    partial void OnSelectedLibraryFolderFilterChanged(string value)
+    {
+        if (_suppressLibraryFilterSelection)
+        {
+            return;
+        }
+
+        ReloadLibraryItems();
+    }
+
+    partial void OnLibraryItemNameEditorChanged(string value)
+    {
+        ApplySelectedLibraryMetadata(
+            item => item.Name = LibraryManagementService.EnsureUniqueLibraryName(_document, value, item.Id),
+            "Library asset renamed");
+    }
+
+    partial void OnLibraryFolderEditorChanged(string value)
+    {
+        ApplySelectedLibraryMetadata(
+            item => item.FolderPath = LibraryManagementService.NormalizeFolderPath(value),
+            "Library folder updated");
+    }
+
+    partial void OnLibraryLinkageIdEditorChanged(string value)
+    {
+        ApplySelectedLibraryMetadata(
+            item => item.LinkageId = LibraryManagementService.EnsureUniqueLinkageId(_document, value, item.Id, item.Name),
+            "Library linkage updated");
+    }
+
+    partial void OnLibrarySourceAssetPathEditorChanged(string value)
+    {
+        ApplySelectedLibraryMetadata(
+            item => item.SourceAssetPath = LibraryManagementService.NormalizeSourceAssetPath(value),
+            "Library source path updated");
+    }
+
+    partial void OnLeftDockWidthChanged(GridLength value)
+    {
+        RefreshWorkspaceLayoutProperties();
+        PersistWorkspaceLayoutIfReady();
+    }
+
+    partial void OnRightDockWidthChanged(GridLength value)
+    {
+        RefreshWorkspaceLayoutProperties();
+        PersistWorkspaceLayoutIfReady();
+    }
+
+    partial void OnTimelineDockHeightChanged(GridLength value)
+    {
+        RefreshWorkspaceLayoutProperties();
+        PersistWorkspaceLayoutIfReady();
+    }
+
+    partial void OnLeftPanelModeChanged(WorkspacePanelMode value)
+    {
+        if (value != WorkspacePanelMode.Hidden)
+        {
+            _leftRestoreMode = value;
+        }
+
+        RefreshWorkspaceLayoutProperties();
+        MarkWorkspacePresetCustom();
+        PersistWorkspaceLayoutIfReady();
+        StatusMessage = $"Left panel {GetWorkspacePanelModeLabel(value)}";
+    }
+
+    partial void OnRightPanelModeChanged(WorkspacePanelMode value)
+    {
+        if (value != WorkspacePanelMode.Hidden)
+        {
+            _rightRestoreMode = value;
+        }
+
+        RefreshWorkspaceLayoutProperties();
+        MarkWorkspacePresetCustom();
+        PersistWorkspaceLayoutIfReady();
+        StatusMessage = $"Right panel {GetWorkspacePanelModeLabel(value)}";
+    }
+
+    partial void OnTimelinePanelModeChanged(WorkspacePanelMode value)
+    {
+        if (value != WorkspacePanelMode.Hidden)
+        {
+            _timelineRestoreMode = value;
+        }
+
+        RefreshWorkspaceLayoutProperties();
+        MarkWorkspacePresetCustom();
+        PersistWorkspaceLayoutIfReady();
+        StatusMessage = $"Timeline panel {GetWorkspacePanelModeLabel(value)}";
+    }
+
+    partial void OnSelectedTimelineViewChanged(TimelineWorkspaceView value)
+    {
+        OnPropertyChanged(nameof(IsFramesTimelineViewActive));
+        OnPropertyChanged(nameof(IsCurvesTimelineViewActive));
+        OnPropertyChanged(nameof(TimelineWorkspaceViewLabel));
+        OnPropertyChanged(nameof(TimelineWorkspaceViewSummary));
+    }
+
+    partial void OnSelectedWorkspacePresetChanged(WorkspaceLayoutPreset value)
+    {
+        OnPropertyChanged(nameof(WorkspaceLayoutLabel));
+        OnPropertyChanged(nameof(WorkspaceLayoutSummary));
+
+        if (_suppressWorkspacePreset || value == WorkspaceLayoutPreset.Custom)
+        {
+            return;
+        }
+
+        ApplyWorkspacePreset(value, updateStatus: true);
     }
 
     partial void OnSelectedComponentItemChanged(LibraryItemViewModel? oldValue, LibraryItemViewModel? newValue)
@@ -1121,6 +1429,18 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnFrameTimelineZoomChanged(double value)
     {
         OnPropertyChanged(nameof(FrameTimelineSurfaceWidth));
+    }
+
+    partial void OnCanvasZoomChanged(double value)
+    {
+        var normalized = Math.Clamp(value, MinCanvasZoomFactor, MaxCanvasZoomFactor);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            CanvasZoom = normalized;
+            return;
+        }
+
+        OnPropertyChanged(nameof(CanvasZoomLabel));
     }
 
     partial void OnDurationChanged(double value)
@@ -2161,6 +2481,25 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void RelinkSelectionToSelectedLibraryItem()
+    {
+        if (!CanRelinkSelectionToSelectedLibraryItem || SelectedLayer is null || SelectedLibraryItem is null)
+        {
+            return;
+        }
+
+        var relinkedLayer = LibraryManagementService.RelinkLayerToLibraryItem(SelectedLayer.Model, SelectedLibraryItem.Model);
+        if (!ReplaceCurrentLayer(relinkedLayer))
+        {
+            return;
+        }
+
+        RebuildLayers(relinkedLayer.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{SelectedLayer.Name} relinked to {SelectedLibraryItem.Name}";
+    }
+
+    [RelayCommand]
     private void DuplicateSelection()
     {
         if (SelectedLayer is null)
@@ -2464,6 +2803,171 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void SetTimelineWorkspaceView(string? viewKey)
+    {
+        if (string.IsNullOrWhiteSpace(viewKey) ||
+            !Enum.TryParse<TimelineWorkspaceView>(viewKey, true, out var view) ||
+            SelectedTimelineView == view)
+        {
+            return;
+        }
+
+        SelectedTimelineView = view;
+        StatusMessage = view == TimelineWorkspaceView.Frames
+            ? "Frame exposure sheet focused"
+            : "Property curves focused";
+    }
+
+    [RelayCommand]
+    private void SetOnionSkinCount(string? countKey)
+    {
+        if (string.IsNullOrWhiteSpace(countKey))
+        {
+            return;
+        }
+
+        var parts = countKey.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || !int.TryParse(parts[1], out var value))
+        {
+            return;
+        }
+
+        value = Math.Clamp(value, 0, 6);
+
+        switch (parts[0].ToLowerInvariant())
+        {
+            case "before":
+            case "prev":
+                OnionSkinBefore = value;
+                StatusMessage = $"Onion skin previous frames set to {value}";
+                break;
+            case "after":
+            case "next":
+                OnionSkinAfter = value;
+                StatusMessage = $"Onion skin next frames set to {value}";
+                break;
+        }
+    }
+
+    public void SetTimelineDockHeightPixels(double height)
+    {
+        var normalized = Math.Clamp(height, MinTimelineDockHeight, MaxTimelineDockHeight);
+        if (Math.Abs(TimelineDockHeight.Value - normalized) < 0.1d)
+        {
+            return;
+        }
+
+        TimelineDockHeight = new GridLength(normalized);
+    }
+
+    [RelayCommand]
+    private void ToggleWorkspacePanel(string? panelKey)
+    {
+        if (string.IsNullOrWhiteSpace(panelKey))
+        {
+            return;
+        }
+
+        switch (panelKey.Trim().ToLowerInvariant())
+        {
+            case "left":
+                LeftPanelMode = LeftPanelMode == WorkspacePanelMode.Hidden ? _leftRestoreMode : WorkspacePanelMode.Hidden;
+                StatusMessage = LeftPanelMode == WorkspacePanelMode.Hidden
+                    ? "Tools dock hidden"
+                    : $"Tools dock restored as {GetWorkspacePanelStateLabel(LeftPanelMode)}";
+                break;
+            case "right":
+                RightPanelMode = RightPanelMode == WorkspacePanelMode.Hidden ? _rightRestoreMode : WorkspacePanelMode.Hidden;
+                StatusMessage = RightPanelMode == WorkspacePanelMode.Hidden
+                    ? "Inspector hidden"
+                    : $"Inspector restored as {GetWorkspacePanelStateLabel(RightPanelMode)}";
+                break;
+            case "timeline":
+                TimelinePanelMode = TimelinePanelMode == WorkspacePanelMode.Hidden ? _timelineRestoreMode : WorkspacePanelMode.Hidden;
+                StatusMessage = TimelinePanelMode == WorkspacePanelMode.Hidden
+                    ? "Timeline hidden"
+                    : $"Timeline restored as {GetWorkspacePanelStateLabel(TimelinePanelMode)}";
+                break;
+        }
+    }
+
+    [RelayCommand]
+    private void SetWorkspacePanelMode(string? panelModeKey)
+    {
+        if (string.IsNullOrWhiteSpace(panelModeKey))
+        {
+            return;
+        }
+
+        var parts = panelModeKey.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || !TryParseWorkspacePanelMode(parts[1], out var mode))
+        {
+            return;
+        }
+
+        switch (parts[0].ToLowerInvariant())
+        {
+            case "left":
+                LeftPanelMode = mode;
+                break;
+            case "right":
+                RightPanelMode = mode;
+                break;
+            case "timeline":
+                TimelinePanelMode = mode;
+                break;
+        }
+    }
+
+    [RelayCommand]
+    private void RestoreSavedWorkspaceLayout()
+    {
+        RestoreWorkspaceLayout(updateStatus: true);
+    }
+
+    [RelayCommand]
+    private void FocusWorkspaceArea(string? areaKey)
+    {
+        if (string.IsNullOrWhiteSpace(areaKey))
+        {
+            return;
+        }
+
+        switch (areaKey.Trim().ToLowerInvariant())
+        {
+            case "classic":
+                ApplyWorkspacePreset(WorkspaceLayoutPreset.Classic, updateStatus: true);
+                break;
+            case "stage":
+                ApplyWorkspacePreset(WorkspaceLayoutPreset.StageFocus, updateStatus: true);
+                break;
+            case "timeline":
+                ApplyWorkspacePreset(WorkspaceLayoutPreset.TimelineFocus, updateStatus: true);
+                break;
+            case "tools":
+                ApplyCustomWorkspaceFocus(
+                    leftMode: WorkspacePanelMode.Docked,
+                    rightMode: WorkspacePanelMode.Hidden,
+                    timelineMode: WorkspacePanelMode.Overlay,
+                    leftDockWidth: Math.Max(244, LeftDockWidth.Value),
+                    rightDockWidth: RightDockWidth.Value,
+                    timelineDockHeight: Math.Max(440, TimelineDockHeight.Value),
+                    "Tools focus workspace applied");
+                break;
+            case "inspector":
+                ApplyCustomWorkspaceFocus(
+                    leftMode: WorkspacePanelMode.Hidden,
+                    rightMode: WorkspacePanelMode.Docked,
+                    timelineMode: WorkspacePanelMode.Overlay,
+                    leftDockWidth: LeftDockWidth.Value,
+                    rightDockWidth: Math.Max(304, RightDockWidth.Value),
+                    timelineDockHeight: Math.Max(440, TimelineDockHeight.Value),
+                    "Inspector focus workspace applied");
+                break;
+        }
+    }
+
+    [RelayCommand]
     private void AlignLeft()
     {
         AlignSelection(x: 0, y: null, "Aligned left");
@@ -2536,6 +3040,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _suppressButtonStateEditor = false;
         SelectedDrawingTool = DrawingTool.Select;
         SceneEditingService.EnsureScenes(_document);
+        LibraryManagementService.EnsureLibraryMetadata(_document);
         PublishProfileService.EnsureProfiles(_document);
         DocumentName = document.Name;
         FileLabel = label;
@@ -3020,6 +3525,19 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadTimelineRows();
     }
 
+    private bool ReplaceCurrentLayer(TimelineLayer replacement)
+    {
+        var index = _document.Layers.FindIndex(layer => layer.Id == replacement.Id);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _document.Layers[index] = replacement;
+        PersistActiveScene();
+        return true;
+    }
+
     private void ReloadScenes(Guid? selectionId = null)
     {
         PersistActiveScene();
@@ -3078,9 +3596,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ReloadLibraryItems(Guid? selectionId = null)
     {
         var nextSelectionId = selectionId ?? SelectedLibraryItem?.Id;
+        ReloadLibraryFolderFilters();
         LibraryItems.Clear();
 
-        foreach (var item in _document.LibraryItems.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        var filteredItems = LibraryManagementService.FilterItems(
+                _document.LibraryItems,
+                LibrarySearchText,
+                SelectedLibraryFolderFilter)
+            .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in filteredItems)
         {
             LibraryItems.Add(new LibraryItemViewModel(item));
         }
@@ -3089,6 +3614,63 @@ public partial class MainWindowViewModel : ViewModelBase
             ? LibraryItems.FirstOrDefault()
             : LibraryItems.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? LibraryItems.FirstOrDefault();
         RefreshLibraryStateProperties();
+    }
+
+    private void ReloadLibraryFolderFilters()
+    {
+        var currentFilter = string.IsNullOrWhiteSpace(SelectedLibraryFolderFilter)
+            ? "All folders"
+            : SelectedLibraryFolderFilter;
+        var folders = _document.LibraryItems
+            .Select(item => LibraryManagementService.GetDisplayFolderPath(item.FolderPath))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(folder => folder, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        _suppressLibraryFilterSelection = true;
+        LibraryFolderFilters.Clear();
+        LibraryFolderFilters.Add("All folders");
+        foreach (var folder in folders)
+        {
+            if (string.Equals(folder, "All folders", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            LibraryFolderFilters.Add(folder);
+        }
+
+        SelectedLibraryFolderFilter = LibraryFolderFilters.Contains(currentFilter, StringComparer.OrdinalIgnoreCase)
+            ? LibraryFolderFilters.First(folder => string.Equals(folder, currentFilter, StringComparison.OrdinalIgnoreCase))
+            : "All folders";
+        _suppressLibraryFilterSelection = false;
+    }
+
+    private void RefreshSelectedLibraryItemEditor()
+    {
+        _suppressLibraryItemEditor = true;
+        LibraryItemNameEditor = SelectedLibraryItem?.Name ?? string.Empty;
+        LibraryFolderEditor = SelectedLibraryItem?.Model.FolderPath ?? string.Empty;
+        LibraryLinkageIdEditor = SelectedLibraryItem?.Model.LinkageId ?? string.Empty;
+        LibrarySourceAssetPathEditor = SelectedLibraryItem?.Model.SourceAssetPath ?? string.Empty;
+        _suppressLibraryItemEditor = false;
+    }
+
+    private void ApplySelectedLibraryMetadata(Action<LibraryItem> apply, string statusMessage)
+    {
+        if (_suppressLibraryItemEditor || SelectedLibraryItem is null)
+        {
+            return;
+        }
+
+        var selectedId = SelectedLibraryItem.Id;
+        apply(SelectedLibraryItem.Model);
+        SelectedLibraryItem.RefreshMetadata();
+        ReloadLibraryItems(selectedId);
+        ReloadComponentItems(selectedId);
+        RebuildLayers(SelectedLayer?.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = statusMessage;
     }
 
     private void ReloadComponentItems(Guid? selectionId = null)
@@ -3811,6 +4393,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _document = DocumentSerializer.Clone(snapshot.Document);
         SceneEditingService.EnsureScenes(_document);
+        LibraryManagementService.EnsureLibraryMetadata(_document);
         PublishProfileService.EnsureProfiles(_document);
         DocumentName = _document.Name;
         ReloadLibraryItems();
@@ -4323,10 +4906,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private void RefreshLibraryStateProperties()
     {
         OnPropertyChanged(nameof(CanInsertFromLibrary));
+        OnPropertyChanged(nameof(CanEditSelectedLibraryItem));
         OnPropertyChanged(nameof(CanInsertSelectedComponent));
         OnPropertyChanged(nameof(CanCreateSymbolFromSelection));
         OnPropertyChanged(nameof(CanCreateComponentFromSelection));
         OnPropertyChanged(nameof(CanUpdateLinkedSymbol));
+        OnPropertyChanged(nameof(CanRelinkSelectionToSelectedLibraryItem));
         OnPropertyChanged(nameof(CanEnterSymbolEdit));
         OnPropertyChanged(nameof(SelectedLibrarySummary));
         OnPropertyChanged(nameof(SelectedComponentSummary));
@@ -4380,6 +4965,272 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanEditScenes));
         OnPropertyChanged(nameof(SelectedSceneSummary));
         OnPropertyChanged(nameof(WorkspaceSummary));
+    }
+
+    private void RefreshWorkspaceLayoutProperties()
+    {
+        OnPropertyChanged(nameof(LeftPanelColumnWidth));
+        OnPropertyChanged(nameof(LeftSplitterColumnWidth));
+        OnPropertyChanged(nameof(RightPanelColumnWidth));
+        OnPropertyChanged(nameof(RightSplitterColumnWidth));
+        OnPropertyChanged(nameof(TimelinePanelRowHeight));
+        OnPropertyChanged(nameof(TimelineSplitterRowHeight));
+        OnPropertyChanged(nameof(LeftPanelColumnSpan));
+        OnPropertyChanged(nameof(LeftPanelHostWidth));
+        OnPropertyChanged(nameof(LeftPanelHorizontalAlignment));
+        OnPropertyChanged(nameof(LeftPanelHostMargin));
+        OnPropertyChanged(nameof(LeftPanelZIndex));
+        OnPropertyChanged(nameof(IsLeftPanelVisible));
+        OnPropertyChanged(nameof(RightPanelGridColumn));
+        OnPropertyChanged(nameof(RightPanelColumnSpan));
+        OnPropertyChanged(nameof(RightPanelHostWidth));
+        OnPropertyChanged(nameof(RightPanelHorizontalAlignment));
+        OnPropertyChanged(nameof(RightPanelHostMargin));
+        OnPropertyChanged(nameof(RightPanelZIndex));
+        OnPropertyChanged(nameof(IsRightPanelVisible));
+        OnPropertyChanged(nameof(TimelinePanelGridRow));
+        OnPropertyChanged(nameof(TimelinePanelRowSpan));
+        OnPropertyChanged(nameof(TimelinePanelHostHeight));
+        OnPropertyChanged(nameof(TimelinePanelVerticalAlignment));
+        OnPropertyChanged(nameof(TimelinePanelHostMargin));
+        OnPropertyChanged(nameof(TimelinePanelZIndex));
+        OnPropertyChanged(nameof(IsTimelinePanelVisible));
+        OnPropertyChanged(nameof(LeftPanelToggleLabel));
+        OnPropertyChanged(nameof(RightPanelToggleLabel));
+        OnPropertyChanged(nameof(TimelinePanelToggleLabel));
+        OnPropertyChanged(nameof(WorkspaceLayoutLabel));
+        OnPropertyChanged(nameof(WorkspaceLayoutSummary));
+        OnPropertyChanged(nameof(IsLeftPanelCollapsedHandleVisible));
+        OnPropertyChanged(nameof(IsRightPanelCollapsedHandleVisible));
+        OnPropertyChanged(nameof(IsTimelinePanelCollapsedHandleVisible));
+        OnPropertyChanged(nameof(IsLeftPanelDocked));
+        OnPropertyChanged(nameof(IsLeftPanelOverlay));
+        OnPropertyChanged(nameof(IsLeftPanelHidden));
+        OnPropertyChanged(nameof(IsRightPanelDocked));
+        OnPropertyChanged(nameof(IsRightPanelOverlay));
+        OnPropertyChanged(nameof(IsRightPanelHidden));
+        OnPropertyChanged(nameof(IsTimelinePanelDocked));
+        OnPropertyChanged(nameof(IsTimelinePanelOverlay));
+        OnPropertyChanged(nameof(IsTimelinePanelHidden));
+    }
+
+    private void ApplyWorkspacePreset(WorkspaceLayoutPreset preset, bool updateStatus)
+    {
+        _suppressWorkspacePreset = true;
+        SelectedWorkspacePreset = preset;
+
+        switch (preset)
+        {
+            case WorkspaceLayoutPreset.Classic:
+                LeftDockWidth = new GridLength(248);
+                RightDockWidth = new GridLength(296);
+                TimelineDockHeight = new GridLength(460);
+                LeftPanelMode = WorkspacePanelMode.Docked;
+                RightPanelMode = WorkspacePanelMode.Docked;
+                TimelinePanelMode = WorkspacePanelMode.Docked;
+                _leftRestoreMode = WorkspacePanelMode.Docked;
+                _rightRestoreMode = WorkspacePanelMode.Docked;
+                _timelineRestoreMode = WorkspacePanelMode.Docked;
+                break;
+            case WorkspaceLayoutPreset.StageFocus:
+                LeftDockWidth = new GridLength(236);
+                RightDockWidth = new GridLength(284);
+                TimelineDockHeight = new GridLength(380);
+                LeftPanelMode = WorkspacePanelMode.Overlay;
+                RightPanelMode = WorkspacePanelMode.Overlay;
+                TimelinePanelMode = WorkspacePanelMode.Overlay;
+                _leftRestoreMode = WorkspacePanelMode.Overlay;
+                _rightRestoreMode = WorkspacePanelMode.Overlay;
+                _timelineRestoreMode = WorkspacePanelMode.Overlay;
+                break;
+            case WorkspaceLayoutPreset.TimelineFocus:
+                LeftDockWidth = new GridLength(236);
+                RightDockWidth = new GridLength(292);
+                TimelineDockHeight = new GridLength(560);
+                LeftPanelMode = WorkspacePanelMode.Hidden;
+                RightPanelMode = WorkspacePanelMode.Overlay;
+                TimelinePanelMode = WorkspacePanelMode.Docked;
+                _leftRestoreMode = WorkspacePanelMode.Docked;
+                _rightRestoreMode = WorkspacePanelMode.Overlay;
+                _timelineRestoreMode = WorkspacePanelMode.Docked;
+                break;
+            case WorkspaceLayoutPreset.Custom:
+            default:
+                break;
+        }
+
+        _suppressWorkspacePreset = false;
+        RefreshWorkspaceLayoutProperties();
+        if (updateStatus)
+        {
+            StatusMessage = preset switch
+            {
+                WorkspaceLayoutPreset.Classic => "Classic workspace applied",
+                WorkspaceLayoutPreset.StageFocus => "Stage focus workspace applied",
+                WorkspaceLayoutPreset.TimelineFocus => "Timeline focus workspace applied",
+                _ => "Custom workspace active"
+            };
+        }
+
+        PersistWorkspaceLayoutIfReady();
+    }
+
+    private void MarkWorkspacePresetCustom()
+    {
+        if (_suppressWorkspacePreset || SelectedWorkspacePreset == WorkspaceLayoutPreset.Custom)
+        {
+            return;
+        }
+
+        _suppressWorkspacePreset = true;
+        SelectedWorkspacePreset = WorkspaceLayoutPreset.Custom;
+        _suppressWorkspacePreset = false;
+    }
+
+    private void RestoreWorkspaceLayout(bool updateStatus = false)
+    {
+        ApplyWorkspaceLayoutState(WorkspaceLayoutPersistenceService.Load(), updateStatus);
+    }
+
+    private void ApplyCustomWorkspaceFocus(
+        WorkspacePanelMode leftMode,
+        WorkspacePanelMode rightMode,
+        WorkspacePanelMode timelineMode,
+        double leftDockWidth,
+        double rightDockWidth,
+        double timelineDockHeight,
+        string statusMessage)
+    {
+        var state = CaptureWorkspaceLayoutState();
+        state.SelectedPreset = WorkspaceLayoutPreset.Custom;
+        state.LeftPanelMode = leftMode;
+        state.RightPanelMode = rightMode;
+        state.TimelinePanelMode = timelineMode;
+        state.LeftRestoreMode = leftMode == WorkspacePanelMode.Hidden ? state.LeftRestoreMode : leftMode;
+        state.RightRestoreMode = rightMode == WorkspacePanelMode.Hidden ? state.RightRestoreMode : rightMode;
+        state.TimelineRestoreMode = timelineMode == WorkspacePanelMode.Hidden ? state.TimelineRestoreMode : timelineMode;
+        state.LeftDockWidth = leftDockWidth;
+        state.RightDockWidth = rightDockWidth;
+        state.TimelineDockHeight = timelineDockHeight;
+        ApplyWorkspaceLayoutState(state, updateStatus: false);
+        StatusMessage = statusMessage;
+    }
+
+    private void ApplyWorkspaceLayoutState(WorkspaceLayoutState state, bool updateStatus)
+    {
+        _isApplyingWorkspaceLayout = true;
+        _suppressWorkspacePreset = true;
+
+        _leftRestoreMode = NormalizeRestoreMode(state.LeftRestoreMode);
+        _rightRestoreMode = NormalizeRestoreMode(state.RightRestoreMode);
+        _timelineRestoreMode = NormalizeRestoreMode(state.TimelineRestoreMode);
+
+        LeftDockWidth = new GridLength(Math.Max(232, state.LeftDockWidth));
+        RightDockWidth = new GridLength(Math.Max(276, state.RightDockWidth));
+        TimelineDockHeight = new GridLength(Math.Clamp(state.TimelineDockHeight, MinTimelineDockHeight, MaxTimelineDockHeight));
+        SelectedWorkspacePreset = state.SelectedPreset;
+        LeftPanelMode = state.LeftPanelMode;
+        RightPanelMode = state.RightPanelMode;
+        TimelinePanelMode = state.TimelinePanelMode;
+
+        if (LeftPanelMode != WorkspacePanelMode.Hidden)
+        {
+            _leftRestoreMode = LeftPanelMode;
+        }
+
+        if (RightPanelMode != WorkspacePanelMode.Hidden)
+        {
+            _rightRestoreMode = RightPanelMode;
+        }
+
+        if (TimelinePanelMode != WorkspacePanelMode.Hidden)
+        {
+            _timelineRestoreMode = TimelinePanelMode;
+        }
+
+        _suppressWorkspacePreset = false;
+        _isApplyingWorkspaceLayout = false;
+        RefreshWorkspaceLayoutProperties();
+        if (updateStatus)
+        {
+            StatusMessage = $"Workspace restored • {WorkspaceLayoutSummary}";
+        }
+    }
+
+    private WorkspaceLayoutState CaptureWorkspaceLayoutState()
+    {
+        return new WorkspaceLayoutState
+        {
+            SelectedPreset = SelectedWorkspacePreset,
+            LeftPanelMode = LeftPanelMode,
+            RightPanelMode = RightPanelMode,
+            TimelinePanelMode = TimelinePanelMode,
+            LeftRestoreMode = _leftRestoreMode,
+            RightRestoreMode = _rightRestoreMode,
+            TimelineRestoreMode = _timelineRestoreMode,
+            LeftDockWidth = LeftDockWidth.Value,
+            RightDockWidth = RightDockWidth.Value,
+            TimelineDockHeight = TimelineDockHeight.Value
+        };
+    }
+
+    private void PersistWorkspaceLayoutIfReady()
+    {
+        if (!_workspaceLayoutLoaded || _isApplyingWorkspaceLayout)
+        {
+            return;
+        }
+
+        WorkspaceLayoutPersistenceService.Save(CaptureWorkspaceLayoutState());
+    }
+
+    private static WorkspacePanelMode NormalizeRestoreMode(WorkspacePanelMode mode)
+    {
+        return mode == WorkspacePanelMode.Hidden ? WorkspacePanelMode.Docked : mode;
+    }
+
+    private static bool TryParseWorkspacePanelMode(string value, out WorkspacePanelMode mode)
+    {
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "docked":
+            case "dock":
+                mode = WorkspacePanelMode.Docked;
+                return true;
+            case "overlay":
+            case "over":
+                mode = WorkspacePanelMode.Overlay;
+                return true;
+            case "hidden":
+            case "hide":
+                mode = WorkspacePanelMode.Hidden;
+                return true;
+            default:
+                mode = WorkspacePanelMode.Docked;
+                return false;
+        }
+    }
+
+    private static string GetWorkspacePanelModeLabel(WorkspacePanelMode mode)
+    {
+        return mode switch
+        {
+            WorkspacePanelMode.Docked => "docked",
+            WorkspacePanelMode.Overlay => "set to overlay",
+            WorkspacePanelMode.Hidden => "hidden",
+            _ => mode.ToString()
+        };
+    }
+
+    private static string GetWorkspacePanelStateLabel(WorkspacePanelMode mode)
+    {
+        return mode switch
+        {
+            WorkspacePanelMode.Docked => "docked",
+            WorkspacePanelMode.Overlay => "overlay",
+            WorkspacePanelMode.Hidden => "hidden",
+            _ => mode.ToString()
+        };
     }
 
     private static string GetSelectionStateSuffix(LayerViewModel selectedLayer)

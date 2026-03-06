@@ -11,9 +11,9 @@ namespace TimelineAnimations.App.Controls;
 
 public sealed class FrameTimelineControl : Control
 {
-    private const double LabelWidth = 196;
-    private const double HeaderHeight = 38;
-    private const double RowHeight = 36;
+    private const double LabelWidth = 202;
+    private const double HeaderHeight = 42;
+    private const double RowHeight = 44;
     private bool _isSelecting;
     private int _selectionAnchorFrame;
     private Guid? _selectionLayerId;
@@ -206,7 +206,7 @@ public sealed class FrameTimelineControl : Control
     {
         var headerRect = new Rect(0, 0, rect.Width, HeaderHeight);
         context.DrawRectangle(new SolidColorBrush(Color.Parse("#0B1422")), new Pen(new SolidColorBrush(Color.Parse("#223352")), 1), headerRect, 20, 20);
-        DrawLabel(context, "Frames", new Point(18, 10), 13, Color.Parse("#B9C7E8"));
+        DrawLabel(context, "Frames", new Point(18, 12), 13, Color.Parse("#B9C7E8"));
 
         var minorPen = new Pen(new SolidColorBrush(Color.Parse("#162338")), 1);
         var majorPen = new Pen(new SolidColorBrush(Color.Parse("#28415F")), 1);
@@ -215,11 +215,11 @@ public sealed class FrameTimelineControl : Control
         {
             var x = TimelineStartX + (frame * PixelsPerFrame);
             var major = frame == 0 || ((frame + 1) % 5) == 0;
-            context.DrawLine(major ? majorPen : minorPen, new Point(x, HeaderHeight - (major ? 24 : 16)), new Point(x, HeaderHeight));
+            context.DrawLine(major ? majorPen : minorPen, new Point(x, HeaderHeight - (major ? 28 : 18)), new Point(x, HeaderHeight));
 
             if (major)
             {
-                DrawLabel(context, $"{frame + 1}", new Point(x + 4, 8), 11, Color.Parse("#8CA6D6"));
+                DrawLabel(context, $"{frame + 1}", new Point(x + 4, 10), 11, Color.Parse("#8CA6D6"));
             }
         }
 
@@ -231,9 +231,9 @@ public sealed class FrameTimelineControl : Control
         foreach (var label in Labels)
         {
             var x = TimelineStartX + (label.Frame * PixelsPerFrame);
-            var tagRect = new Rect(x + 2, 4, Math.Max(36, (label.Name.Length * 6.5) + 12), 16);
+            var tagRect = new Rect(x + 2, 6, Math.Max(40, (label.Name.Length * 6.5) + 14), 18);
             context.DrawRectangle(new SolidColorBrush(Color.Parse("#2C4568")), null, tagRect, 8, 8);
-            DrawLabel(context, label.Name, new Point(tagRect.X + 6, tagRect.Y + 2), 10, Color.Parse("#F1F6FF"));
+            DrawLabel(context, label.Name, new Point(tagRect.X + 6, tagRect.Y + 3), 10, Color.Parse("#F1F6FF"));
         }
     }
 
@@ -257,16 +257,16 @@ public sealed class FrameTimelineControl : Control
                 : new SolidColorBrush(Color.Parse("#0A111B"));
             context.DrawRectangle(rowFill, dividerPen, rowRect);
 
-            DrawLabel(context, row.LayerName, new Point(18, rowY + 8), 12, Color.Parse("#E7EEFD"));
-            DrawLabel(context, row.DurationLabel, new Point(18, rowY + 20), 10, Color.Parse("#8095BC"));
+            DrawLabel(context, row.LayerName, new Point(18, rowY + 10), 12, Color.Parse("#E7EEFD"));
+            DrawLabel(context, row.DurationLabel, new Point(18, rowY + 26), 10, Color.Parse("#8095BC"));
 
             if (row.IsLocked)
             {
-                DrawLabel(context, "Locked", new Point(LabelWidth - 64, rowY + 10), 10, Color.Parse("#FFB685"));
+                DrawLabel(context, "Locked", new Point(LabelWidth - 64, rowY + 12), 10, Color.Parse("#FFB685"));
             }
             else if (row.HasExplicitFrames)
             {
-                DrawLabel(context, "Cel", new Point(LabelWidth - 52, rowY + 10), 10, Color.Parse("#9BFFF0"));
+                DrawLabel(context, "Cel", new Point(LabelWidth - 52, rowY + 12), 10, Color.Parse("#9BFFF0"));
             }
 
             for (var frame = 0; frame < TotalFrames; frame++)
