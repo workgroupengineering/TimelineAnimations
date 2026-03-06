@@ -6,6 +6,12 @@ public sealed class LibraryItem
 
     public string Name { get; set; } = "New Symbol";
 
+    public string FolderPath { get; set; } = string.Empty;
+
+    public string LinkageId { get; set; } = string.Empty;
+
+    public string SourceAssetPath { get; set; } = string.Empty;
+
     public SymbolKind SymbolKind { get; set; } = SymbolKind.Graphic;
 
     public double Duration { get; set; } = 2;

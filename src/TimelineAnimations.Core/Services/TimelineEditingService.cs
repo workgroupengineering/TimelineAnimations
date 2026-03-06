@@ -208,6 +208,12 @@ public static class TimelineEditingService
 
     public static void AddLibraryItem(TimelineDocument document, LibraryItem item)
     {
+        item.Name = LibraryManagementService.EnsureUniqueLibraryName(document, item.Name, item.Id);
+        item.FolderPath = LibraryManagementService.NormalizeFolderPath(string.IsNullOrWhiteSpace(item.FolderPath)
+            ? LibraryManagementService.GetDefaultFolderPath(item)
+            : item.FolderPath);
+        item.LinkageId = LibraryManagementService.EnsureUniqueLinkageId(document, item.LinkageId, item.Id, item.Name);
+        item.SourceAssetPath = LibraryManagementService.NormalizeSourceAssetPath(item.SourceAssetPath);
         document.LibraryItems.Add(item);
     }
 
