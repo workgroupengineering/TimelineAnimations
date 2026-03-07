@@ -1,0 +1,213 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             x:Class="TimelineAnimations.App.Views.Dock.DockTimelineToolView"
+             x:DataType="vm:DockTimelineToolViewModel">
+  <Grid RowDefinitions="Auto,*"
+        RowSpacing="4">
+    <Border Classes="chrome-group"
+            Padding="4,3">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,180"
+            ColumnSpacing="6">
+        <ToggleButton Content="Frames"
+                      Classes="timeline-tab"
+                      IsChecked="{Binding Host.IsFramesTimelineViewActive, Mode=OneWay}"
+                      Command="{Binding Host.SetTimelineWorkspaceViewCommand}"
+                      CommandParameter="Frames" />
+        <ToggleButton Grid.Column="1"
+                      Content="Curves"
+                      Classes="timeline-tab"
+                      IsChecked="{Binding Host.IsCurvesTimelineViewActive, Mode=OneWay}"
+                      Command="{Binding Host.SetTimelineWorkspaceViewCommand}"
+                      CommandParameter="Curves" />
+        <Button Grid.Column="2"
+                Classes="timeline-action accent"
+                Content="Play"
+                Command="{Binding Host.TogglePlaybackCommand}" />
+        <Button Grid.Column="3"
+                Classes="timeline-action"
+                Content="Stop"
+                Command="{Binding Host.StopPlaybackCommand}" />
+        <Button Grid.Column="4"
+                Classes="timeline-action"
+                Content="Razor"
+                Command="{Binding Host.RazorSelectionCommand}"
+                IsEnabled="{Binding Host.CanUseEditorialTools}" />
+        <TextBlock Grid.Column="5"
+                   Classes="micro-label"
+                   VerticalAlignment="Center"
+                   Text="{Binding Host.EditMultipleFramesSummary}" />
+        <Slider Grid.Column="6"
+                Classes="timeline-slider"
+                Minimum="10"
+                Maximum="160"
+                Value="{Binding Host.TimelineZoom, Mode=TwoWay}" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Grid IsVisible="{Binding Host.IsFramesTimelineViewActive}"
+            RowDefinitions="Auto,*"
+            RowSpacing="4">
+        <Border Classes="chrome-group"
+                Padding="4,3">
+          <Grid ColumnDefinitions="Auto,220,*,148"
+                ColumnSpacing="6">
+            <Menu Classes="timeline-toolbar">
+              <MenuItem Classes="timeline-toolbar-item"
+                        Header="Insert">
+                <MenuItem Header="Add cel"
+                          Command="{Binding Host.AddFrameKeyframeCommand}"
+                          IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+                <MenuItem Header="Add blank cel"
+                          Command="{Binding Host.AddBlankFrameKeyframeCommand}"
+                          IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+                <MenuItem Header="Extend hold"
+                          Command="{Binding Host.ExtendFrameHoldCommand}"
+                          IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+              </MenuItem>
+              <MenuItem Classes="timeline-toolbar-item"
+                        Header="Edit">
+                <MenuItem Header="Edit multiple frames"
+                          ToggleType="CheckBox"
+                          IsChecked="{Binding Host.EditMultipleFramesEnabled, Mode=TwoWay}" />
+                <MenuItem Header="Slip earlier"
+                          Command="{Binding Host.ApplyEditorialOperationCommand}"
+                          CommandParameter="slip-back"
+                          IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                <MenuItem Header="Slip later"
+                          Command="{Binding Host.ApplyEditorialOperationCommand}"
+                          CommandParameter="slip-forward"
+                          IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                <MenuItem Header="Slide earlier"
+                          Command="{Binding Host.ApplyEditorialOperationCommand}"
+                          CommandParameter="slide-back"
+                          IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                <MenuItem Header="Slide later"
+                          Command="{Binding Host.ApplyEditorialOperationCommand}"
+                          CommandParameter="slide-forward"
+                          IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                <MenuItem Header="Ripple shorter"
+                          Command="{Binding Host.ApplyEditorialOperationCommand}"
+                          CommandParameter="ripple-shorter"
+                          IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                <MenuItem Header="Ripple longer"
+                          Command="{Binding Host.ApplyEditorialOperationCommand}"
+                          CommandParameter="ripple-longer"
+                          IsEnabled="{Binding Host.CanUseEditorialTools}" />
+              </MenuItem>
+            </Menu>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="4">
+              <TextBox Classes="timeline-entry"
+                       Width="132"
+                       Watermark="Frame label"
+                       Text="{Binding Host.FrameLabelEditor, Mode=TwoWay}" />
+              <Button Classes="timeline-action"
+                      Content="Set"
+                      Command="{Binding Host.AddOrUpdateFrameLabelCommand}" />
+              <Button Classes="timeline-action"
+                      Content="Clear"
+                      Command="{Binding Host.RemoveFrameLabelCommand}" />
+            </StackPanel>
+
+            <Border Grid.Column="2"
+                    Classes="metric-chip"
+                    Padding="8,4">
+              <TextBlock Classes="strong-label"
+                         Text="{Binding Host.SelectedFrameRangeSummary}" />
+            </Border>
+
+            <Slider Grid.Column="3"
+                    Classes="timeline-slider"
+                    Minimum="10"
+                    Maximum="32"
+                    Value="{Binding Host.FrameTimelineZoom, Mode=TwoWay}" />
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <controls:FrameTimelineControl x:Name="FrameTimeline"
+                                         Width="{Binding Host.FrameTimelineSurfaceWidth}"
+                                         Height="{Binding Host.FrameTimelineSurfaceHeight}"
+                                         Rows="{Binding Host.FrameRows}"
+                                         Labels="{Binding Host.SceneFrameLabels}"
+                                         Markers="{Binding Host.SceneMarkers}"
+                                         CurrentFrame="{Binding Host.CurrentFrame}"
+                                         TotalFrames="{Binding Host.TotalFrames}"
+                                         PixelsPerFrame="{Binding Host.FrameTimelineZoom}"
+                                         SelectedLayerId="{Binding Host.SelectedLayerId}"
+                                         SelectionStartFrame="{Binding Host.SelectionStartFrame}"
+                                         SelectionEndFrame="{Binding Host.SelectionEndFrame}"
+                                         InFrame="{Binding Host.CurrentSceneInFrame}"
+                                         OutFrame="{Binding Host.CurrentSceneOutFrame}"
+                                         WorkAreaStartFrame="{Binding Host.CurrentSceneWorkAreaStartFrame}"
+                                         WorkAreaEndFrame="{Binding Host.CurrentSceneWorkAreaEndFrame}" />
+        </ScrollViewer>
+      </Grid>
+
+      <Grid IsVisible="{Binding Host.IsCurvesTimelineViewActive}"
+            RowDefinitions="Auto,*"
+            RowSpacing="4">
+        <Border Classes="chrome-group"
+                Padding="4,3">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*,180"
+                ColumnSpacing="6">
+            <Button Classes="timeline-action"
+                    Content="+ Key"
+                    Command="{Binding Host.AddCurrentKeyframeCommand}"
+                    IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+            <Button Grid.Column="1"
+                    Classes="timeline-action warm"
+                    Content="- Key"
+                    Command="{Binding Host.DeleteCurrentKeyframeCommand}"
+                    IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}" />
+            <ComboBox Grid.Column="2"
+                      Classes="inspector-field"
+                      Width="156"
+                      ItemsSource="{Binding Host.AvailableEasings}"
+                      SelectedItem="{Binding Host.SelectedKeyframeEasing, Mode=TwoWay}"
+                      IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}" />
+            <StackPanel Grid.Column="3"
+                        Orientation="Horizontal"
+                        Spacing="6">
+              <Border Classes="metric-chip compact">
+                <TextBlock Classes="strong-label"
+                           Text="{Binding Host.SelectedProperty}" />
+              </Border>
+              <Border Classes="metric-chip">
+                <TextBlock Classes="micro-label"
+                           Text="{Binding Host.SelectedKeyframeSummary}"
+                           TextTrimming="CharacterEllipsis" />
+              </Border>
+            </StackPanel>
+            <Slider Grid.Column="4"
+                    Classes="timeline-slider"
+                    Minimum="10"
+                    Maximum="160"
+                    Value="{Binding Host.TimelineZoom, Mode=TwoWay}" />
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <controls:TimelineEditorControl x:Name="TimelineEditor"
+                                          Width="{Binding Host.TimelineSurfaceWidth}"
+                                          Height="{Binding Host.TimelineSurfaceHeight}"
+                                          Rows="{Binding Host.TimelineRows}"
+                                          CurrentTime="{Binding Host.CurrentTime}"
+                                          Duration="{Binding Host.Duration}"
+                                          SelectedProperty="{Binding Host.SelectedProperty}"
+                                          SelectedKeyframeId="{Binding Host.SelectedKeyframeId}"
+                                          PixelsPerSecond="{Binding Host.TimelineZoom}" />
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

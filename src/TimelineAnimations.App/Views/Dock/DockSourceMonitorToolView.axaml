@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             x:Class="TimelineAnimations.App.Views.Dock.DockSourceMonitorToolView"
+             x:DataType="vm:DockSourceMonitorToolViewModel">
+  <Grid RowDefinitions="Auto,*"
+        RowSpacing="4">
+    <Border Classes="chrome-group"
+            Padding="4,3">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="8">
+        <StackPanel Spacing="1">
+          <TextBlock Classes="monitor-label"
+                     Text="{Binding Host.SourceMonitorTitle}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding Host.SourceMonitorSummary}"
+                     TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <Border Grid.Column="1"
+                Classes="metric-chip compact">
+          <TextBlock Classes="strong-label"
+                     Text="{Binding Host.SourceMonitorRangeSummary}" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            Classes="panel-soft monitor-card">
+      <Grid RowDefinitions="*,Auto"
+            RowSpacing="6">
+        <Border Classes="panel-soft"
+                Padding="6"
+                MinHeight="180">
+          <Grid RowDefinitions="*,Auto"
+                RowSpacing="6">
+            <Image Source="{Binding Host.SourceMonitorBitmap}"
+                   Stretch="Uniform"
+                   IsVisible="{Binding Host.HasSourceMonitorBitmap}" />
+            <TextBlock Grid.Row="1"
+                       Classes="micro-label"
+                       Text="{Binding Host.SourceMonitorSummary}"
+                       TextWrapping="Wrap" />
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              ColumnDefinitions="Auto,Auto,*,Auto"
+              ColumnSpacing="8">
+          <Button Content="In"
+                  Classes="toolbar compact"
+                  Command="{Binding Host.MarkSourceMonitorInCommand}" />
+          <Button Grid.Column="1"
+                  Content="Out"
+                  Classes="toolbar compact"
+                  Command="{Binding Host.MarkSourceMonitorOutCommand}" />
+          <Slider Grid.Column="2"
+                  Classes="monitor-slider"
+                  Minimum="0"
+                  Maximum="{Binding Host.SourceMonitorDuration}"
+                  Value="{Binding Host.SourceMonitorTime, Mode=TwoWay}" />
+          <Border Grid.Column="3"
+                  Classes="metric-chip compact">
+            <TextBlock Classes="strong-label"
+                       Text="{Binding Host.CurrentTimeLabel}" />
+          </Border>
+        </Grid>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

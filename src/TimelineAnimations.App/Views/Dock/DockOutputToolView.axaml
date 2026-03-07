@@ -1,0 +1,383 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:models="using:TimelineAnimations.Core.Models"
+             x:Class="TimelineAnimations.App.Views.Dock.DockOutputToolView"
+             x:DataType="vm:DockOutputToolViewModel">
+  <ScrollViewer x:Name="OutputRoot"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                ColumnSpacing="8">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="eyebrow"
+                         Text="Animation Interop" />
+              <TextBlock Classes="section-title"
+                         Text="Preview, inspect, import, and export runtime animation formats" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Content="Refresh"
+                    Command="{Binding RefreshAnimationExchangePreviewCommand}" />
+            <Button Grid.Column="2"
+                    Content="Import"
+                    Click="ImportAnimationFormatClick" />
+            <Button Grid.Column="3"
+                    Content="Export"
+                    Classes="accent"
+                    Click="ExportAnimationFormatClick" />
+          </Grid>
+
+          <Grid ColumnDefinitions="160,148,*"
+                ColumnSpacing="8">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="micro-label"
+                         Text="Format" />
+              <ComboBox ItemsSource="{Binding AvailableAnimationExchangeFormats}"
+                        SelectedItem="{Binding SelectedAnimationExchangeFormat, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="4">
+              <TextBlock Classes="micro-label"
+                         Text="Layout" />
+              <ComboBox ItemsSource="{Binding AvailableAnimationExchangePreviewModes}"
+                        SelectedItem="{Binding SelectedAnimationExchangePreviewMode, Mode=TwoWay}" />
+            </StackPanel>
+            <Border Grid.Column="2"
+                    Classes="panel-soft">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="micro-label"
+                           Text="{Binding SelectedAnimationExchangeSummary}"
+                           TextWrapping="Wrap" />
+                <TextBlock Classes="micro-label"
+                           Text="{Binding AnimationExchangePreviewModeSummary}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="8">
+            <Border Classes="metric-chip">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="eyebrow"
+                           Text="Generated file" />
+                <TextBlock Classes="strong-label"
+                           Text="{Binding AnimationExchangePreviewFileSummary}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Classes="metric-chip">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="eyebrow"
+                           Text="Preview summary" />
+                <TextBlock Classes="strong-label"
+                           Text="{Binding AnimationExchangePreviewSummaryDisplay}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Border Classes="panel-soft"
+                  IsVisible="{Binding HasAnimationExchangePreviewIssues}">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="eyebrow"
+                         Text="Preview diagnostics" />
+              <ItemsControl ItemsSource="{Binding AnimationExchangePreviewIssues}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:AnimationExchangeIssue">
+                    <Border Classes="layer-row">
+                      <StackPanel Spacing="2">
+                        <TextBlock Classes="strong-label"
+                                   Text="{Binding Severity}" />
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding Source}" />
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding Message}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Grid ColumnSpacing="0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="{Binding AnimationExchangeCodeColumnWidth}" />
+              <ColumnDefinition Width="{Binding AnimationExchangeSplitterColumnWidth}" />
+              <ColumnDefinition Width="{Binding AnimationExchangeVisualColumnWidth}" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Classes="panel-soft"
+                    IsVisible="{Binding IsAnimationExchangeCodeVisible}">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                  <TextBlock Classes="eyebrow"
+                             Text="Generated code" />
+                  <TextBlock Grid.Column="1"
+                             Classes="micro-label"
+                             Text="{Binding AnimationExchangePreviewFileSummary}" />
+                </Grid>
+                <controls:AnimationExchangeCodeEditorControl MinHeight="360"
+                                                              Text="{Binding AnimationExchangePreviewCode}"
+                                                              Format="{Binding SelectedAnimationExchangeFormat}" />
+              </StackPanel>
+            </Border>
+
+            <GridSplitter Grid.Column="1"
+                          Width="8"
+                          HorizontalAlignment="Stretch"
+                          IsVisible="{Binding IsAnimationExchangeSplitMode}"
+                          Classes="panel-splitter vertical" />
+
+            <Border Grid.Column="2"
+                    Classes="panel-soft"
+                    IsVisible="{Binding IsAnimationExchangeVisualVisible}">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                  <TextBlock Classes="eyebrow"
+                             Text="Visual preview" />
+                  <TextBlock Grid.Column="1"
+                             Classes="micro-label"
+                             Text="{Binding CurrentTimeLabel}" />
+                </Grid>
+                <controls:AnimationExchangeVisualPreviewControl MinHeight="360"
+                                                                Format="{Binding SelectedAnimationExchangeFormat}"
+                                                                PreviewText="{Binding AnimationExchangePreviewCode}"
+                                                                PreviewDocument="{Binding AnimationExchangePreviewDocument}"
+                                                                PreviewTime="{Binding CurrentTime}"
+                                                                PreviewSummary="{Binding AnimationExchangePreviewVisualSummary}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Border Classes="panel-soft">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="eyebrow"
+                         Text="Last run" />
+              <TextBlock Classes="micro-label"
+                         Text="{Binding LastAnimationExchangeSummaryDisplay}"
+                         TextWrapping="Wrap" />
+              <ItemsControl ItemsSource="{Binding AnimationExchangeIssues}"
+                            IsVisible="{Binding HasAnimationExchangeIssues}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:AnimationExchangeIssue">
+                    <Border Classes="layer-row">
+                      <StackPanel Spacing="2">
+                        <TextBlock Classes="strong-label"
+                                   Text="{Binding Severity}" />
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding Source}" />
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding Message}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel">
+        <StackPanel Spacing="10"
+                    IsEnabled="{Binding CanEditPublishProfiles}">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto"
+                ColumnSpacing="8">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="eyebrow"
+                         Text="Publish" />
+              <TextBlock Classes="section-title"
+                         Text="Preview and export profiles" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Content="+ Profile"
+                    Command="{Binding AddPublishProfileCommand}" />
+            <Button Grid.Column="2"
+                    Content="Copy"
+                    Command="{Binding DuplicatePublishProfileCommand}"
+                    IsEnabled="{Binding CanPreviewSelectedPublishProfile}" />
+            <Button Grid.Column="3"
+                    Content="Preview"
+                    Click="PreviewPublishProfileClick"
+                    IsEnabled="{Binding CanPreviewSelectedPublishProfile}" />
+            <Button Grid.Column="4"
+                    Content="Publish"
+                    Classes="accent"
+                    Click="ExportPublishProfileClick"
+                    IsEnabled="{Binding CanExportSelectedPublishProfile}" />
+          </Grid>
+
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedPublishProfileSummary}"
+                     TextWrapping="Wrap" />
+
+          <ListBox Classes="dense-list"
+                   ItemsSource="{Binding PublishProfiles}"
+                   SelectedItem="{Binding SelectedPublishProfile, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="appVm:PublishProfileViewModel">
+                <Border Classes="layer-row">
+                  <Grid ColumnDefinitions="Auto,*,Auto"
+                        ColumnSpacing="12">
+                    <Border Width="14"
+                            Height="14"
+                            CornerRadius="7"
+                            VerticalAlignment="Center"
+                            Background="#57C9FF" />
+                    <StackPanel Grid.Column="1"
+                                Spacing="2">
+                      <TextBlock Classes="strong-label"
+                                 Text="{Binding Name}" />
+                      <TextBlock Classes="micro-label"
+                                 Text="{Binding FormatLabel}" />
+                      <TextBlock Classes="micro-label"
+                                 Text="{Binding Subtitle}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2"
+                               Classes="micro-label"
+                               VerticalAlignment="Center"
+                               Text="{Binding OutputKind}" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <Button Content="Remove Selected Profile"
+                  Classes="warm"
+                  Command="{Binding DeletePublishProfileCommand}"
+                  IsEnabled="{Binding CanDeletePublishProfile}" />
+
+          <Border Classes="panel-soft">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="eyebrow"
+                         Text="Profile setup" />
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Name" />
+                <TextBox Text="{Binding PublishProfileNameEditor, Mode=TwoWay}" />
+              </StackPanel>
+              <StackPanel Spacing="6">
+                <TextBlock Classes="micro-label"
+                           Text="Output format" />
+                <ComboBox ItemsSource="{Binding AvailablePublishOutputs}"
+                          SelectedItem="{Binding PublishOutputKindEditor, Mode=TwoWay}" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Width" />
+                  <TextBox Text="{Binding PublishWidthEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Height" />
+                  <TextBox Text="{Binding PublishHeightEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Frame rate" />
+                  <TextBox Text="{Binding PublishFrameRateEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Quality" />
+                  <TextBox Text="{Binding PublishQualityEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+              <StackPanel Spacing="6"
+                          IsVisible="{Binding PublishOutputIsSpriteSheet}">
+                <TextBlock Classes="micro-label"
+                           Text="Sprite sheet columns" />
+                <TextBox Text="{Binding PublishSpriteSheetColumnsEditor, Mode=TwoWay}" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <CheckBox Content="Play all scenes"
+                          IsChecked="{Binding PublishPlayAllScenesEditor, Mode=TwoWay}" />
+                <CheckBox Grid.Column="1"
+                          Content="Transparent background"
+                          IsChecked="{Binding PublishTransparentBackgroundEditor, Mode=TwoWay}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
+                <CheckBox Content="Include scene graph"
+                          IsChecked="{Binding PublishIncludeSceneGraphEditor, Mode=TwoWay}" />
+                <CheckBox Grid.Column="1"
+                          Content="Include validation report"
+                          IsChecked="{Binding PublishIncludeValidationReportEditor, Mode=TwoWay}" />
+              </Grid>
+              <TextBlock Classes="micro-label"
+                         IsVisible="{Binding PublishOutputRequiresDirectory}"
+                         Text="This profile publishes into a folder. Supplemental files are written alongside the frame sequence." />
+              <TextBlock Classes="micro-label"
+                         IsVisible="{Binding PublishOutputIsSingleFile}"
+                         Text="This profile publishes a single primary file and optional companion metadata beside it." />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="panel-soft">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto"
+                    ColumnSpacing="8">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="eyebrow"
+                             Text="Validation" />
+                  <TextBlock Classes="strong-label"
+                             Text="{Binding PublishValidationIssues.Count, StringFormat='{}{0} checks'}" />
+                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Classes="micro-label"
+                           VerticalAlignment="Center"
+                           Text="{Binding HasPublishErrors, StringFormat='Errors block export: {0}'}" />
+              </Grid>
+
+              <ItemsControl ItemsSource="{Binding PublishValidationIssues}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:PublishValidationIssue">
+                    <Border Classes="layer-row">
+                      <StackPanel Spacing="2">
+                        <TextBlock Classes="strong-label"
+                                   Text="{Binding Severity}" />
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding Source}" />
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding Message}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBlock Classes="micro-label"
+                         Text="{Binding StatusMessage}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

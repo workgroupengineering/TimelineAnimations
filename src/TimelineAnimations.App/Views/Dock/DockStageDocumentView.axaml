@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             x:Class="TimelineAnimations.App.Views.Dock.DockStageDocumentView"
+             x:DataType="vm:DockStageDocumentViewModel">
+  <Grid RowDefinitions="Auto,*"
+        RowSpacing="6">
+    <Border Classes="chrome-group"
+            Padding="4,3">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+            ColumnSpacing="8">
+        <StackPanel Spacing="1">
+          <TextBlock Classes="section-title"
+                     Text="{Binding Host.SelectionHeadline}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding Host.SelectedSceneSummary}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding Host.CanvasViewportHint}"
+                     TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    VerticalAlignment="Center">
+          <Button Classes="toolbar compact accent"
+                  Content="Play"
+                  Command="{Binding Host.TogglePlaybackCommand}" />
+          <Button Classes="toolbar compact"
+                  Content="Stop"
+                  Command="{Binding Host.StopPlaybackCommand}"
+                  IsEnabled="{Binding Host.CanStopPlayback}" />
+        </StackPanel>
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="6">
+          <CheckBox Content="Snap"
+                    IsChecked="{Binding Host.SnapToGrid, Mode=TwoWay}" />
+          <CheckBox Content="Onion"
+                    IsChecked="{Binding Host.OnionSkinEnabled, Mode=TwoWay}" />
+        </StackPanel>
+        <StackPanel Grid.Column="3"
+                    Orientation="Horizontal"
+                    Spacing="6">
+          <Border Classes="metric-chip compact">
+            <TextBlock Classes="strong-label"
+                       Text="{Binding Host.CanvasSizeLabel}" />
+          </Border>
+          <Border Classes="metric-chip compact">
+            <TextBlock Classes="strong-label"
+                       Text="{Binding Host.CurrentFrameLabel}" />
+          </Border>
+          <Border Classes="metric-chip compact">
+            <TextBlock Classes="strong-label"
+                       Text="{Binding Host.CurrentTimeLabel}" />
+          </Border>
+          <Border Classes="metric-chip compact">
+            <TextBlock Classes="strong-label"
+                       Text="{Binding Host.DurationLabel}" />
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            Classes="stage-workspace">
+      <Grid>
+        <controls:SceneCanvasControl x:Name="SceneCanvas"
+                                     Document="{Binding Host.Document}"
+                                     Layers="{Binding Host.Layers}"
+                                     SelectedLayer="{Binding Host.SelectedLayer}"
+                                     CanvasZoom="{Binding Host.CanvasZoom}"
+                                     DrawingTool="{Binding Host.SelectedDrawingTool}"
+                                     CurrentTime="{Binding Host.CurrentTime}"
+                                     FrameRate="{Binding Host.SceneFrameRate}"
+                                     TotalFrames="{Binding Host.TotalFrames}"
+                                     Duration="{Binding Host.Duration}"
+                                     SnapToGrid="{Binding Host.SnapToGrid}"
+                                     OnionSkinEnabled="{Binding Host.OnionSkinEnabled}"
+                                     OnionSkinBefore="{Binding Host.OnionSkinBefore}"
+                                     OnionSkinAfter="{Binding Host.OnionSkinAfter}"
+                                     PrototypeMode="{Binding Host.IsPrototypeMode}"
+                                     CanResizeCanvas="{Binding Host.CanEditCanvasProperties}"
+                                     DocumentWidth="{Binding Host.CanvasWidth}"
+                                     DocumentHeight="{Binding Host.CanvasHeight}"
+                                     BackgroundFrom="{Binding Host.BackgroundFrom}"
+                                     BackgroundTo="{Binding Host.BackgroundTo}" />
+
+        <Border Classes="canvas-overlay"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,10,10">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,180"
+                ColumnSpacing="8">
+            <Button Content="Fit"
+                    Classes="toolbar compact"
+                    Click="CanvasFitClick" />
+            <Button Grid.Column="1"
+                    Content="1:1"
+                    Classes="toolbar compact"
+                    Click="CanvasActualSizeClick" />
+            <Border Grid.Column="2"
+                    Classes="metric-chip compact">
+              <TextBlock Classes="strong-label"
+                         Text="{Binding Host.CanvasZoomLabel}" />
+            </Border>
+            <Slider Grid.Column="3"
+                    Classes="monitor-slider"
+                    Minimum="0.25"
+                    Maximum="8"
+                    Value="{Binding Host.CanvasZoom, Mode=TwoWay}" />
+          </Grid>
+        </Border>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

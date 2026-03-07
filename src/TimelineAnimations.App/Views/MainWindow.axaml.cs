@@ -20,9 +20,15 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         HookInteractions();
+        Closing += HandleClosing;
     }
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
+
+    private void HandleClosing(object? sender, WindowClosingEventArgs e)
+    {
+        ViewModel?.DockWorkspace.SaveLayout();
+    }
 
     private void HookInteractions()
     {
@@ -31,6 +37,7 @@ public partial class MainWindow : Window
         SceneCanvas.PaletteDropRequested += HandlePaletteDropRequested;
         SceneCanvas.DrawingRequested += HandleCanvasDrawingRequested;
         SceneCanvas.PathPointMoveRequested += HandleCanvasPathPointMoveRequested;
+        SceneCanvas.CanvasResizeRequested += HandleCanvasResizeRequested;
         SceneCanvas.TransformInteractionStateChanged += HandleCanvasInteractionStateChanged;
         SceneCanvas.PrototypeTriggerRequested += HandleCanvasPrototypeTriggerRequested;
 
@@ -76,6 +83,11 @@ public partial class MainWindow : Window
     private void HandleCanvasPathPointMoveRequested(object? sender, CanvasPathPointMoveRequestedEventArgs e)
     {
         ViewModel?.UpdatePathPoint(e.LayerId, e.PointIndex, e.DocumentPoint);
+    }
+
+    private void HandleCanvasResizeRequested(object? sender, CanvasResizeRequestedEventArgs e)
+    {
+        ViewModel?.SetCanvasSize(e.Width, e.Height);
     }
 
     private void HandleCanvasInteractionStateChanged(object? sender, CanvasInteractionStateChangedEventArgs e)
@@ -276,7 +288,7 @@ public partial class MainWindow : Window
             stream.SetLength(0);
         }
 
-        var result = await TimelineDocumentFileService.SaveAsync(stream, ViewModel.CreateExportDocumentSnapshot(), documentFormat);
+        var result = await TimelineDocumentFileService.SaveAsync(stream, ViewModel.CreateExportDocumentSnapshot(), documentFormat, file.Name);
         ViewModel.SetDocumentLabel(file.Name, result.Format);
         ViewModel.ApplyAnimationExchangeResult($"{result.Summary} → {file.Name}", result.Issues);
     }
@@ -387,6 +399,11 @@ public partial class MainWindow : Window
                 Patterns = ["*.axaml", "*.xaml"],
                 MimeTypes = ["application/xml", "text/xml"]
             },
+            AnimationExchangeFormat.FlashXfl => new FilePickerFileType("Flash XFL Animation")
+            {
+                Patterns = ["*.xfl", "*.fla"],
+                MimeTypes = ["application/xml", "text/xml", "application/octet-stream", "application/zip"]
+            },
             AnimationExchangeFormat.SvgSmil => new FilePickerFileType("SVG Animation")
             {
                 Patterns = ["*.svg"],
@@ -418,9 +435,25 @@ public partial class MainWindow : Window
         {
             ViewModel.StatusMessage = $"Importing {file.Name}...";
             await using var stream = await file.OpenReadAsync();
-            using var reader = new StreamReader(stream);
-            var content = await reader.ReadToEndAsync();
-            var imported = AnimationExchangeService.Import(selectedFormat, content, file.Name);
+            AnimationExchangeImportResult imported;
+            if (selectedFormat == AnimationExchangeFormat.FlashXfl)
+            {
+                var loaded = await TimelineDocumentFileService.LoadAsync(stream, file.Name, TimelineDocumentFileFormat.FlashXfl);
+                imported = new AnimationExchangeImportResult
+                {
+                    Format = AnimationExchangeFormat.FlashXfl,
+                    Document = loaded.Document,
+                    Summary = loaded.Summary,
+                    Issues = loaded.Issues
+                };
+            }
+            else
+            {
+                using var reader = new StreamReader(stream);
+                var content = await reader.ReadToEndAsync();
+                imported = AnimationExchangeService.Import(selectedFormat, content, file.Name);
+            }
+
             ViewModel.LoadDocument(imported.Document, file.Name);
             SceneCanvas.ResetViewport();
             ViewModel.ApplyAnimationExchangeResult(imported.Summary, imported.Issues);
@@ -429,6 +462,16 @@ public partial class MainWindow : Window
         {
             ViewModel.StatusMessage = $"Import failed: {exception.Message}";
         }
+    }
+
+    private void ImportAnimationFormatMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem { CommandParameter: string formatKey } && ViewModel is not null)
+        {
+            ViewModel.SelectAnimationExchangeFormatCommand.Execute(formatKey);
+        }
+
+        ImportAnimationFormatClick(sender, e);
     }
 
     private async void ExportAnimationFormatClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -447,6 +490,11 @@ public partial class MainWindow : Window
             {
                 Patterns = ["*.axaml", "*.xaml"],
                 MimeTypes = ["application/xml", "text/xml"]
+            },
+            AnimationExchangeFormat.FlashXfl => new FilePickerFileType("Flash XFL Animation")
+            {
+                Patterns = ["*.xfl", "*.fla"],
+                MimeTypes = ["application/xml", "text/xml", "application/octet-stream", "application/zip"]
             },
             AnimationExchangeFormat.SvgSmil => new FilePickerFileType("SVG Animation")
             {
@@ -485,15 +533,37 @@ public partial class MainWindow : Window
                 stream.SetLength(0);
             }
 
-            await using var writer = new StreamWriter(stream);
-            await writer.WriteAsync(export.Content);
-            await writer.FlushAsync();
-            ViewModel.ApplyAnimationExchangeResult($"{export.Summary} → {file.Name}", export.Issues);
+            if (selectedFormat == AnimationExchangeFormat.FlashXfl)
+            {
+                var saved = await TimelineDocumentFileService.SaveAsync(
+                    stream,
+                    ViewModel.CreateExportDocumentSnapshot(),
+                    TimelineDocumentFileFormat.FlashXfl,
+                    file.Name);
+                ViewModel.ApplyAnimationExchangeResult($"{saved.Summary} → {file.Name}", saved.Issues);
+            }
+            else
+            {
+                await using var writer = new StreamWriter(stream);
+                await writer.WriteAsync(export.Content);
+                await writer.FlushAsync();
+                ViewModel.ApplyAnimationExchangeResult($"{export.Summary} → {file.Name}", export.Issues);
+            }
         }
         catch (Exception exception)
         {
             ViewModel.StatusMessage = $"Export failed: {exception.Message}";
         }
+    }
+
+    private void ExportAnimationFormatMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem { CommandParameter: string formatKey } && ViewModel is not null)
+        {
+            ViewModel.SelectAnimationExchangeFormatCommand.Execute(formatKey);
+        }
+
+        ExportAnimationFormatClick(sender, e);
     }
 
     private async void ImportAudioClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -712,10 +782,11 @@ public partial class MainWindow : Window
         [
             new FilePickerFileType("Timeline Documents And Animations")
             {
-                Patterns = ["*.timeline.json", "*.json", "*.axaml", "*.xaml", "*.svg", "*.html", "*.htm", "*.xhtml"]
+                Patterns = ["*.timeline.json", "*.json", "*.axaml", "*.xaml", "*.xfl", "*.fla", "*.svg", "*.html", "*.htm", "*.xhtml"]
             },
             BuildNativeProjectFileType(),
             BuildDocumentFileType(TimelineDocumentFileFormat.AvaloniaXaml),
+            BuildDocumentFileType(TimelineDocumentFileFormat.FlashXfl),
             BuildDocumentFileType(TimelineDocumentFileFormat.SvgSmil),
             BuildDocumentFileType(TimelineDocumentFileFormat.HtmlCss)
         ];
@@ -739,6 +810,11 @@ public partial class MainWindow : Window
             {
                 Patterns = ["*.axaml", "*.xaml"],
                 MimeTypes = ["application/xml", "text/xml"]
+            },
+            TimelineDocumentFileFormat.FlashXfl => new FilePickerFileType("Flash XFL Animation")
+            {
+                Patterns = ["*.xfl", "*.fla"],
+                MimeTypes = ["application/xml", "text/xml", "application/octet-stream", "application/zip"]
             },
             TimelineDocumentFileFormat.SvgSmil => new FilePickerFileType("SVG Animation")
             {

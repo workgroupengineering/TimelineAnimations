@@ -1,161 +1,988 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dockControls="using:Dock.Avalonia.Controls">
   <Styles.Resources>
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#252A31" />
+    <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+    <Thickness x:Key="ButtonPadding">9,4</Thickness>
+    <Thickness x:Key="TextControlThemePadding">8,4</Thickness>
+    <Thickness x:Key="ComboBoxPadding">9,4,0,4</Thickness>
+    <Thickness x:Key="TabItemHeaderMargin">10,4</Thickness>
+    <Thickness x:Key="HorizontalMenuFlyoutItemThemePaddingNarrow">8,3</Thickness>
+    <Thickness x:Key="MenuFlyoutItemThemePaddingNarrow">10,5</Thickness>
+    <Thickness x:Key="MenuFlyoutPresenterThemePadding">4</Thickness>
+    <x:Double x:Key="TextControlThemeMinHeight">26</x:Double>
+    <x:Double x:Key="TextControlThemeMinWidth">72</x:Double>
+    <x:Double x:Key="ComboBoxMinHeight">26</x:Double>
+    <x:Double x:Key="ComboBoxThemeMinWidth">84</x:Double>
+    <x:Double x:Key="TabItemHeaderFontSize">10.5</x:Double>
+    <x:Double x:Key="TabItemMinHeight">28</x:Double>
+    <x:Double x:Key="SliderHorizontalHeight">22</x:Double>
+    <x:Double x:Key="SliderVerticalWidth">22</x:Double>
+    <x:Double x:Key="SliderTrackThemeHeight">4</x:Double>
+    <x:Double x:Key="SliderHorizontalThumbWidth">14</x:Double>
+    <x:Double x:Key="SliderHorizontalThumbHeight">14</x:Double>
+    <x:Double x:Key="SliderVerticalThumbWidth">14</x:Double>
+    <x:Double x:Key="SliderVerticalThumbHeight">14</x:Double>
+    <x:Double x:Key="ScrollBarSize">10</x:Double>
+    <x:Double x:Key="ScrollBarButtonArrowIconFontSize">7</x:Double>
+    <Thickness x:Key="ButtonBorderThemeThickness">1</Thickness>
+    <Thickness x:Key="TextControlBorderThemeThickness">1</Thickness>
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
+    <Thickness x:Key="ComboBoxBorderThemeThickness">1</Thickness>
+    <Thickness x:Key="ComboBoxDropdownBorderThickness">1</Thickness>
+    <Thickness x:Key="ComboBoxDropdownBorderPadding">4</Thickness>
+    <Thickness x:Key="ComboBoxDropdownContentMargin">0</Thickness>
+
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#20242B" />
     <LinearGradientBrush x:Key="ChromeBrush"
                          StartPoint="0,0"
                          EndPoint="0,1">
-      <GradientStop Color="#4E5968" Offset="0" />
-      <GradientStop Color="#424B58" Offset="1" />
+      <GradientStop Color="#4B5665" Offset="0" />
+      <GradientStop Color="#3A4451" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="ChromeSoftBrush"
                          StartPoint="0,0"
                          EndPoint="0,1">
-      <GradientStop Color="#5B6677" Offset="0" />
-      <GradientStop Color="#4D5766" Offset="1" />
+      <GradientStop Color="#404957" Offset="0" />
+      <GradientStop Color="#35404C" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="PanelBrush"
                          StartPoint="0,0"
                          EndPoint="0,1">
-      <GradientStop Color="#495462" Offset="0" />
-      <GradientStop Color="#3E4854" Offset="1" />
+      <GradientStop Color="#434D59" Offset="0" />
+      <GradientStop Color="#343D47" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="PanelSoftBrush"
                          StartPoint="0,0"
                          EndPoint="0,1">
-      <GradientStop Color="#3A434D" Offset="0" />
-      <GradientStop Color="#303842" Offset="1" />
+      <GradientStop Color="#313943" Offset="0" />
+      <GradientStop Color="#272E37" Offset="1" />
     </LinearGradientBrush>
-    <SolidColorBrush x:Key="PanelBorderBrush" Color="#1F242B" />
-    <SolidColorBrush x:Key="PanelStrongBorderBrush" Color="#7F8B9D" />
     <LinearGradientBrush x:Key="StageWorkspaceBrush"
                          StartPoint="0,0"
                          EndPoint="0,1">
-      <GradientStop Color="#2D343D" Offset="0" />
-      <GradientStop Color="#212830" Offset="1" />
+      <GradientStop Color="#232A33" Offset="0" />
+      <GradientStop Color="#171E26" Offset="1" />
     </LinearGradientBrush>
-    <SolidColorBrush x:Key="StageInsetBrush" Color="#1F252D" />
-    <SolidColorBrush x:Key="AccentMintBrush" Color="#57C9FF" />
+
+    <SolidColorBrush x:Key="PanelBorderBrush" Color="#171C22" />
+    <SolidColorBrush x:Key="PanelStrongBorderBrush" Color="#6A7688" />
+    <SolidColorBrush x:Key="StageInsetBrush" Color="#161C23" />
+    <SolidColorBrush x:Key="AccentMintBrush" Color="#46C9FF" />
     <SolidColorBrush x:Key="AccentWarmBrush" Color="#F3A33C" />
-    <SolidColorBrush x:Key="AccentSelectionBrush" Color="#F4C94E" />
-    <SolidColorBrush x:Key="MetricChipBrush" Color="#37404C" />
-    <SolidColorBrush x:Key="MetricChipBorderBrush" Color="#242A32" />
+    <SolidColorBrush x:Key="AccentSelectionBrush" Color="#F0C44B" />
+    <SolidColorBrush x:Key="MetricChipBrush" Color="#2A323C" />
+    <SolidColorBrush x:Key="MetricChipBorderBrush" Color="#171C22" />
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5F7FA" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#CDD5E0" />
-    <SolidColorBrush x:Key="TextMutedBrush" Color="#A0A9B8" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#CCD4DE" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#98A3B2" />
+
+    <SolidColorBrush x:Key="ControlSurfaceBrush" Color="#2A313A" />
+    <SolidColorBrush x:Key="ControlSurfaceAltBrush" Color="#323A46" />
+    <SolidColorBrush x:Key="ControlHoverBrush" Color="#3A4553" />
+    <SolidColorBrush x:Key="ControlPressedBrush" Color="#212832" />
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="#151A21" />
+    <SolidColorBrush x:Key="ControlHoverBorderBrush" Color="#708196" />
+    <SolidColorBrush x:Key="ControlFocusBorderBrush" Color="#46C9FF" />
+    <SolidColorBrush x:Key="ControlDisabledBrush" Color="#242A31" />
+    <SolidColorBrush x:Key="SelectionFillBrush" Color="#45698D" />
+    <SolidColorBrush x:Key="SelectionFillStrongBrush" Color="#2A80C8" />
+    <SolidColorBrush x:Key="WarmFillBrush" Color="#7B5A31" />
+    <SolidColorBrush x:Key="FieldFocusBrush" Color="#1E2D3A" />
+    <SolidColorBrush x:Key="FieldHoverBrush" Color="#303944" />
+    <SolidColorBrush x:Key="FieldPlaceholderBrush" Color="#8994A4" />
+    <SolidColorBrush x:Key="FieldDisabledForegroundBrush" Color="#7A8390" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#E46E6E" />
+
+    <x:Double x:Key="InspectorFieldMinHeight">28</x:Double>
+    <x:Double x:Key="InspectorSliderMinHeight">24</x:Double>
+    <x:Double x:Key="MonitorSliderMinHeight">22</x:Double>
+    <x:Double x:Key="ProgressBarThemeMinHeight">12</x:Double>
+    <x:Double x:Key="ListRowMinHeight">30</x:Double>
+    <Thickness x:Key="DenseListPadding">2</Thickness>
+    <Thickness x:Key="InspectorCardPadding">6</Thickness>
+    <Thickness x:Key="DockHeaderInsetPadding">4,3</Thickness>
+
+    <SolidColorBrush x:Key="SliderContainerBackground" Color="#11161D" />
+    <SolidColorBrush x:Key="SliderTrackFill" Color="#566170" />
+    <SolidColorBrush x:Key="SliderTrackValueFill" Color="#46C9FF" />
+    <SolidColorBrush x:Key="SliderThumbBackground" Color="#E4ECF5" />
+    <SolidColorBrush x:Key="SliderTickBarFill" Color="#2D3743" />
+
+    <SolidColorBrush x:Key="ScrollBarBackground" Color="#10151B" />
+    <SolidColorBrush x:Key="ScrollBarBorderBrush" Color="#0D1014" />
+    <SolidColorBrush x:Key="ScrollBarTrackFill" Color="#1D252E" />
+    <SolidColorBrush x:Key="ScrollBarTrackStroke" Color="#2A3340" />
+    <SolidColorBrush x:Key="ScrollBarPanningThumbBackground" Color="#4F5C6D" />
+    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#6C7A8C" />
+    <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#45C4FF" />
+    <SolidColorBrush x:Key="ScrollBarThumbFillDisabled" Color="#36404B" />
+    <SolidColorBrush x:Key="ScrollBarButtonBackground" Color="#1C232C" />
+    <SolidColorBrush x:Key="ScrollBarButtonBackgroundPointerOver" Color="#2E3844" />
+    <SolidColorBrush x:Key="ScrollBarButtonBackgroundPressed" Color="#384759" />
+    <SolidColorBrush x:Key="ScrollBarButtonBorderBrush" Color="#11161B" />
+    <SolidColorBrush x:Key="ScrollBarButtonBorderBrushPointerOver" Color="#2D3948" />
+    <SolidColorBrush x:Key="ScrollBarButtonBorderBrushPressed" Color="#45C4FF" />
+    <SolidColorBrush x:Key="ScrollBarButtonArrowForeground" Color="#A9B3C1" />
+    <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundPointerOver" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundPressed" Color="#F5F7FA" />
+
+    <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#252D36" />
+    <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="#151A20" />
+    <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="#35404D" />
+    <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="#405060" />
+    <SolidColorBrush x:Key="MenuFlyoutItemBackgroundDisabled" Color="Transparent" />
+    <SolidColorBrush x:Key="MenuFlyoutItemForeground" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="MenuFlyoutItemForegroundPointerOver" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="MenuFlyoutItemForegroundPressed" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="MenuFlyoutItemForegroundDisabled" Color="#7E8896" />
+
+    <SolidColorBrush x:Key="DockApplicationAccentBrushLow" Color="#2B78BA" />
+    <SolidColorBrush x:Key="DockApplicationAccentBrushMed" Color="#46C9FF" />
+    <SolidColorBrush x:Key="DockApplicationAccentBrushHigh" Color="#91EDFF" />
+    <SolidColorBrush x:Key="DockApplicationAccentForegroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="DockApplicationAccentBrushIndicator" Color="#F0C44B" />
+    <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#171C22" />
+    <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#29313B" />
+    <SolidColorBrush x:Key="DockThemeAccentBrush" Color="#46C9FF" />
+    <SolidColorBrush x:Key="DockThemeForegroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#303945" />
+    <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#1B222A" />
+    <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#2B333D" />
+    <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#1C242D" />
+    <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#303945" />
+    <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#394450" />
+    <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#4C5A6C" />
+    <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#171C22" />
+    <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#5E6C7F" />
+    <SolidColorBrush x:Key="DockSeparatorBrush" Color="#232C36" />
+    <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#252D37" />
+    <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="#3A6E9F" />
+    <SolidColorBrush x:Key="DockSplitterDragBrush" Color="#F0C44B" />
+    <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="#00000000" />
+    <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#3C4858" />
+    <SolidColorBrush x:Key="DockTabActiveBackgroundBrush" Color="#566575" />
+    <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#F0C44B" />
+    <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#C9D2DD" />
+    <SolidColorBrush x:Key="DockTabSelectedForegroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="DockTabActiveForegroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="DockTabCloseHoverBackgroundBrush" Color="#4C5B6D" />
+    <SolidColorBrush x:Key="DockDocumentTabStripBackgroundBrush" Color="#27303A" />
+    <SolidColorBrush x:Key="DockDocumentContentBorderBrush" Color="#171C22" />
+    <SolidColorBrush x:Key="DockChromeButtonHoverBackgroundBrush" Color="#3A4757" />
+    <SolidColorBrush x:Key="DockChromeButtonPressedBackgroundBrush" Color="#233041" />
+    <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="#81533E" />
+    <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#D9E0E9" />
+    <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#E8EDF4" />
+    <SolidColorBrush x:Key="DockChromeGripBrush" Color="#536274" />
+    <x:Double x:Key="DockFontSizeNormal">10.75</x:Double>
+    <x:Double x:Key="DockHeaderHeight">24</x:Double>
+    <x:Double x:Key="DockTabHeight">26</x:Double>
+    <x:Double x:Key="DockTabHorizontalPadding">8</x:Double>
+    <x:Double x:Key="DockIconSizeSmall">11</x:Double>
+    <x:Double x:Key="DockIconSizeNormal">12</x:Double>
+    <x:Double x:Key="DockTabItemMinHeight">22</x:Double>
+    <x:Double x:Key="DockDocumentTabItemMinHeight">22</x:Double>
+    <Thickness x:Key="DockDocumentTabItemPadding">5,0,5,0</Thickness>
+    <CornerRadius x:Key="DockDocumentTabItemCornerRadius">6</CornerRadius>
+    <CornerRadius x:Key="DockDocumentTabCreateButtonCornerRadius">6</CornerRadius>
+    <Thickness x:Key="DockToolTabItemPadding">6,1,6,0</Thickness>
+    <Thickness x:Key="DockToolTabItemSelectedPadding">6,2,6,0</Thickness>
+    <x:Double x:Key="DockCreateButtonWidth">24</x:Double>
+    <x:Double x:Key="DockCreateButtonHeight">22</x:Double>
+    <x:Double x:Key="DockCloseButtonSize">12</x:Double>
+    <x:Double x:Key="DockChromeButtonWidth">18</x:Double>
+    <x:Double x:Key="DockChromeButtonHeight">16</x:Double>
+    <Thickness x:Key="DockChromeButtonPadding">2</Thickness>
+    <Thickness x:Key="DockChromeButtonMargin">1,0,0,0</Thickness>
+    <Thickness x:Key="DockMdiHeaderDragPadding">5,3</Thickness>
+    <Thickness x:Key="DockHeaderContentPadding">2</Thickness>
+    <Thickness x:Key="DockToolChromeHeaderMargin">6,0</Thickness>
+    <Thickness x:Key="DockToolChromeTitleMargin">0,3,8,3</Thickness>
+    <Thickness x:Key="DockToolChromeMenuIconMargin">1</Thickness>
+    <x:Double x:Key="DockToolChromeDividerThickness">1</x:Double>
+    <x:Double x:Key="DockChromeGripHeight">4</x:Double>
+    <Thickness x:Key="DockChromeGripMargin">0,0,2,0</Thickness>
+    <SolidColorBrush x:Key="DockDocumentTabSelectedForegroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="DockDocumentTabPointerOverForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="DockTargetIndicatorBrush" Color="#F0C44B" />
+    <SolidColorBrush x:Key="DockWindowChromeBackgroundBrush" Color="#1B222A" />
+    <SolidColorBrush x:Key="DockWindowChromeTitleBarBackgroundBrush" Color="#394450" />
+    <SolidColorBrush x:Key="DockWindowChromeForegroundBrush" Color="#F5F7FA" />
+    <Thickness x:Key="DockDocumentTabItemMargin">0</Thickness>
+    <x:Double x:Key="DockDocumentTabItemMinWidth">86</x:Double>
+    <x:Double x:Key="DockToolTabItemMinHeight">22</x:Double>
+    <x:Double x:Key="DockDocumentTabStripMinHeight">24</x:Double>
+    <x:Double x:Key="DockDocumentTabStripLeadingSpacerWidth">4</x:Double>
+    <x:Double x:Key="DockDocumentTabItemSeparatorOpacity">0.25</x:Double>
+    <Thickness x:Key="DockModifiedIndicatorMargin">0,0,2,0</Thickness>
+    <x:Double x:Key="DockTabContentSpacing">2</x:Double>
+    <Thickness x:Key="DockTabContentMargin">2</Thickness>
+    <x:Double x:Key="DockDocumentTabHeaderContentSpacing">1</x:Double>
+    <Thickness x:Key="DockCreateButtonIconMargin">4</Thickness>
+    <Thickness x:Key="DockDocumentTabStripHorizontalCreateButtonMargin">0,0,3,0</Thickness>
+    <Thickness x:Key="DockDocumentTabStripHorizontalScrollViewerMargin">0</Thickness>
+    <Thickness x:Key="DockDocumentTabStripHorizontalScrollViewerPadding">0</Thickness>
+    <x:Double x:Key="DockMdiTitleIconSize">11</x:Double>
+    <x:Double x:Key="DockMdiHeaderColumnSpacing">3</x:Double>
+    <x:Double x:Key="DockMdiButtonStripSpacing">2</x:Double>
+    <Thickness x:Key="DockMdiButtonStripMargin">2,0</Thickness>
+    <x:Double x:Key="DockMdiResizeEdgeThickness">4</x:Double>
+    <x:Double x:Key="DockMdiResizeCornerSize">6</x:Double>
+    <x:Double x:Key="DockTargetSelectorSize">36</x:Double>
+    <x:Double x:Key="DockTargetSelectorGridMaxSize">112</x:Double>
+    <SolidColorBrush x:Key="DockSelectorOverlayBackdropBrush" Color="#4C0F141A" />
+    <CornerRadius x:Key="DockSelectorOverlayCornerRadius">8</CornerRadius>
+    <Thickness x:Key="DockSelectorOverlayPadding">12</Thickness>
+    <x:Double x:Key="DockSelectorOverlayMinWidth">300</x:Double>
+    <x:Double x:Key="DockSelectorOverlayMaxWidth">520</x:Double>
+    <x:Double x:Key="DockSelectorOverlaySpacing">8</x:Double>
+    <x:Double x:Key="DockSelectorOverlayListMinHeight">120</x:Double>
+    <x:Double x:Key="DockSelectorOverlayListMaxHeight">320</x:Double>
+    <Thickness x:Key="DockSelectorOverlayItemPadding">6</Thickness>
+    <CornerRadius x:Key="DockSelectorOverlayItemCornerRadius">6</CornerRadius>
+    <x:Double x:Key="DockSelectorOverlayBadgeSpacing">4</x:Double>
+    <Thickness x:Key="DockSelectorOverlayBadgeMargin">8,0,0,0</Thickness>
+    <CornerRadius x:Key="DockSelectorOverlayBadgeCornerRadius">4</CornerRadius>
+    <Thickness x:Key="DockSelectorOverlayBadgePadding">4,1</Thickness>
+    <x:Double x:Key="DockSelectorOverlayBadgeFontSize">9.75</x:Double>
+    <Thickness x:Key="DockCommandBarPadding">4,2</Thickness>
+    <x:Double x:Key="DockCommandBarSpacing">4</x:Double>
+    <CornerRadius x:Key="DockDragPreviewCornerRadius">6</CornerRadius>
+    <Thickness x:Key="DockDragPreviewHeaderPadding">6,4</Thickness>
+    <x:Double x:Key="DockDragPreviewHeaderSpacing">4</x:Double>
+    <x:Double x:Key="DockDragPreviewStatusSpacing">2</x:Double>
+    <x:Double x:Key="DockDragPreviewStatusIconSize">10</x:Double>
+    <x:Double x:Key="DockHostTitleBarMouseTrackerHeight">1</x:Double>
+    <Thickness x:Key="DockOverlayReloadButtonMargin">16</Thickness>
+    <CornerRadius x:Key="DockOverlayCardCornerRadius">10</CornerRadius>
+    <Thickness x:Key="DockOverlayCardPadding">18</Thickness>
+    <x:Double x:Key="DockOverlayCardSpacing">8</x:Double>
+    <x:Double x:Key="DockOverlayMessageFontSize">13</x:Double>
+    <x:Double x:Key="DockOverlayProgressWidth">180</x:Double>
+    <x:Double x:Key="DockOverlayProgressHeight">6</x:Double>
+    <CornerRadius x:Key="DockDialogCornerRadius">10</CornerRadius>
+    <Thickness x:Key="DockDialogPadding">18</Thickness>
+    <x:Double x:Key="DockDialogMinWidth">360</x:Double>
+    <x:Double x:Key="DockDialogMaxWidth">620</x:Double>
+    <x:Double x:Key="DockDialogSpacing">10</x:Double>
+    <x:Double x:Key="DockDialogTitleFontSize">15</x:Double>
+    <x:Double x:Key="DockDialogCloseButtonSize">26</x:Double>
+    <Thickness x:Key="DockConfirmationDialogPadding">20</Thickness>
+    <x:Double x:Key="DockConfirmationDialogMaxWidth">460</x:Double>
+    <x:Double x:Key="DockConfirmationDialogStackSpacing">10</x:Double>
+    <x:Double x:Key="DockConfirmationDialogActionsSpacing">8</x:Double>
+    <Dock x:Key="DockDocumentTabStripHorizontalCreateButtonDock">Right</Dock>
+    <HorizontalAlignment x:Key="DockDocumentTabStripHorizontalCreateButtonAlignment">Right</HorizontalAlignment>
+    <x:Boolean x:Key="DockDocumentTabStripHideWhenEmpty">False</x:Boolean>
+    <x:Boolean x:Key="DockDocumentTabStripToggleWindowStateOnDoubleTap">False</x:Boolean>
+    <x:Boolean x:Key="DockDocumentControlTabStripVisible">True</x:Boolean>
+    <x:Boolean x:Key="DockDocumentControlShowDockIndicatorOnly">False</x:Boolean>
+    <x:Boolean x:Key="DockDocumentTabStripSeparatorVisible">True</x:Boolean>
+    <x:Double x:Key="DockDocumentControlVerticalSpacing">1</x:Double>
+    <x:Double x:Key="DockDocumentTabStripSeparatorSize">1</x:Double>
+    <Thickness x:Key="DockDocumentContentBorderThickness">1</Thickness>
+  <ControlTheme x:Key="StudioButtonTheme"
+                TargetType="Button"
+                BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="{DynamicResource ControlSurfaceAltBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="{DynamicResource ButtonPadding}" />
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="FontSize" Value="10.75" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+
+    <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceAltBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlHoverBorderBrush}" />
+    </Style>
+
+    <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentMintBrush}" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="#11151A" />
+      <Setter Property="Foreground" Value="#7A8390" />
+    </Style>
+
+    <Style Selector="^.accent /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SelectionFillStrongBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentMintBrush}" />
+    </Style>
+
+    <Style Selector="^.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3591D7" />
+      <Setter Property="BorderBrush" Value="#73DAFF" />
+    </Style>
+
+    <Style Selector="^.warm /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource WarmFillBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentWarmBrush}" />
+    </Style>
+
+    <Style Selector="^.warm:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#8E6836" />
+      <Setter Property="BorderBrush" Value="#F7B85B" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioToggleButtonTheme"
+                TargetType="ToggleButton"
+                BasedOn="{StaticResource {x:Type ToggleButton}}">
+    <Setter Property="Background" Value="{DynamicResource ControlSurfaceAltBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="{DynamicResource ButtonPadding}" />
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="FontSize" Value="10.75" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+
+    <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceAltBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlHoverBorderBrush}" />
+    </Style>
+
+    <Style Selector="^:checked /template/ ContentPresenter#PART_ContentPresenter, ^:indeterminate /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SelectionFillBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+    </Style>
+
+    <Style Selector="^:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter, ^:indeterminate:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SelectionFillStrongBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentMintBrush}" />
+    </Style>
+
+    <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlPressedBrush}" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="#11151A" />
+      <Setter Property="Foreground" Value="#7A8390" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioTextBoxTheme"
+                TargetType="TextBox"
+                BasedOn="{StaticResource {x:Type TextBox}}">
+    <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="MinHeight" Value="{DynamicResource TextControlThemeMinHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource TextControlThemePadding}" />
+    <Setter Property="FontSize" Value="10.75" />
+
+    <Style Selector="^ /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="^ /template/ TextBlock#PART_Watermark, ^ /template/ TextBlock#PART_FloatingWatermark">
+      <Setter Property="Foreground" Value="{DynamicResource FieldPlaceholderBrush}" />
+      <Setter Property="FontSize" Value="10.25" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource FieldHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlHoverBorderBrush}" />
+    </Style>
+
+    <Style Selector="^:focus-visible /template/ Border#PART_BorderElement, ^:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource FieldFocusBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlFocusBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource ControlDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="#11151A" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ TextBlock#PART_Watermark, ^:disabled /template/ TextBlock#PART_FloatingWatermark">
+      <Setter Property="Foreground" Value="{DynamicResource FieldDisabledForegroundBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioComboBoxTheme"
+                TargetType="ComboBox"
+                BasedOn="{StaticResource {x:Type ComboBox}}">
+    <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="MinHeight" Value="{DynamicResource ComboBoxMinHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource ComboBoxPadding}" />
+    <Setter Property="FontSize" Value="10.75" />
+
+    <Style Selector="^ /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="^ /template/ Border#PopupBorder">
+      <Setter Property="Background" Value="#252D36" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="^ /template/ Border#HighlightBackground">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="^ /template/ TextBlock#PlaceholderTextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource FieldPlaceholderBrush}" />
+    </Style>
+
+    <Style Selector="^ /template/ PathIcon#DropDownGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource FieldHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlHoverBorderBrush}" />
+    </Style>
+
+    <Style Selector="^:focus-visible /template/ Border#HighlightBackground, ^:focus /template/ Border#HighlightBackground">
+      <Setter Property="IsVisible" Value="True" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlFocusBorderBrush}" />
+    </Style>
+
+    <Style Selector="^:pressed /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource ControlPressedBrush}" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource ControlDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="#11151A" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioCheckBoxTheme"
+                TargetType="CheckBox"
+                BasedOn="{StaticResource {x:Type CheckBox}}">
+    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    <Setter Property="Padding" Value="6,0,0,0" />
+    <Setter Property="MinHeight" Value="20" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="FontSize" Value="10.75" />
+
+    <Style Selector="^ /template/ Border#PART_Border">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="^ /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+
+    <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="Margin" Value="6,0,0,0" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="{DynamicResource FieldHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlHoverBorderBrush}" />
+    </Style>
+
+    <Style Selector="^:checked /template/ Border#NormalRectangle, ^:indeterminate /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="{DynamicResource SelectionFillStrongBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentMintBrush}" />
+    </Style>
+
+    <Style Selector="^:checked /template/ Path#CheckGlyph, ^:indeterminate /template/ Path#CheckGlyph">
+      <Setter Property="Fill" Value="#F5F7FA" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ Border#NormalRectangle">
+      <Setter Property="Background" Value="{DynamicResource ControlDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="#11151A" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioTabItemTheme"
+                TargetType="TabItem"
+                BasedOn="{StaticResource {x:Type TabItem}}">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Background" Value="{DynamicResource ChromeSoftBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="{DynamicResource TabItemHeaderMargin}" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+
+    <Style Selector="^ /template/ Border#PART_LayoutRoot">
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="^ /template/ Border#PART_SelectedPipe">
+      <Setter Property="Background" Value="{DynamicResource AccentSelectionBrush}" />
+      <Setter Property="CornerRadius" Value="2" />
+    </Style>
+
+    <Style Selector="^:selected">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#4B5564" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioMenuItemTheme"
+                TargetType="MenuItem"
+                BasedOn="{StaticResource {x:Type MenuItem}}">
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+
+    <Style Selector="^ /template/ Border#PART_LayoutRoot">
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+
+    <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource MenuFlyoutItemBackgroundPointerOver}" />
+    </Style>
+
+    <Style Selector="^:pressed /template/ Border#PART_LayoutRoot:pointerover">
+      <Setter Property="Background" Value="{DynamicResource MenuFlyoutItemBackgroundPressed}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioMenuBarItemTheme"
+                TargetType="MenuItem"
+                BasedOn="{StaticResource HorizontalMenuItem}">
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+    <Setter Property="Foreground" Value="#EDF2F8" />
+    <Setter Property="Background" Value="Transparent" />
+
+    <Style Selector="^ /template/ Border#PART_LayoutRoot">
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="^:selected /template/ Border#PART_LayoutRoot, ^:open /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#566273" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#4B5665" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioToolbarMenuItemTheme"
+                TargetType="MenuItem"
+                BasedOn="{StaticResource HorizontalMenuItem}">
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+
+    <Style Selector="^ /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#313C48" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="^:selected /template/ Border#PART_LayoutRoot, ^:open /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#516172" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="#3C4857" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlHoverBorderBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioScrollBarTheme"
+                TargetType="ScrollBar"
+                BasedOn="{StaticResource {x:Type ScrollBar}}">
+    <Setter Property="Background" Value="{DynamicResource ScrollBarBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ScrollBarBorderBrush}" />
+
+    <Style Selector="^ /template/ Rectangle#TrackRect">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Rectangle#TrackRect">
+      <Setter Property="Opacity" Value="0.8" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioSliderTheme"
+                TargetType="Slider"
+                BasedOn="{StaticResource {x:Type Slider}}">
+    <Setter Property="Foreground" Value="{DynamicResource AccentMintBrush}" />
+    <Setter Property="Background" Value="{DynamicResource SliderTrackFill}" />
+    <Setter Property="MinHeight" Value="22" />
+    <Setter Property="Margin" Value="0,1" />
+
+    <Style Selector="^ /template/ Thumb#thumb">
+      <Setter Property="Background" Value="{DynamicResource SliderThumbBackground}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Width" Value="14" />
+      <Setter Property="Height" Value="14" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Thumb#thumb">
+      <Setter Property="Background" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentMintBrush}" />
+    </Style>
+
+    <Style Selector="^:pressed /template/ Thumb#thumb">
+      <Setter Property="Background" Value="{DynamicResource AccentMintBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioListBoxTheme"
+                TargetType="ListBox"
+                BasedOn="{StaticResource {x:Type ListBox}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="{DynamicResource DenseListPadding}" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioListBoxItemTheme"
+                TargetType="ListBoxItem"
+                BasedOn="{StaticResource {x:Type ListBoxItem}}">
+    <Setter Property="Margin" Value="0,0,0,3" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="MinHeight" Value="{DynamicResource ListRowMinHeight}" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioProgressBarTheme"
+                TargetType="ProgressBar"
+                BasedOn="{StaticResource {x:Type ProgressBar}}">
+    <Setter Property="Foreground" Value="{DynamicResource AccentMintBrush}" />
+    <Setter Property="Background" Value="#18212B" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="MinHeight" Value="{DynamicResource ProgressBarThemeMinHeight}" />
+    <Setter Property="CornerRadius" Value="999" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioToolTipTheme"
+                TargetType="ToolTip"
+                BasedOn="{StaticResource {x:Type ToolTip}}">
+    <Setter Property="Background" Value="#2A323B" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="#151A20" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="7,4" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="StudioGridSplitterTheme"
+                TargetType="GridSplitter"
+                BasedOn="{StaticResource {x:Type GridSplitter}}">
+    <Setter Property="Background" Value="#29313A" />
+    <Setter Property="ShowsPreview" Value="True" />
+    <Setter Property="DragIncrement" Value="1" />
+    <Setter Property="KeyboardIncrement" Value="10" />
+  </ControlTheme>
+
   </Styles.Resources>
 
   <Style Selector="Window">
     <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter#Inter" />
+    <Setter Property="FontSize" Value="10.75" />
+  </Style>
+
+  <Style Selector="Button">
+    <Setter Property="Theme" Value="{StaticResource StudioButtonTheme}" />
+  </Style>
+
+  <Style Selector="ToggleButton">
+    <Setter Property="Theme" Value="{StaticResource StudioToggleButtonTheme}" />
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="Theme" Value="{StaticResource StudioTextBoxTheme}" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="Theme" Value="{StaticResource StudioComboBoxTheme}" />
+  </Style>
+
+  <Style Selector="CheckBox">
+    <Setter Property="Theme" Value="{StaticResource StudioCheckBoxTheme}" />
+  </Style>
+
+  <Style Selector="TabItem">
+    <Setter Property="Theme" Value="{StaticResource StudioTabItemTheme}" />
+  </Style>
+
+  <Style Selector="MenuItem">
+    <Setter Property="Theme" Value="{StaticResource StudioMenuItemTheme}" />
+  </Style>
+
+  <Style Selector="ScrollBar">
+    <Setter Property="Theme" Value="{StaticResource StudioScrollBarTheme}" />
+  </Style>
+
+  <Style Selector="Slider">
+    <Setter Property="Theme" Value="{StaticResource StudioSliderTheme}" />
+  </Style>
+
+  <Style Selector="ListBox">
+    <Setter Property="Theme" Value="{StaticResource StudioListBoxTheme}" />
+  </Style>
+
+  <Style Selector="ListBoxItem">
+    <Setter Property="Theme" Value="{StaticResource StudioListBoxItemTheme}" />
+  </Style>
+
+  <Style Selector="ProgressBar">
+    <Setter Property="Theme" Value="{StaticResource StudioProgressBarTheme}" />
+  </Style>
+
+  <Style Selector="ToolTip">
+    <Setter Property="Theme" Value="{StaticResource StudioToolTipTheme}" />
+  </Style>
+
+  <Style Selector="GridSplitter">
+    <Setter Property="Theme" Value="{StaticResource StudioGridSplitterTheme}" />
   </Style>
 
   <Style Selector="Border.panel">
     <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Padding" Value="5" />
+    <Setter Property="BoxShadow" Value="0 2 8 0 #16000000" />
+  </Style>
+
+  <Style Selector="Border.panel.inspector-card">
+    <Setter Property="Padding" Value="{DynamicResource InspectorCardPadding}" />
+    <Setter Property="Background" Value="#39424D" />
+  </Style>
+
+  <Style Selector="Border.panel.tool-card">
     <Setter Property="Padding" Value="6" />
-    <Setter Property="BoxShadow" Value="0 3 10 0 #12000000" />
+  </Style>
+
+  <Style Selector="Border.panel.section-card">
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="Background" Value="#38424E" />
+  </Style>
+
+  <Style Selector="Border.panel-soft.monitor-card">
+    <Setter Property="Padding" Value="8" />
+    <Setter Property="Background" Value="#2B3440" />
+    <Setter Property="BorderBrush" Value="#1B2129" />
   </Style>
 
   <Style Selector="Border.panel-soft">
     <Setter Property="Background" Value="{DynamicResource PanelSoftBrush}" />
-    <Setter Property="BorderBrush" Value="#262C34" />
+    <Setter Property="BorderBrush" Value="#171C22" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Padding" Value="5" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="4" />
   </Style>
 
   <Style Selector="Border.chrome">
     <Setter Property="Background" Value="{DynamicResource ChromeBrush}" />
-    <Setter Property="BorderBrush" Value="#171B20" />
+    <Setter Property="BorderBrush" Value="#12171C" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="9" />
-    <Setter Property="Padding" Value="5,3" />
-    <Setter Property="BoxShadow" Value="0 4 12 0 #16000000" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Padding" Value="4,3" />
+    <Setter Property="BoxShadow" Value="0 3 10 0 #18000000" />
   </Style>
 
   <Style Selector="Border.chrome-soft">
     <Setter Property="Background" Value="{DynamicResource ChromeSoftBrush}" />
-    <Setter Property="BorderBrush" Value="#20252B" />
+    <Setter Property="BorderBrush" Value="#181D23" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="CornerRadius" Value="7" />
     <Setter Property="Padding" Value="4,3" />
   </Style>
 
   <Style Selector="Border.chrome-group">
-    <Setter Property="Background" Value="#333D47" />
-    <Setter Property="BorderBrush" Value="#21262D" />
+    <Setter Property="Background" Value="#2D3640" />
+    <Setter Property="BorderBrush" Value="#171C22" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Padding" Value="5,3" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="4,3" />
+  </Style>
+
+  <Style Selector="Border.chrome-group.command-strip">
+    <Setter Property="Padding" Value="{DynamicResource DockHeaderInsetPadding}" />
+    <Setter Property="Background" Value="#303844" />
+  </Style>
+
+  <Style Selector="Border.chrome-group.animate-workspace-strip">
+    <Setter Property="Background" Value="#2C3440" />
+  </Style>
+
+  <Style Selector="Border.chrome-group.animate-context-strip">
+    <Setter Property="Background" Value="#26303A" />
   </Style>
 
   <Style Selector="Border.metric-chip">
     <Setter Property="Background" Value="{DynamicResource MetricChipBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource MetricChipBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="7,4" />
   </Style>
 
+  <Style Selector="Border.metric-chip.compact">
+    <Setter Property="Padding" Value="6,3" />
+    <Setter Property="MinWidth" Value="56" />
+  </Style>
+
   <Style Selector="Border.workspace-summary-chip">
-    <Setter Property="Background" Value="#303944" />
-    <Setter Property="BorderBrush" Value="#20262D" />
+    <Setter Property="Background" Value="#29313A" />
+    <Setter Property="BorderBrush" Value="#161B21" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="7,4" />
+  </Style>
+
+  <Style Selector="Border.dock-workspace-shell">
+    <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DockBorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <Style Selector="Border.panel.tool-rail-shell">
+    <Setter Property="Padding" Value="6,6" />
+    <Setter Property="Background" Value="#2A323C" />
+    <Setter Property="BorderBrush" Value="#161B21" />
   </Style>
 
   <Style Selector="Border.stage-workspace">
     <Setter Property="Background" Value="{DynamicResource StageWorkspaceBrush}" />
-    <Setter Property="BorderBrush" Value="#1A1E24" />
+    <Setter Property="BorderBrush" Value="#13181E" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="7" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="6" />
+  </Style>
+
+  <Style Selector="Border.canvas-overlay">
+    <Setter Property="Background" Value="#D51B2530" />
+    <Setter Property="BorderBrush" Value="#202A35" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="7,5" />
+    <Setter Property="BoxShadow" Value="0 4 12 0 #26000000" />
   </Style>
 
   <Style Selector="Border.workspace-tab">
-    <Setter Property="Background" Value="#4A5260" />
-    <Setter Property="BorderBrush" Value="#232931" />
+    <Setter Property="Background" Value="#434D5B" />
+    <Setter Property="BorderBrush" Value="#171C22" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="7,3" />
   </Style>
 
   <Style Selector="Border.workspace-tab.active">
-    <Setter Property="Background" Value="#687285" />
+    <Setter Property="Background" Value="#5A6677" />
     <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
   </Style>
 
   <Style Selector="Border.palette-card">
-    <Setter Property="Padding" Value="8" />
-    <Setter Property="BoxShadow" Value="0 4 12 0 #1A000000" />
+    <Setter Property="Padding" Value="7" />
+    <Setter Property="BoxShadow" Value="0 3 10 0 #18000000" />
+  </Style>
+
+  <Style Selector="Border.layer-row">
+    <Setter Property="Background" Value="#38414C" />
+    <Setter Property="BorderBrush" Value="#1A2026" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="6" />
+  </Style>
+
+  <Style Selector="Border.layer-row.asset-row">
+    <Setter Property="Background" Value="#333C47" />
+  </Style>
+
+  <Style Selector="ListBoxItem:pointerover Border.layer-row">
+    <Setter Property="Background" Value="#46505D" />
+    <Setter Property="BorderBrush" Value="#5A6675" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected Border.layer-row">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+    <Setter Property="Background" Value="#566273" />
   </Style>
 
   <Style Selector="TextBlock.title">
-    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontSize" Value="17" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
   </Style>
 
   <Style Selector="TextBlock.section-title">
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="11.5" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
   </Style>
 
   <Style Selector="TextBlock.eyebrow">
-    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontSize" Value="9.75" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.45" />
     <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
   </Style>
 
   <Style Selector="TextBlock.strong-label">
-    <Setter Property="FontSize" Value="11.25" />
+    <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
   </Style>
@@ -165,6 +992,18 @@
     <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
   </Style>
 
+  <Style Selector="TextBlock.monitor-label">
+    <Setter Property="FontSize" Value="10.25" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.value-label">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+  </Style>
+
   <Style Selector="TextBlock.menu-label">
     <Setter Property="FontSize" Value="10.25" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -172,96 +1011,10 @@
     <Setter Property="Foreground" Value="#E9EEF5" />
   </Style>
 
-  <Style Selector="Button">
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Padding" Value="7,3" />
-    <Setter Property="MinHeight" Value="24" />
-    <Setter Property="Background" Value="#616C7B" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="#20252C" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="FontSize" Value="10.75" />
-  </Style>
-
-  <Style Selector="Button:pointerover">
-    <Setter Property="Background" Value="#748092" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentMintBrush}" />
-  </Style>
-
-  <Style Selector="Button:pressed">
-    <Setter Property="Background" Value="#525B69" />
-  </Style>
-
-  <Style Selector="Button.accent">
-    <Setter Property="Background" Value="#4E6C8E" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentMintBrush}" />
-  </Style>
-
-  <Style Selector="Button.warm">
-    <Setter Property="Background" Value="#7A5A33" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentWarmBrush}" />
-  </Style>
-
-  <Style Selector="Button.toolbar">
-    <Setter Property="Padding" Value="5,2" />
-    <Setter Property="MinHeight" Value="21" />
-    <Setter Property="CornerRadius" Value="6" />
-  </Style>
-
-  <Style Selector="Button.edge-handle">
-    <Setter Property="Padding" Value="7,2" />
-    <Setter Property="MinHeight" Value="18" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Background" Value="#36414D" />
-    <Setter Property="BorderBrush" Value="#1D242C" />
-    <Setter Property="FontSize" Value="10.25" />
-    <Setter Property="Opacity" Value="0.92" />
-  </Style>
-
-  <Style Selector="Button.edge-handle:pointerover">
-    <Setter Property="Background" Value="#44505F" />
-    <Setter Property="Opacity" Value="1" />
-  </Style>
-
-  <Style Selector="Button.tool">
-    <Setter Property="Padding" Value="7,4" />
-    <Setter Property="HorizontalContentAlignment" Value="Left" />
-    <Setter Property="Background" Value="#586271" />
-  </Style>
-
-  <Style Selector="Button.tool-rail">
-    <Setter Property="Padding" Value="6,6" />
-    <Setter Property="MinHeight" Value="30" />
-    <Setter Property="HorizontalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="10.5" />
-  </Style>
-
-  <Style Selector="Button.timeline-action">
-    <Setter Property="Padding" Value="9,4" />
-    <Setter Property="MinHeight" Value="28" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="FontSize" Value="10.75" />
-  </Style>
-
-  <Style Selector="ToggleButton.timeline-action">
-    <Setter Property="Padding" Value="9,4" />
-    <Setter Property="MinHeight" Value="28" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="FontSize" Value="10.75" />
-  </Style>
-
-  <Style Selector="ToggleButton.timeline-tab">
-    <Setter Property="Padding" Value="10,4" />
-    <Setter Property="MinHeight" Value="28" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="FontSize" Value="10.75" />
-    <Setter Property="Background" Value="#3A4654" />
-    <Setter Property="BorderBrush" Value="#1C2229" />
-  </Style>
-
-  <Style Selector="ToggleButton.timeline-tab:checked">
-    <Setter Property="Background" Value="#5C6A7C" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+  <Style Selector="Menu.app-menu">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
   </Style>
 
   <Style Selector="Menu.timeline-toolbar">
@@ -270,181 +1023,203 @@
     <Setter Property="Padding" Value="0" />
   </Style>
 
+  <Style Selector="MenuItem.app-menu-root">
+    <Setter Property="Theme" Value="{StaticResource StudioMenuBarItemTheme}" />
+    <Setter Property="FontSize" Value="10.25" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
   <Style Selector="MenuItem.timeline-toolbar-item">
-    <Setter Property="Background" Value="#3A4654" />
-    <Setter Property="BorderBrush" Value="#1C2229" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Padding" Value="10,4" />
-    <Setter Property="Margin" Value="0,0,4,0" />
-    <Setter Property="FontSize" Value="10.75" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="Theme" Value="{StaticResource StudioToolbarMenuItemTheme}" />
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
-  <Style Selector="MenuItem.timeline-toolbar-item:selected">
-    <Setter Property="Background" Value="#5C6A7C" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+  <Style Selector="MenuItem.menu-summary">
+    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
-  <Style Selector="Border.timeline-resize-grip">
-    <Setter Property="Background" Value="#39414B" />
+  <Style Selector="Button.toolbar">
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="MinHeight" Value="22" />
     <Setter Property="CornerRadius" Value="5" />
-    <Setter Property="Opacity" Value="0.72" />
-    <Setter Property="Cursor" Value="SizeNorthSouth" />
+    <Setter Property="FontSize" Value="10.25" />
   </Style>
 
-  <Style Selector="Border.timeline-resize-grip:pointerover">
-    <Setter Property="Background" Value="#5B6778" />
-    <Setter Property="Opacity" Value="1" />
+  <Style Selector="Button.toolbar.compact, ToggleButton.toolbar.compact">
+    <Setter Property="Padding" Value="5,2" />
+    <Setter Property="MinHeight" Value="20" />
   </Style>
 
-  <Style Selector="TextBox">
-    <Setter Property="Background" Value="#2C323A" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="#1C2128" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Padding" Value="5,3" />
-    <Setter Property="FontSize" Value="10.75" />
+  <Style Selector="Button.workspace-surface">
+    <Setter Property="MinWidth" Value="56" />
+    <Setter Property="Padding" Value="7,2" />
   </Style>
 
-  <Style Selector="TextBox.timeline-entry">
-    <Setter Property="MinHeight" Value="28" />
-    <Setter Property="Padding" Value="6,4" />
-  </Style>
-
-  <Style Selector="ComboBox">
-    <Setter Property="Background" Value="#2C323A" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="#1C2128" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="MinHeight" Value="22" />
-    <Setter Property="FontSize" Value="10.75" />
-  </Style>
-
-  <Style Selector="NumericUpDown">
-    <Setter Property="Background" Value="#2C323A" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="#1C2128" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="MinHeight" Value="22" />
-    <Setter Property="FontSize" Value="10.75" />
-  </Style>
-
-  <Style Selector="NumericUpDown.timeline-entry">
-    <Setter Property="MinHeight" Value="28" />
-  </Style>
-
-  <Style Selector="Slider">
-    <Setter Property="Foreground" Value="{DynamicResource AccentMintBrush}" />
-  </Style>
-
-  <Style Selector="ToggleButton">
-    <Setter Property="Background" Value="#596273" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="#20252C" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Padding" Value="7,3" />
-    <Setter Property="MinHeight" Value="24" />
-    <Setter Property="FontSize" Value="10.75" />
-  </Style>
-
-  <Style Selector="ToggleButton:checked">
-    <Setter Property="Background" Value="#4E6C8E" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
+  <Style Selector="Button.workspace-preset">
+    <Setter Property="MinWidth" Value="62" />
+    <Setter Property="Padding" Value="8,2" />
   </Style>
 
   <Style Selector="ToggleButton.toolbar">
-    <Setter Property="Padding" Value="5,2" />
-    <Setter Property="MinHeight" Value="21" />
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="MinHeight" Value="22" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="FontSize" Value="10.25" />
+  </Style>
+
+  <Style Selector="Button.edge-handle">
+    <Setter Property="Padding" Value="7,2" />
+    <Setter Property="MinHeight" Value="18" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="#2C3540" />
+    <Setter Property="BorderBrush" Value="#171C22" />
+    <Setter Property="FontSize" Value="10.25" />
+    <Setter Property="Opacity" Value="0.94" />
+  </Style>
+
+  <Style Selector="Button.tool">
+    <Setter Property="Padding" Value="8,4" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="Button.tool-rail">
+    <Setter Property="Padding" Value="6,6" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="10.25" />
+  </Style>
+
+  <Style Selector="ToggleButton.tool-rail-button, Button.tool-rail-button">
+    <Setter Property="Padding" Value="7,6" />
+    <Setter Property="MinWidth" Value="48" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+
+  <Style Selector="Button.timeline-action">
+    <Setter Property="Padding" Value="9,4" />
+    <Setter Property="MinHeight" Value="26" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="FontSize" Value="10.5" />
   </Style>
 
-  <Style Selector="CheckBox">
-    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+  <Style Selector="ToggleButton.timeline-action">
+    <Setter Property="Padding" Value="9,4" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="10.5" />
+  </Style>
+
+  <Style Selector="ToggleButton.timeline-tab">
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="10.5" />
+  </Style>
+
+  <Style Selector="TextBox.timeline-entry">
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Padding" Value="8,5" />
+  </Style>
+
+  <Style Selector="TextBox.inspector-field, ComboBox.inspector-field">
+    <Setter Property="MinHeight" Value="{DynamicResource InspectorFieldMinHeight}" />
+    <Setter Property="Padding" Value="8,5" />
+  </Style>
+
+  <Style Selector="Slider.inspector-slider">
+    <Setter Property="MinHeight" Value="{DynamicResource InspectorSliderMinHeight}" />
+    <Setter Property="Margin" Value="0,2" />
+  </Style>
+
+  <Style Selector="Slider.monitor-slider, Slider.timeline-slider">
+    <Setter Property="MinHeight" Value="{DynamicResource MonitorSliderMinHeight}" />
+    <Setter Property="Margin" Value="0" />
+  </Style>
+
+  <Style Selector="NumericUpDown">
+    <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="MinHeight" Value="26" />
     <Setter Property="FontSize" Value="10.75" />
+  </Style>
+
+  <Style Selector="NumericUpDown:pointerover">
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlHoverBorderBrush}" />
+  </Style>
+
+  <Style Selector="NumericUpDown.timeline-entry">
+    <Setter Property="MinHeight" Value="30" />
   </Style>
 
   <Style Selector="TabControl.dock-tabs">
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
-  <Style Selector="TabItem">
-    <Setter Property="FontSize" Value="10.25" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Background" Value="#586171" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="#1D2229" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Padding" Value="7,3" />
-  </Style>
-
-  <Style Selector="TabItem:selected">
-    <Setter Property="Background" Value="#6D788A" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
-  </Style>
-
-  <Style Selector="ListBox">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
-  </Style>
-
-  <Style Selector="ListBoxItem">
-    <Setter Property="Margin" Value="0,0,0,3" />
+  <Style Selector="ListBox.dense-list">
     <Setter Property="Padding" Value="0" />
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
   </Style>
 
-  <Style Selector="ListBoxItem:selected Border.layer-row">
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentSelectionBrush}" />
-    <Setter Property="Background" Value="#5F6978" />
+  <Style Selector="StackPanel.form-stack">
+    <Setter Property="Spacing" Value="6" />
   </Style>
 
-  <Style Selector="Border.layer-row">
-    <Setter Property="Background" Value="#454E5A" />
-    <Setter Property="BorderBrush" Value="#262C33" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="6" />
+  <Style Selector="Grid.form-two-col">
+    <Setter Property="ColumnSpacing" Value="6" />
   </Style>
 
-  <Style Selector="ToolTip">
-    <Setter Property="Background" Value="#2F3843" />
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="BorderBrush" Value="#1F252C" />
+  <Style Selector="TextBlock.field-label">
+    <Setter Property="FontSize" Value="9.75" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+  </Style>
+
+  <Style Selector="ProgressBar.audio-meter">
+    <Setter Property="MinHeight" Value="10" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+  </Style>
+
+  <Style Selector="MenuFlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource MenuFlyoutPresenterBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MenuFlyoutPresenterBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Padding" Value="7,4" />
+    <Setter Property="Padding" Value="4" />
   </Style>
 
   <Style Selector="ContextMenu">
-    <Setter Property="Background" Value="#353E49" />
-    <Setter Property="BorderBrush" Value="#1F252C" />
+    <Setter Property="Background" Value="{DynamicResource MenuFlyoutPresenterBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MenuFlyoutPresenterBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="7" />
   </Style>
 
-  <Style Selector="MenuItem">
-    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Padding" Value="7,4" />
+  <Style Selector="Separator">
+    <Setter Property="Background" Value="{DynamicResource DockSeparatorBrush}" />
+    <Setter Property="Margin" Value="4,2" />
   </Style>
 
-  <Style Selector="MenuItem:selected">
-    <Setter Property="Background" Value="#4D5A69" />
+  <Style Selector="Border.timeline-resize-grip">
+    <Setter Property="Background" Value="#313945" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Opacity" Value="0.78" />
+    <Setter Property="Cursor" Value="SizeNorthSouth" />
   </Style>
 
-  <Style Selector="GridSplitter.panel-splitter">
-    <Setter Property="Background" Value="#39414B" />
-    <Setter Property="ShowsPreview" Value="True" />
-    <Setter Property="DragIncrement" Value="1" />
-    <Setter Property="KeyboardIncrement" Value="10" />
+  <Style Selector="Border.timeline-resize-grip:pointerover">
+    <Setter Property="Background" Value="#566172" />
+    <Setter Property="Opacity" Value="1" />
   </Style>
 
   <Style Selector="GridSplitter.panel-splitter:pointerover">
-    <Setter Property="Background" Value="#566172" />
+    <Setter Property="Background" Value="#465361" />
   </Style>
 
   <Style Selector="GridSplitter.panel-splitter:pressed">
@@ -457,5 +1232,65 @@
 
   <Style Selector="GridSplitter.panel-splitter.horizontal">
     <Setter Property="Cursor" Value="SizeNorthSouth" />
+  </Style>
+
+  <Style Selector="dockControls|ToolChromeControl">
+    <Setter Property="Background" Value="{DynamicResource DockSurfacePanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DockBorderSubtleBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|DockControl">
+    <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|ToolDockControl, dockControls|DocumentDockControl">
+    <Setter Property="Background" Value="{DynamicResource DockSurfacePanelBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|DocumentTabStrip, dockControls|ToolTabStrip">
+    <Setter Property="Background" Value="{DynamicResource DockDocumentTabStripBackgroundBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|DocumentTabStripItem, dockControls|ToolTabStripItem">
+    <Setter Property="Foreground" Value="{DynamicResource DockTabForegroundBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="dockControls|DocumentTabStripItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource DockTabHoverBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource DockDocumentTabPointerOverForegroundBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|DocumentTabStripItem:selected">
+    <Setter Property="Background" Value="{DynamicResource DockTabActiveBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource DockDocumentTabSelectedForegroundBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|ToolTabStripItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource DockTabHoverBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource DockTabActiveForegroundBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|ToolTabStripItem:selected">
+    <Setter Property="Background" Value="{DynamicResource DockSurfacePanelBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource DockTabSelectedForegroundBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|ToolChromeControl /template/ Border#PART_Border">
+    <Setter Property="Background" Value="{DynamicResource DockSurfaceHeaderBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|ToolChromeControl:pointerover /template/ Border#PART_Border">
+    <Setter Property="Background" Value="{DynamicResource DockSurfaceHeaderActiveBrush}" />
+  </Style>
+
+  <Style Selector="dockControls|ToolChromeControl /template/ TextBlock#PART_Title">
+    <Setter Property="Foreground" Value="{DynamicResource DockTabSelectedForegroundBrush}" />
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="dockControls|ToolChromeControl /template/ Panel#PART_Panel">
+    <Setter Property="Background" Value="{DynamicResource DockBorderStrongBrush}" />
   </Style>
 </Styles>

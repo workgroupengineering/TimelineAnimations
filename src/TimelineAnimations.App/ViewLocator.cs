@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using TimelineAnimations.App.ViewModels;
 
 namespace TimelineAnimations.App;
 
@@ -32,6 +31,7 @@ public class ViewLocator : IDataTemplate
 
     public bool Match(object? data)
     {
-        return data is ViewModelBase;
+        return data is not null
+            && data.GetType().Namespace?.StartsWith("TimelineAnimations.App.ViewModels", StringComparison.Ordinal) == true;
     }
 }
