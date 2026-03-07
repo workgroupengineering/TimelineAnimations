@@ -8,5 +8,6 @@ public enum InteractionActionKind
     GoToFrameLabel,
     SetLayerVisibility,
     SetButtonState,
-    SetVariable
+    SetVariable,
+    ApplyVisualState
 }

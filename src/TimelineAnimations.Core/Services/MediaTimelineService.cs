@@ -11,7 +11,7 @@ public static class MediaTimelineService
 
     public static bool IsStageRenderable(TimelineLayer layer)
     {
-        return layer.Kind != LayerKind.Audio;
+        return layer.Kind is not (LayerKind.Audio or LayerKind.Folder);
     }
 
     public static double GetClipDuration(TimelineLayer layer, MediaAsset? asset)
@@ -87,6 +87,11 @@ public static class MediaTimelineService
         }
 
         return asset.Frames.Count - 1;
+    }
+
+    public static bool IsAudible(TimelineLayer layer)
+    {
+        return layer.Kind == LayerKind.Audio && layer.Media.SourceMediaAssetId is not null && !layer.IsMuted;
     }
 
     private static double Mod(double value, double divisor)

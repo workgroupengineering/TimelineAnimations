@@ -10,6 +10,14 @@ public sealed class LayerDefaults
 
     public double Height { get; set; } = 120;
 
+    public double ScaleX { get; set; } = 1d;
+
+    public double ScaleY { get; set; } = 1d;
+
+    public double SkewX { get; set; }
+
+    public double SkewY { get; set; }
+
     public double Rotation { get; set; }
 
     public double Opacity { get; set; } = 1;

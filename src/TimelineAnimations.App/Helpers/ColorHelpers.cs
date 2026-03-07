@@ -1,4 +1,6 @@
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
+using TimelineAnimations.Core.Models;
 
 namespace TimelineAnimations.App.Helpers;
 
@@ -14,13 +16,85 @@ public static class ColorHelpers
         return Color.TryParse(fallback, out var fallbackColor) ? fallbackColor : Colors.White;
     }
 
-    public static SolidColorBrush Brush(string? value, string fallback = "#FFFFFF")
+    public static ISolidColorBrush Brush(string? value, string fallback = "#FFFFFF")
     {
-        return new SolidColorBrush(Parse(value, fallback));
+        return new ImmutableSolidColorBrush(Parse(value, fallback));
     }
 
     public static string ToHex(Color color)
     {
         return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    }
+
+    public static Color ApplyCompositeColorEffects(Color color, LayerCompositeSettings compositing)
+    {
+        var adjusted = color;
+        if (Math.Abs(compositing.Saturation - 1d) > 0.001d)
+        {
+            var luminance = (0.299d * adjusted.R) + (0.587d * adjusted.G) + (0.114d * adjusted.B);
+            adjusted = Color.FromArgb(
+                adjusted.A,
+                ClampChannel(luminance + ((adjusted.R - luminance) * compositing.Saturation)),
+                ClampChannel(luminance + ((adjusted.G - luminance) * compositing.Saturation)),
+                ClampChannel(luminance + ((adjusted.B - luminance) * compositing.Saturation)));
+        }
+
+        if (Math.Abs(compositing.Brightness) > 0.001d)
+        {
+            var brightness = Math.Clamp(compositing.Brightness, -1d, 1d);
+            adjusted = brightness >= 0d
+                ? Blend(adjusted, Colors.White, brightness)
+                : Blend(adjusted, Colors.Black, Math.Abs(brightness));
+        }
+
+        if (compositing.TintStrength > 0.001d)
+        {
+            adjusted = Blend(adjusted, Parse(compositing.TintColor, "#FFFFFF"), Math.Clamp(compositing.TintStrength, 0d, 1d));
+        }
+
+        return ApplyFlashColorEffect(adjusted, compositing);
+    }
+
+    public static Color ApplyFlashColorEffect(Color color, LayerCompositeSettings compositing)
+    {
+        return compositing.FlashColorEffectMode switch
+        {
+            FlashColorEffectMode.Alpha => Color.FromArgb(
+                ClampChannel(color.A * (Math.Clamp(compositing.FlashAlphaPercent, 0d, 1000d) / 100d)),
+                color.R,
+                color.G,
+                color.B),
+            FlashColorEffectMode.Tint => Blend(color, Parse(compositing.FlashTintColor, "#FFFFFF"), Math.Clamp(compositing.FlashTintPercent, 0d, 100d) / 100d),
+            FlashColorEffectMode.Brightness => ApplyBrightnessPercent(color, compositing.FlashBrightnessPercent),
+            FlashColorEffectMode.Advanced => Color.FromArgb(
+                ClampChannel((color.A * (compositing.FlashAdvancedAlphaPercent / 100d)) + compositing.FlashAlphaOffset),
+                ClampChannel((color.R * (compositing.FlashRedPercent / 100d)) + compositing.FlashRedOffset),
+                ClampChannel((color.G * (compositing.FlashGreenPercent / 100d)) + compositing.FlashGreenOffset),
+                ClampChannel((color.B * (compositing.FlashBluePercent / 100d)) + compositing.FlashBlueOffset)),
+            _ => color
+        };
+    }
+
+    public static Color Blend(Color source, Color target, double amount)
+    {
+        var blendAmount = Math.Clamp(amount, 0d, 1d);
+        return Color.FromArgb(
+            ClampChannel(source.A + ((target.A - source.A) * blendAmount)),
+            ClampChannel(source.R + ((target.R - source.R) * blendAmount)),
+            ClampChannel(source.G + ((target.G - source.G) * blendAmount)),
+            ClampChannel(source.B + ((target.B - source.B) * blendAmount)));
+    }
+
+    private static Color ApplyBrightnessPercent(Color color, double brightnessPercent)
+    {
+        var amount = Math.Clamp(brightnessPercent, -100d, 100d) / 100d;
+        return amount >= 0d
+            ? Blend(color, Colors.White, amount)
+            : Blend(color, Colors.Black, Math.Abs(amount));
+    }
+
+    private static byte ClampChannel(double value)
+    {
+        return (byte)Math.Clamp(Math.Round(value), 0d, 255d);
     }
 }

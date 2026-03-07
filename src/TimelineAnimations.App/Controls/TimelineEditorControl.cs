@@ -278,19 +278,29 @@ public sealed class TimelineEditorControl : Control
             {
                 context.DrawRectangle(new SolidColorBrush(Color.Parse("#18263C")), null, new Rect(0, rowY, rect.Width, 7));
                 context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 14, 12, 12), 6, 6);
-                DrawLabel(context, row.LayerName, new Point(38, rowY + 10), 13, Color.Parse("#B7C8EA"));
-                DrawLabel(context, row.TrackTitle, new Point(18, rowY + 31), 12, Color.Parse("#E8EFFD"));
+                var labelX = 38 + (row.Depth * 14);
+                DrawLabel(context, row.LayerName, new Point(labelX, rowY + 10), 13, Color.Parse("#B7C8EA"));
+                DrawLabel(context, row.TrackTitle, new Point(18 + (row.Depth * 14), rowY + 31), 12, Color.Parse("#E8EFFD"));
             }
             else
             {
                 context.DrawRectangle(row.FillBrush, null, new Rect(18, rowY + 18, 10, 10), 5, 5);
-                DrawLabel(context, row.TrackTitle, new Point(36, rowY + 12), 13, Color.Parse("#E8EFFD"));
-                DrawLabel(context, row.LayerName, new Point(36, rowY + 31), 11, Color.Parse("#7E95BD"));
+                var labelX = 36 + (row.Depth * 14);
+                DrawLabel(context, row.TrackTitle, new Point(labelX, rowY + 12), 13, Color.Parse("#E8EFFD"));
+                DrawLabel(context, row.LayerName, new Point(labelX, rowY + 31), 11, Color.Parse("#7E95BD"));
             }
 
             if (row.IsLocked)
             {
                 DrawLabel(context, "Locked", new Point(LabelWidth - 92, rowY + 6), 10, Color.Parse("#FFB685"));
+            }
+            else if (row.IsMuted)
+            {
+                DrawLabel(context, "Muted", new Point(LabelWidth - 92, rowY + 6), 10, Color.Parse("#FF8C8C"));
+            }
+            else if (row.IsSolo)
+            {
+                DrawLabel(context, "Solo", new Point(LabelWidth - 88, rowY + 6), 10, Color.Parse("#FFE08A"));
             }
 
             DrawLabel(context, row.CurrentValueLabel, new Point(LabelWidth - 34, rowY + 22), 12, Color.Parse("#86A0CF"));

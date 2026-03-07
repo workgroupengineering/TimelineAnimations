@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="TimelineAnimations.App.Controls.AnimationExchangeVisualPreviewControl"
+             x:DataType="controls:AnimationExchangeVisualPreviewControl">
+  <Grid RowDefinitions="*,Auto"
+        RowSpacing="8">
+    <Border Grid.Row="0"
+            x:Name="PreviewSurfaceBorder"
+            Classes="panel-soft"
+            Background="#07101C"
+            BorderBrush="#27405F"
+            BorderThickness="1"
+            CornerRadius="18"
+            Padding="12">
+      <Grid>
+        <Viewbox x:Name="RuntimeViewbox"
+                 Stretch="Uniform"
+                 IsVisible="False">
+          <Border Background="#07101C"
+                  BorderBrush="#27405F"
+                  BorderThickness="1"
+                  CornerRadius="16"
+                  Padding="12">
+            <ContentPresenter x:Name="RuntimePreviewHost" />
+          </Border>
+        </Viewbox>
+
+        <Image x:Name="BitmapPreviewImage"
+               Stretch="Uniform"
+               IsVisible="False" />
+
+        <Border x:Name="EmptyStateBorder"
+                Classes="panel-soft"
+                Padding="16">
+          <StackPanel Spacing="4">
+            <TextBlock x:Name="EmptyStateTitle"
+                       Classes="strong-label"
+                       Text="Preview unavailable" />
+            <TextBlock x:Name="EmptyStateMessage"
+                       Classes="micro-label"
+                       TextWrapping="Wrap"
+                       Text="Generate a preview to inspect the selected format." />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            Classes="panel-soft">
+      <TextBlock x:Name="PreviewCaption"
+                 Classes="micro-label"
+                 TextWrapping="Wrap"
+                 Text="Visual preview ready." />
+    </Border>
+  </Grid>
+</UserControl>

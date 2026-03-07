@@ -22,13 +22,31 @@ public partial class LayerFrameTimelineRowViewModel : ViewModelBase
     private string layerName = string.Empty;
 
     [ObservableProperty]
-    private SolidColorBrush fillBrush = ColorHelpers.Brush("#FFFFFF");
+    private ISolidColorBrush fillBrush = ColorHelpers.Brush("#FFFFFF");
 
     [ObservableProperty]
     private bool isSelected;
 
     [ObservableProperty]
     private bool isLocked;
+
+    [ObservableProperty]
+    private bool isMuted;
+
+    [ObservableProperty]
+    private bool isSolo;
+
+    [ObservableProperty]
+    private bool isFolder;
+
+    [ObservableProperty]
+    private bool hasChildren;
+
+    [ObservableProperty]
+    private bool isExpanded = true;
+
+    [ObservableProperty]
+    private int depth;
 
     [ObservableProperty]
     private int durationFrames;
@@ -76,6 +94,10 @@ public partial class LayerFrameTimelineRowViewModel : ViewModelBase
         FillBrush = ColorHelpers.Brush(layer.Style.Fill, "#FFFFFF");
         IsSelected = selectedLayerId == layer.Id;
         IsLocked = layer.IsLocked;
+        IsMuted = layer.IsMuted;
+        IsSolo = layer.IsSolo;
+        IsFolder = layer.Kind == LayerKind.Folder;
+        IsExpanded = layer.IsExpanded;
         DurationFrames = FrameTimelineService.GetLayerDurationFrames(layer, totalFrames);
         HasExplicitFrames = FrameTimelineService.HasExplicitFrameTimeline(layer, totalFrames);
         LoadMediaClip(layer, mediaLookup, frameRate, totalFrames);
@@ -112,6 +134,13 @@ public partial class LayerFrameTimelineRowViewModel : ViewModelBase
                 span.EndFrame >= normalizedStart &&
                 span.StartFrame <= normalizedEnd;
         }
+    }
+
+    public void ApplyHierarchyState(int depth, bool hasChildren, bool isExpanded)
+    {
+        Depth = Math.Max(0, depth);
+        HasChildren = hasChildren;
+        IsExpanded = isExpanded;
     }
 
     private void LoadMediaClip(TimelineLayer layer, IReadOnlyDictionary<Guid, MediaAsset> mediaLookup, double frameRate, int totalFrames)

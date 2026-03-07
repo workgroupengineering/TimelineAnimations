@@ -28,6 +28,10 @@ public sealed class InteractionBehaviorModel
 
     public string VariableValue { get; set; } = string.Empty;
 
+    public string TargetVisualStateGroup { get; set; } = string.Empty;
+
+    public string TargetVisualState { get; set; } = string.Empty;
+
     public string Script { get; set; } = string.Empty;
 
     public InteractionBehaviorModel Clone()
@@ -46,6 +50,8 @@ public sealed class InteractionBehaviorModel
             BoolValue = BoolValue,
             VariableName = VariableName,
             VariableValue = VariableValue,
+            TargetVisualStateGroup = TargetVisualStateGroup,
+            TargetVisualState = TargetVisualState,
             Script = Script
         };
     }

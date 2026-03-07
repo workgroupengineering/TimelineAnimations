@@ -17,6 +17,7 @@ public sealed class CompositeSceneState
         double canvasHeight,
         string backgroundFrom,
         string backgroundTo,
+        IReadOnlyDictionary<Guid, LibraryItem> libraryItems,
         IReadOnlyDictionary<Guid, MediaAsset> mediaAssets,
         IReadOnlyList<RenderableLayerSample> samples,
         LayerSnapshot? activeCamera)
@@ -25,6 +26,7 @@ public sealed class CompositeSceneState
         CanvasHeight = canvasHeight;
         BackgroundFrom = backgroundFrom;
         BackgroundTo = backgroundTo;
+        LibraryItems = libraryItems;
         MediaAssets = mediaAssets;
         Samples = samples;
         ActiveCamera = activeCamera;
@@ -41,6 +43,8 @@ public sealed class CompositeSceneState
     public string BackgroundFrom { get; }
 
     public string BackgroundTo { get; }
+
+    public IReadOnlyDictionary<Guid, LibraryItem> LibraryItems { get; }
 
     public IReadOnlyDictionary<Guid, MediaAsset> MediaAssets { get; }
 
@@ -72,6 +76,7 @@ public static class CompositeFrameRenderer
             canvasHeight,
             backgroundFrom,
             backgroundTo,
+            document.LibraryItems.ToDictionary(item => item.Id),
             document.MediaAssets.ToDictionary(item => item.Id),
             samples,
             ResolveActiveCamera(samples));
@@ -502,56 +507,66 @@ public static class CompositeFrameRenderer
         bool includeAmbientGlow = true)
     {
         var rect = new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height);
+        var isOutlineMode = snapshot.ShowAsOutline && !renderAsMask;
+        var outlineBase = renderAsMask
+            ? fillBase
+            : ColorHelpers.ApplyCompositeColorEffects(ColorHelpers.Parse(snapshot.OutlineColor, snapshot.Stroke), snapshot.Compositing);
+        if (isOutlineMode)
+        {
+            fillBase = outlineBase;
+            strokeBase = outlineBase;
+            gradientFrom = outlineBase;
+            gradientTo = outlineBase;
+        }
+
         var fillColor = ApplyAlpha(fillBase, (byte)(Math.Clamp(opacity, 0d, 1d) * 255));
         var fillBrush = renderAsMask
             ? new SolidColorBrush(fillColor)
-            : CreateFillBrush(snapshot, fillColor, gradientFrom, gradientTo, opacity);
+            : isOutlineMode && sample.Kind is not LayerKind.Text
+                ? new SolidColorBrush(Colors.Transparent)
+                : CreateFillBrush(snapshot, fillColor, gradientFrom, gradientTo, opacity);
         var strokeBrush = new SolidColorBrush(ApplyAlpha(strokeBase, (byte)(Math.Clamp(opacity, 0d, 1d) * 220)));
-        var strokePen = new Pen(
-            strokeBrush,
-            Math.Max(1d, snapshot.StrokeThickness),
-            lineCap: PenLineCap.Round,
-            lineJoin: PenLineJoin.Round);
+        var strokePen = LayerStyleRenderHelper.CreateStrokePen(snapshot, strokeBrush, Math.Max(1d, snapshot.StrokeThickness));
 
         switch (sample.Kind)
         {
             case LayerKind.Rectangle:
-                if (includeAmbientGlow && !renderAsMask)
+                if (includeAmbientGlow && !renderAsMask && !isOutlineMode)
                 {
                     var glowBrush = new SolidColorBrush(ApplyAlpha(fillColor, 32));
                     context.DrawRectangle(glowBrush, null, rect.Inflate(10), snapshot.CornerRadius + 10, snapshot.CornerRadius + 10);
                 }
 
-                using (PushRotation(context, rect, snapshot.Rotation))
+                using (PushLayerTransform(context, rect, snapshot, ResolveLibraryItem(state, sample.SourceLibraryItemId)))
                 {
                     context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
                 }
 
                 return;
             case LayerKind.Ellipse:
-                if (includeAmbientGlow && !renderAsMask)
+                if (includeAmbientGlow && !renderAsMask && !isOutlineMode)
                 {
                     var glowBrush = new SolidColorBrush(ApplyAlpha(fillColor, 32));
                     context.DrawRectangle(glowBrush, null, rect.Inflate(10), snapshot.CornerRadius + 10, snapshot.CornerRadius + 10);
                 }
 
-                using (PushRotation(context, rect, snapshot.Rotation))
+                using (PushLayerTransform(context, rect, snapshot, ResolveLibraryItem(state, sample.SourceLibraryItemId)))
                 {
                     context.DrawEllipse(fillBrush, strokePen, rect.Center, rect.Width / 2d, rect.Height / 2d);
                 }
 
                 return;
             case LayerKind.Path:
-                DrawPath(context, rect, snapshot, fillBrush, strokeBrush, includeAmbientGlow && !renderAsMask);
+                DrawPath(context, rect, snapshot, fillBrush, strokeBrush, strokePen, includeAmbientGlow && !renderAsMask && snapshot.HasStroke, ResolveLibraryItem(state, sample.SourceLibraryItemId));
                 return;
             case LayerKind.AvaloniaControl:
-                DrawAvaloniaControl(context, rect, snapshot, fillBrush, strokePen, fillColor, strokeBase, opacity);
+                DrawAvaloniaControl(context, rect, snapshot, fillBrush, strokePen, fillColor, strokeBase, opacity, ResolveLibraryItem(state, sample.SourceLibraryItemId));
                 return;
             case LayerKind.Video:
                 if (sample.SourceMediaAssetId is Guid mediaAssetId &&
                     state.MediaAssets.TryGetValue(mediaAssetId, out var mediaAsset))
                 {
-                    using (PushRotation(context, rect, snapshot.Rotation))
+                    using (PushLayerTransform(context, rect, snapshot, ResolveLibraryItem(state, sample.SourceLibraryItemId)))
                     {
                         MediaAssetRenderService.DrawVideoFrame(
                             context,
@@ -567,15 +582,15 @@ public static class CompositeFrameRenderer
                 }
                 else
                 {
-                    using (PushRotation(context, rect, snapshot.Rotation))
+                    using (PushLayerTransform(context, rect, snapshot, ResolveLibraryItem(state, sample.SourceLibraryItemId)))
                     {
                         MediaAssetRenderService.DrawSyntheticVideoFrame(
                             context,
                             rect,
                             snapshot,
                             "MEDIA",
-                            snapshot.Fill,
-                            snapshot.Stroke,
+                            ColorHelpers.ToHex(fillBase),
+                            ColorHelpers.ToHex(strokeBase),
                             opacity,
                             renderAsMask);
                     }
@@ -586,8 +601,15 @@ public static class CompositeFrameRenderer
                 var plateColor = renderAsMask
                     ? fillColor
                     : ApplyAlpha(Color.Parse("#102038"), (byte)(Math.Clamp(opacity, 0d, 1d) * 180));
-                context.DrawRectangle(new SolidColorBrush(plateColor), strokePen, rect, 24, 24);
-                DrawText(context, rect, snapshot.Text, fillBrush, snapshot.FontSize);
+                using (PushLayerTransform(context, rect, snapshot, ResolveLibraryItem(state, sample.SourceLibraryItemId)))
+                {
+                    if (!isOutlineMode)
+                    {
+                        context.DrawRectangle(new SolidColorBrush(plateColor), strokePen, rect, 24, 24);
+                    }
+
+                    DrawText(context, rect, snapshot.Text, fillBrush, snapshot.FontSize, snapshot.TextSettings);
+                }
                 return;
             default:
                 return;
@@ -599,16 +621,17 @@ public static class CompositeFrameRenderer
         Rect rect,
         LayerSnapshot snapshot,
         IBrush fillBrush,
-        Pen strokePen,
+        IPen strokePen,
         Color fillColor,
         Color strokeBase,
-        double opacity)
+        double opacity,
+        LibraryItem? sourceLibraryItem)
     {
         var settings = snapshot.AvaloniaControl;
         var textBrush = new SolidColorBrush(ApplyAlpha(Color.Parse("#F5F7FA"), (byte)(Math.Clamp(opacity, 0d, 1d) * 255)));
         var mutedBrush = new SolidColorBrush(ApplyAlpha(Blend(strokeBase, Color.Parse("#F5F7FA"), 0.35d), (byte)(Math.Clamp(opacity, 0d, 1d) * 210)));
 
-        using var _ = PushRotation(context, rect, snapshot.Rotation);
+        using var _ = PushLayerTransform(context, rect, snapshot, sourceLibraryItem);
         switch (settings.Kind)
         {
             case AvaloniaControlKind.Button:
@@ -858,49 +881,150 @@ public static class CompositeFrameRenderer
             rect.Y + Math.Max(6d, (rect.Height - formattedText.Height) / 2d)));
     }
 
-    private static void DrawText(DrawingContext context, Rect rect, string text, IBrush fillBrush, double fontSize)
+    private static void DrawText(DrawingContext context, Rect rect, string text, IBrush fillBrush, double fontSize, LayerTextSettings? textSettings = null)
     {
-        var formattedText = new FormattedText(
-            text,
-            CultureInfo.InvariantCulture,
-            FlowDirection.LeftToRight,
-            new Typeface(FontFamily.Default),
-            Math.Max(14d, fontSize),
-            fillBrush);
-        var point = new Point(rect.X + 22, rect.Y + Math.Max(16d, (rect.Height - formattedText.Height) / 2d));
-        context.DrawText(formattedText, point);
+        var settings = textSettings ?? new LayerTextSettings();
+        var contentRect = DrawFlashTextFieldChrome(context, rect, settings);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        var typeface = BuildTypeface(settings);
+        var lines = GetRenderedTextLines(text, settings);
+        var measuredLines = lines
+            .Select(line => new FormattedText(
+                line,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                typeface,
+                Math.Max(14d, fontSize),
+                fillBrush))
+            .ToList();
+        var lineHeight = settings.LineHeight > 0d
+            ? settings.LineHeight
+            : measuredLines.Count == 0 ? Math.Max(14d, fontSize) : measuredLines.Max(item => item.Height);
+        var totalHeight = measuredLines.Count == 0 ? 0d : measuredLines.Count * lineHeight;
+        var y = contentRect.Y + Math.Max(16d, (contentRect.Height - totalHeight) / 2d);
+
+        for (var index = 0; index < measuredLines.Count; index++)
+        {
+            var formattedLine = measuredLines[index];
+            var x = settings.Alignment switch
+            {
+                LayerTextAlignment.Center => contentRect.X + Math.Max(8d, (contentRect.Width - formattedLine.Width) / 2d),
+                LayerTextAlignment.Right => contentRect.Right - formattedLine.Width - 16d,
+                _ => contentRect.X + 18d
+            };
+
+            if (Math.Abs(settings.LetterSpacing) > 0.001d)
+            {
+                DrawSpacedText(context, lines[index], fillBrush, typeface, Math.Max(14d, fontSize), new Point(x, y), settings.LetterSpacing);
+            }
+            else
+            {
+                context.DrawText(formattedLine, new Point(x, y));
+            }
+
+            y += lineHeight;
+        }
+    }
+
+    private static Rect DrawFlashTextFieldChrome(DrawingContext context, Rect rect, LayerTextSettings settings)
+    {
+        if (settings.FieldKind == FlashTextFieldKind.Static)
+        {
+            return rect;
+        }
+
+        var borderColor = settings.ShowBorder
+            ? Color.Parse("#8EEAFF")
+            : Color.Parse("#44566F");
+        var fillColor = settings.FieldKind == FlashTextFieldKind.Input
+            ? Color.Parse("#102744")
+            : Color.Parse("#0D1B31");
+        var chromeRect = rect.Deflate(4d);
+        context.DrawRectangle(
+            new SolidColorBrush(ApplyAlpha(fillColor, settings.ShowBorder ? (byte)68 : (byte)34)),
+            new Pen(new SolidColorBrush(ApplyAlpha(borderColor, settings.ShowBorder ? (byte)192 : (byte)112)), 1.2d),
+            chromeRect,
+            12d,
+            12d);
+
+        if (!string.IsNullOrWhiteSpace(settings.VariableName))
+        {
+            var label = new FormattedText(
+                settings.VariableName,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                new Typeface(FontFamily.Default, FontStyle.Normal, FontWeight.Medium),
+                10d,
+                new SolidColorBrush(ApplyAlpha(Color.Parse("#B6D7FF"), 176)));
+            context.DrawText(label, new Point(chromeRect.X + 10d, chromeRect.Bottom - label.Height - 6d));
+        }
+
+        return chromeRect.Deflate(8d);
+    }
+
+    private static string[] GetRenderedTextLines(string text, LayerTextSettings settings)
+    {
+        var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal);
+        if (settings.MaxCharacters > 0 && normalized.Length > settings.MaxCharacters)
+        {
+            normalized = normalized[..settings.MaxCharacters];
+        }
+
+        if (settings.IsPassword)
+        {
+            normalized = new string([.. normalized.Select(character => character == '\n' ? '\n' : '•')]);
+        }
+
+        if (settings.LineMode == FlashTextLineMode.SingleLine)
+        {
+            normalized = normalized.Replace('\n', ' ');
+        }
+
+        return normalized.Split('\n');
+    }
+
+    private static Typeface BuildTypeface(LayerTextSettings settings)
+    {
+        var family = settings.UseDeviceFonts || string.IsNullOrWhiteSpace(settings.FontFamily)
+            ? FontFamily.Default
+            : new FontFamily(settings.FontFamily);
+        return new Typeface(
+            family,
+            settings.IsItalic ? FontStyle.Italic : FontStyle.Normal,
+            settings.IsBold ? FontWeight.Bold : FontWeight.Normal);
+    }
+
+    private static void DrawSpacedText(
+        DrawingContext context,
+        string text,
+        IBrush fillBrush,
+        Typeface typeface,
+        double fontSize,
+        Point origin,
+        double letterSpacing)
+    {
+        var x = origin.X;
+        foreach (var character in text)
+        {
+            var glyph = new FormattedText(
+                character.ToString(),
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                typeface,
+                fontSize,
+                fillBrush);
+            context.DrawText(glyph, new Point(x, origin.Y));
+            x += glyph.Width + letterSpacing;
+        }
     }
 
     private static Color ApplyVisualAdjustments(Color color, LayerCompositeSettings compositing)
     {
-        var adjusted = color;
-        if (Math.Abs(compositing.Saturation - 1d) > 0.001d)
-        {
-            var luminance = (0.299d * adjusted.R) + (0.587d * adjusted.G) + (0.114d * adjusted.B);
-            adjusted = Color.FromArgb(
-                adjusted.A,
-                ClampChannel(luminance + ((adjusted.R - luminance) * compositing.Saturation)),
-                ClampChannel(luminance + ((adjusted.G - luminance) * compositing.Saturation)),
-                ClampChannel(luminance + ((adjusted.B - luminance) * compositing.Saturation)));
-        }
-
-        if (Math.Abs(compositing.Brightness) > 0.001d)
-        {
-            var shift = 255d * compositing.Brightness;
-            adjusted = Color.FromArgb(
-                adjusted.A,
-                ClampChannel(adjusted.R + shift),
-                ClampChannel(adjusted.G + shift),
-                ClampChannel(adjusted.B + shift));
-        }
-
-        if (compositing.TintStrength > 0d)
-        {
-            var tint = ColorHelpers.Parse(compositing.TintColor, "#FFFFFF");
-            adjusted = Blend(adjusted, tint, compositing.TintStrength);
-        }
-
-        return adjusted;
+        return ColorHelpers.ApplyCompositeColorEffects(color, compositing);
     }
 
     private static IReadOnlyList<Point> GetEffectOffsets(double radius)
@@ -921,43 +1045,22 @@ public static class CompositeFrameRenderer
         return points;
     }
 
-    private static IDisposable PushRotation(DrawingContext context, Rect rect, double angle)
+    private static IDisposable PushLayerTransform(DrawingContext context, Rect rect, LayerSnapshot snapshot, LibraryItem? sourceLibraryItem)
     {
-        if (Math.Abs(angle) < 0.01d)
+        if (!LayerTransformHelper.TryCreateMatrix(rect, snapshot, sourceLibraryItem, out var matrix))
         {
             return EmptyDisposable.Instance;
         }
-
-        var radians = angle * Math.PI / 180d;
-        var center = rect.Center;
-        var matrix =
-            Matrix.CreateTranslation(-center.X, -center.Y) *
-            Matrix.CreateRotation(radians) *
-            Matrix.CreateTranslation(center.X, center.Y);
 
         return context.PushTransform(matrix);
     }
 
     private static IBrush CreateFillBrush(LayerSnapshot snapshot, Color fillColor, Color gradientFrom, Color gradientTo, double opacity)
     {
-        if (!snapshot.UseGradient)
-        {
-            return new SolidColorBrush(fillColor);
-        }
-
-        return new LinearGradientBrush
-        {
-            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-            EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
-            GradientStops =
-            [
-                new GradientStop(ApplyAlpha(gradientFrom, (byte)(opacity * 255)), 0),
-                new GradientStop(ApplyAlpha(gradientTo, (byte)(opacity * 255)), 1)
-            ]
-        };
+        return LayerStyleRenderHelper.CreateFillBrush(snapshot, fillColor, gradientFrom, gradientTo, opacity);
     }
 
-    private static void DrawPath(DrawingContext context, Rect rect, LayerSnapshot snapshot, IBrush fillBrush, SolidColorBrush strokeBrush, bool includeGlow)
+    private static void DrawPath(DrawingContext context, Rect rect, LayerSnapshot snapshot, IBrush fillBrush, SolidColorBrush strokeBrush, IPen strokePen, bool includeGlow, LibraryItem? sourceLibraryItem)
     {
         var points = VectorPathService.GetAbsolutePoints(snapshot)
             .Select(point => new Point(point.X, point.Y))
@@ -979,21 +1082,29 @@ public static class CompositeFrameRenderer
             geometryContext.EndFigure(snapshot.IsClosed);
         }
 
-        var strokePen = new Pen(strokeBrush, Math.Max(1d, snapshot.StrokeThickness), lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
-        using (PushRotation(context, rect, snapshot.Rotation))
+        using (PushLayerTransform(context, rect, snapshot, sourceLibraryItem))
         {
             if (includeGlow)
             {
                 var glowPen = new Pen(
                     new SolidColorBrush(ApplyAlpha(ColorHelpers.Parse(snapshot.Stroke, "#FFFFFF"), 48)),
                     Math.Max(10d, snapshot.StrokeThickness + 10d),
-                    lineCap: PenLineCap.Round,
-                    lineJoin: PenLineJoin.Round);
+                    lineCap: strokePen.LineCap,
+                    lineJoin: strokePen.LineJoin,
+                    miterLimit: strokePen.MiterLimit);
                 context.DrawGeometry(null, glowPen, geometry);
             }
 
             context.DrawGeometry(snapshot.IsClosed ? fillBrush : null, strokePen, geometry);
         }
+    }
+
+    private static LibraryItem? ResolveLibraryItem(CompositeSceneState state, Guid? sourceLibraryItemId)
+    {
+        return sourceLibraryItemId is Guid libraryItemId &&
+               state.LibraryItems.TryGetValue(libraryItemId, out var libraryItem)
+            ? libraryItem
+            : null;
     }
 
     private static void ApplyMask(byte[] contentPixels, byte[] maskPixels)

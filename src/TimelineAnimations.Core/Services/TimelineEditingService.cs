@@ -17,30 +17,46 @@ public static class TimelineEditingService
     {
         var defaults = kind switch
         {
-            LayerKind.Rectangle => new LayerDefaults { X = x, Y = y, Width = 240, Height = 152, Opacity = 1 },
-            LayerKind.Ellipse => new LayerDefaults { X = x, Y = y, Width = 184, Height = 184, Opacity = 0.9 },
-            LayerKind.Text => new LayerDefaults { X = x, Y = y, Width = 360, Height = 92, Opacity = 1 },
-            LayerKind.Path => new LayerDefaults { X = x, Y = y, Width = 240, Height = 120, Opacity = 1 },
-            LayerKind.AvaloniaControl => new LayerDefaults { X = x, Y = y, Width = 260, Height = 160, Opacity = 1 },
-            LayerKind.Video => new LayerDefaults { X = x, Y = y, Width = 420, Height = 236, Opacity = 1 },
-            LayerKind.Audio => new LayerDefaults { X = 0, Y = 0, Width = 0, Height = 0, Opacity = 1 },
+            LayerKind.Folder => new LayerDefaults { X = 0, Y = 0, Width = 0, Height = 0, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            LayerKind.Rectangle => new LayerDefaults { X = x, Y = y, Width = 240, Height = 152, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            LayerKind.Ellipse => new LayerDefaults { X = x, Y = y, Width = 184, Height = 184, ScaleX = 1, ScaleY = 1, Opacity = 0.9 },
+            LayerKind.Text => new LayerDefaults { X = x, Y = y, Width = 360, Height = 92, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            LayerKind.Path => new LayerDefaults { X = x, Y = y, Width = 240, Height = 120, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            LayerKind.AvaloniaControl => new LayerDefaults { X = x, Y = y, Width = 260, Height = 160, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            LayerKind.Video => new LayerDefaults { X = x, Y = y, Width = 420, Height = 236, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            LayerKind.Audio => new LayerDefaults { X = 0, Y = 0, Width = 0, Height = 0, ScaleX = 1, ScaleY = 1, Opacity = 1 },
             _ => new LayerDefaults { X = x, Y = y }
         };
 
         var style = new LayerStyle
         {
+            HasFill = true,
             Fill = fill,
+            HasStroke = true,
             Stroke = "#FFFFFF",
             StrokeThickness = kind == LayerKind.Path ? 3.2d : 1.6d,
+            StrokeCapStyle = LayerStrokeCapStyle.Round,
+            StrokeJoinStyle = LayerStrokeJoinStyle.Round,
+            StrokeMiterLimit = 3d,
             Text = kind == LayerKind.Text ? text : string.Empty,
             FontSize = kind == LayerKind.Text ? 48 : 42,
             CornerRadius = kind is LayerKind.Rectangle or LayerKind.Video or LayerKind.AvaloniaControl ? 28 : 999,
+            GradientKind = LayerGradientKind.Linear,
+            GradientAngle = 45d,
             GradientFrom = fill,
             GradientTo = "#FFFFFF",
             PathPoints = kind == LayerKind.Path
                 ? [new VectorPointModel { X = 0, Y = 1 }, new VectorPointModel { X = 1, Y = 0 }]
                 : []
         };
+
+        if (kind == LayerKind.Folder)
+        {
+            style.Fill = "#22324C";
+            style.Stroke = "#93A6D8";
+            style.CornerRadius = 16d;
+            style.FontSize = 22d;
+        }
 
         return new TimelineLayer
         {
@@ -49,8 +65,13 @@ public static class TimelineEditingService
             ZIndex = zIndex,
             Defaults = defaults,
             Style = style,
-            Tracks = CreateDefaultTracks(defaults)
+            Tracks = kind == LayerKind.Folder ? [] : CreateDefaultTracks(defaults)
         };
+    }
+
+    public static TimelineLayer CreateFolderLayer(string name, int zIndex)
+    {
+        return CreateLayer(LayerKind.Folder, name, "#22324C", string.Empty, 0d, 0d, zIndex);
     }
 
     public static TimelineLayer CreateAvaloniaControlLayer(
@@ -66,22 +87,22 @@ public static class TimelineEditingService
         var layer = CreateLayer(LayerKind.AvaloniaControl, name, fill, text, x, y, zIndex);
         var defaults = controlKind switch
         {
-            AvaloniaControlKind.Button => new LayerDefaults { X = x, Y = y, Width = 220, Height = 58, Opacity = 1 },
-            AvaloniaControlKind.TextBlock => new LayerDefaults { X = x, Y = y, Width = 320, Height = 72, Opacity = 1 },
-            AvaloniaControlKind.TextBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 56, Opacity = 1 },
-            AvaloniaControlKind.CheckBox => new LayerDefaults { X = x, Y = y, Width = 220, Height = 42, Opacity = 1 },
-            AvaloniaControlKind.ToggleButton => new LayerDefaults { X = x, Y = y, Width = 210, Height = 48, Opacity = 1 },
-            AvaloniaControlKind.Slider => new LayerDefaults { X = x, Y = y, Width = 280, Height = 44, Opacity = 1 },
-            AvaloniaControlKind.ProgressBar => new LayerDefaults { X = x, Y = y, Width = 280, Height = 30, Opacity = 1 },
-            AvaloniaControlKind.Image => new LayerDefaults { X = x, Y = y, Width = 280, Height = 180, Opacity = 1 },
-            AvaloniaControlKind.ComboBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 54, Opacity = 1 },
-            AvaloniaControlKind.ListBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 180, Opacity = 1 },
-            AvaloniaControlKind.TabControl => new LayerDefaults { X = x, Y = y, Width = 320, Height = 200, Opacity = 1 },
-            AvaloniaControlKind.Grid => new LayerDefaults { X = x, Y = y, Width = 300, Height = 200, Opacity = 1 },
-            AvaloniaControlKind.StackPanel => new LayerDefaults { X = x, Y = y, Width = 240, Height = 220, Opacity = 1 },
-            AvaloniaControlKind.PathIcon => new LayerDefaults { X = x, Y = y, Width = 84, Height = 84, Opacity = 1 },
-            AvaloniaControlKind.Panel => new LayerDefaults { X = x, Y = y, Width = 300, Height = 200, Opacity = 1 },
-            _ => new LayerDefaults { X = x, Y = y, Width = 260, Height = 160, Opacity = 1 }
+            AvaloniaControlKind.Button => new LayerDefaults { X = x, Y = y, Width = 220, Height = 58, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.TextBlock => new LayerDefaults { X = x, Y = y, Width = 320, Height = 72, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.TextBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 56, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.CheckBox => new LayerDefaults { X = x, Y = y, Width = 220, Height = 42, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.ToggleButton => new LayerDefaults { X = x, Y = y, Width = 210, Height = 48, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.Slider => new LayerDefaults { X = x, Y = y, Width = 280, Height = 44, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.ProgressBar => new LayerDefaults { X = x, Y = y, Width = 280, Height = 30, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.Image => new LayerDefaults { X = x, Y = y, Width = 280, Height = 180, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.ComboBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 54, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.ListBox => new LayerDefaults { X = x, Y = y, Width = 260, Height = 180, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.TabControl => new LayerDefaults { X = x, Y = y, Width = 320, Height = 200, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.Grid => new LayerDefaults { X = x, Y = y, Width = 300, Height = 200, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.StackPanel => new LayerDefaults { X = x, Y = y, Width = 240, Height = 220, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.PathIcon => new LayerDefaults { X = x, Y = y, Width = 84, Height = 84, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            AvaloniaControlKind.Panel => new LayerDefaults { X = x, Y = y, Width = 300, Height = 200, ScaleX = 1, ScaleY = 1, Opacity = 1 },
+            _ => new LayerDefaults { X = x, Y = y, Width = 260, Height = 160, ScaleX = 1, ScaleY = 1, Opacity = 1 }
         };
 
         layer.Defaults = defaults;
@@ -111,18 +132,32 @@ public static class TimelineEditingService
         double strokeThickness,
         bool useGradient = false,
         string? gradientFrom = null,
-        string? gradientTo = null)
+        string? gradientTo = null,
+        LayerGradientKind gradientKind = LayerGradientKind.Linear,
+        double gradientAngle = 45d,
+        bool hasFill = true,
+        bool hasStroke = true,
+        LayerStrokeCapStyle strokeCapStyle = LayerStrokeCapStyle.Round,
+        LayerStrokeJoinStyle strokeJoinStyle = LayerStrokeJoinStyle.Round,
+        double strokeMiterLimit = 3d)
     {
         var (defaults, pathPoints) = VectorPathService.CreateLayerGeometry(points);
         var style = new LayerStyle
         {
+            HasFill = hasFill,
             Fill = fill,
+            HasStroke = hasStroke,
             Stroke = stroke,
             StrokeThickness = Math.Max(1d, strokeThickness),
+            StrokeCapStyle = strokeCapStyle,
+            StrokeJoinStyle = strokeJoinStyle,
+            StrokeMiterLimit = Math.Max(1d, strokeMiterLimit),
             Text = string.Empty,
             FontSize = 42,
             CornerRadius = 0,
             UseGradient = useGradient,
+            GradientKind = gradientKind,
+            GradientAngle = gradientAngle,
             GradientFrom = string.IsNullOrWhiteSpace(gradientFrom) ? fill : gradientFrom!,
             GradientTo = string.IsNullOrWhiteSpace(gradientTo) ? stroke : gradientTo!,
             IsClosed = isClosed,
@@ -148,6 +183,8 @@ public static class TimelineEditingService
             Y = 0,
             Width = Math.Max(320d, canvasWidth),
             Height = Math.Max(180d, canvasHeight),
+            ScaleX = 1d,
+            ScaleY = 1d,
             Rotation = 0,
             Opacity = 1
         };
@@ -262,7 +299,11 @@ public static class TimelineEditingService
             ? LibraryManagementService.GetDefaultFolderPath(item)
             : item.FolderPath);
         item.LinkageId = LibraryManagementService.EnsureUniqueLinkageId(document, item.LinkageId, item.Id, item.Name);
+        item.BaseClassName = LibraryManagementService.NormalizeClassName(item.BaseClassName);
+        item.SharedLibraryPath = LibraryManagementService.NormalizeSharedLibraryPath(item.SharedLibraryPath);
         item.SourceAssetPath = LibraryManagementService.NormalizeSourceAssetPath(item.SourceAssetPath);
+        LibraryManagementService.NormalizeScale9Grid(item);
+        LibraryManagementService.NormalizeRegistrationPoint(item);
         document.LibraryItems.Add(item);
     }
 
@@ -286,8 +327,10 @@ public static class TimelineEditingService
     public static TimelineLayer CreateLayerFromLibraryItem(LibraryItem item, double x, double y, int zIndex)
     {
         var layer = CloneLibraryTemplate(item.Template);
-        var offsetX = x - layer.Defaults.X;
-        var offsetY = y - layer.Defaults.Y;
+        var targetOriginX = x - (layer.Defaults.Width * item.RegistrationPointX);
+        var targetOriginY = y - (layer.Defaults.Height * item.RegistrationPointY);
+        var offsetX = targetOriginX - layer.Defaults.X;
+        var offsetY = targetOriginY - layer.Defaults.Y;
 
         OffsetAnimatedProperty(layer, AnimatedProperty.X, offsetX);
         OffsetAnimatedProperty(layer, AnimatedProperty.Y, offsetY);
@@ -297,6 +340,7 @@ public static class TimelineEditingService
         layer.IsVisible = true;
         layer.IsLocked = false;
         layer.SourceLibraryItemId = item.Id;
+        layer.InstanceName = CreateInstanceName(item.Name);
         layer.SymbolPlaybackMode = item.SymbolKind switch
         {
             SymbolKind.MovieClip => SymbolPlaybackMode.IndependentLoop,
@@ -307,6 +351,23 @@ public static class TimelineEditingService
         layer.SymbolButtonState = ButtonVisualState.Up;
         layer.Behaviors = InteractionBehaviorService.CloneBehaviors(item.DefaultBehaviors);
         return layer;
+    }
+
+    private static string CreateInstanceName(string source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return string.Empty;
+        }
+
+        var characters = source.Where(char.IsLetterOrDigit).ToArray();
+        if (characters.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var normalized = new string(characters);
+        return char.ToLowerInvariant(normalized[0]) + normalized[1..];
     }
 
     public static int SynchronizeLibraryItemInstances(TimelineDocument document, Guid libraryItemId)
@@ -564,29 +625,70 @@ public static class TimelineEditingService
 
     public static void UpdateDefaultValue(TimelineLayer layer, AnimatedProperty property, double value)
     {
+        var normalizedValue = property switch
+        {
+            AnimatedProperty.Width or AnimatedProperty.Height => Math.Max(24d, value),
+            AnimatedProperty.Opacity => TimelineMath.Clamp(value, 0d, 1d),
+            _ => value
+        };
+
         switch (property)
         {
             case AnimatedProperty.X:
-                layer.Defaults.X = value;
+                layer.Defaults.X = normalizedValue;
                 break;
             case AnimatedProperty.Y:
-                layer.Defaults.Y = value;
+                layer.Defaults.Y = normalizedValue;
                 break;
             case AnimatedProperty.Width:
-                layer.Defaults.Width = Math.Max(24, value);
+                layer.Defaults.Width = normalizedValue;
                 break;
             case AnimatedProperty.Height:
-                layer.Defaults.Height = Math.Max(24, value);
+                layer.Defaults.Height = normalizedValue;
+                break;
+            case AnimatedProperty.ScaleX:
+                layer.Defaults.ScaleX = normalizedValue;
+                break;
+            case AnimatedProperty.ScaleY:
+                layer.Defaults.ScaleY = normalizedValue;
+                break;
+            case AnimatedProperty.SkewX:
+                layer.Defaults.SkewX = normalizedValue;
+                break;
+            case AnimatedProperty.SkewY:
+                layer.Defaults.SkewY = normalizedValue;
                 break;
             case AnimatedProperty.Rotation:
-                layer.Defaults.Rotation = value;
+                layer.Defaults.Rotation = normalizedValue;
                 break;
             case AnimatedProperty.Opacity:
-                layer.Defaults.Opacity = TimelineMath.Clamp(value, 0, 1);
+                layer.Defaults.Opacity = normalizedValue;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(property), property, null);
         }
+
+        var track = layer.Tracks.FirstOrDefault(item => item.Property == property);
+        if (track is null)
+        {
+            return;
+        }
+
+        var defaultKeyframe = track.Keyframes.FirstOrDefault(item => Math.Abs(item.Time) < TimeTolerance);
+        if (defaultKeyframe is null)
+        {
+            track.Keyframes.Add(new KeyframeModel
+            {
+                Time = 0d,
+                Value = normalizedValue
+            });
+        }
+        else
+        {
+            defaultKeyframe.Value = normalizedValue;
+        }
+
+        SortTrack(track);
     }
 
     public static void NormalizeZOrder(TimelineDocument document)
@@ -595,6 +697,8 @@ public static class TimelineEditingService
         {
             document.Layers[index].ZIndex = index;
         }
+
+        LayerHierarchyService.Normalize(document.Layers);
     }
 
     public static void BringForward(TimelineDocument document, Guid layerId)
@@ -659,6 +763,38 @@ public static class TimelineEditingService
                 Keyframes =
                 [
                     new KeyframeModel { Time = 0, Value = defaults.Height }
+                ]
+            },
+            new LayerTrack
+            {
+                Property = AnimatedProperty.ScaleX,
+                Keyframes =
+                [
+                    new KeyframeModel { Time = 0, Value = defaults.ScaleX }
+                ]
+            },
+            new LayerTrack
+            {
+                Property = AnimatedProperty.ScaleY,
+                Keyframes =
+                [
+                    new KeyframeModel { Time = 0, Value = defaults.ScaleY }
+                ]
+            },
+            new LayerTrack
+            {
+                Property = AnimatedProperty.SkewX,
+                Keyframes =
+                [
+                    new KeyframeModel { Time = 0, Value = defaults.SkewX }
+                ]
+            },
+            new LayerTrack
+            {
+                Property = AnimatedProperty.SkewY,
+                Keyframes =
+                [
+                    new KeyframeModel { Time = 0, Value = defaults.SkewY }
                 ]
             },
             new LayerTrack

@@ -20,7 +20,7 @@ public sealed class MediaAssetViewModel
 
     public MediaAssetKind Kind => Model.Kind;
 
-    public SolidColorBrush PreviewBrush { get; }
+    public ISolidColorBrush PreviewBrush { get; }
 
     public string KindLabel => Kind == MediaAssetKind.Audio ? "Audio" : "Video";
 

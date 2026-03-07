@@ -12,6 +12,10 @@ public static class TimelineInterpolationService
             Y: SampleProperty(layer, AnimatedProperty.Y, time),
             Width: SampleProperty(layer, AnimatedProperty.Width, time),
             Height: SampleProperty(layer, AnimatedProperty.Height, time),
+            ScaleX: SampleProperty(layer, AnimatedProperty.ScaleX, time),
+            ScaleY: SampleProperty(layer, AnimatedProperty.ScaleY, time),
+            SkewX: SampleProperty(layer, AnimatedProperty.SkewX, time),
+            SkewY: SampleProperty(layer, AnimatedProperty.SkewY, time),
             Rotation: SampleProperty(layer, AnimatedProperty.Rotation, time),
             Opacity: SampleProperty(layer, AnimatedProperty.Opacity, time),
             CornerRadius: layer.Style.CornerRadius,
@@ -24,9 +28,21 @@ public static class TimelineInterpolationService
             GradientFrom: layer.Style.GradientFrom,
             GradientTo: layer.Style.GradientTo,
             IsClosed: shapeGeometry.IsClosed,
+            ShowAsOutline: layer.ShowAsOutline,
+            OutlineColor: layer.OutlineColor,
             PathPoints: shapeGeometry.PathPoints,
             AvaloniaControl: layer.Style.AvaloniaControl.Clone(),
-            Compositing: layer.Compositing.Clone());
+            Compositing: layer.Compositing.Clone(),
+            TextSettings: layer.Style.TextSettings.Clone())
+        {
+            HasFill = layer.Style.HasFill,
+            HasStroke = layer.Style.HasStroke,
+            GradientKind = layer.Style.GradientKind,
+            GradientAngle = layer.Style.GradientAngle,
+            StrokeCapStyle = layer.Style.StrokeCapStyle,
+            StrokeJoinStyle = layer.Style.StrokeJoinStyle,
+            StrokeMiterLimit = layer.Style.StrokeMiterLimit
+        };
     }
 
     public static (bool IsClosed, IReadOnlyList<VectorPointModel> PathPoints) SamplePathGeometry(TimelineLayer layer, double time)
@@ -150,6 +166,10 @@ public static class TimelineInterpolationService
             AnimatedProperty.Y => layer.Defaults.Y,
             AnimatedProperty.Width => layer.Defaults.Width,
             AnimatedProperty.Height => layer.Defaults.Height,
+            AnimatedProperty.ScaleX => layer.Defaults.ScaleX,
+            AnimatedProperty.ScaleY => layer.Defaults.ScaleY,
+            AnimatedProperty.SkewX => layer.Defaults.SkewX,
+            AnimatedProperty.SkewY => layer.Defaults.SkewY,
             AnimatedProperty.Rotation => layer.Defaults.Rotation,
             AnimatedProperty.Opacity => layer.Defaults.Opacity,
             _ => throw new ArgumentOutOfRangeException(nameof(property), property, null)

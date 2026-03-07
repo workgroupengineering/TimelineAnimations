@@ -63,6 +63,9 @@ public static class InteractionBehaviorService
                 : $"Go To {behavior.TargetFrameLabel}",
             InteractionActionKind.SetLayerVisibility => behavior.BoolValue ? "Show Layer" : "Hide Layer",
             InteractionActionKind.SetButtonState => $"Set Button {behavior.TargetButtonState}",
+            InteractionActionKind.ApplyVisualState => string.IsNullOrWhiteSpace(behavior.TargetVisualState)
+                ? "Apply Visual State"
+                : $"Apply State {behavior.TargetVisualState}",
             InteractionActionKind.SetVariable => string.IsNullOrWhiteSpace(behavior.VariableName)
                 ? "Set Variable"
                 : $"Set {behavior.VariableName}",

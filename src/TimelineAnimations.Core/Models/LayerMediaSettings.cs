@@ -16,6 +16,14 @@ public sealed class LayerMediaSettings
 
     public double Volume { get; set; } = 1d;
 
+    public double GainDb { get; set; }
+
+    public double Pan { get; set; }
+
+    public double FadeInDuration { get; set; }
+
+    public double FadeOutDuration { get; set; }
+
     public LayerMediaSettings Clone()
     {
         return new LayerMediaSettings
@@ -26,7 +34,11 @@ public sealed class LayerMediaSettings
             ClipOffset = ClipOffset,
             ClipDuration = ClipDuration,
             Loop = Loop,
-            Volume = Volume
+            Volume = Volume,
+            GainDb = GainDb,
+            Pan = Pan,
+            FadeInDuration = FadeInDuration,
+            FadeOutDuration = FadeOutDuration
         };
     }
 }

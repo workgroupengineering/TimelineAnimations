@@ -22,6 +22,7 @@ public static partial class AnimationExchangeService
         return format switch
         {
             AnimationExchangeFormat.AvaloniaXaml => "Avalonia XAML Animation",
+            AnimationExchangeFormat.FlashXfl => "Adobe Animate / Flash XFL",
             AnimationExchangeFormat.SvgSmil => "SVG / SMIL Animation",
             AnimationExchangeFormat.HtmlCss => "HTML / CSS Animation",
             _ => format.ToString()
@@ -33,6 +34,7 @@ public static partial class AnimationExchangeService
         return format switch
         {
             AnimationExchangeFormat.AvaloniaXaml => "axaml",
+            AnimationExchangeFormat.FlashXfl => "xfl",
             AnimationExchangeFormat.SvgSmil => "svg",
             AnimationExchangeFormat.HtmlCss => "html",
             _ => "txt"
@@ -49,6 +51,7 @@ public static partial class AnimationExchangeService
         var content = format switch
         {
             AnimationExchangeFormat.AvaloniaXaml => ExportAvaloniaXaml(snapshot),
+            AnimationExchangeFormat.FlashXfl => FlashXflExchangeService.Export(snapshot),
             AnimationExchangeFormat.SvgSmil => ExportSvg(snapshot),
             AnimationExchangeFormat.HtmlCss => ExportHtml(snapshot),
             _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
@@ -77,14 +80,14 @@ public static partial class AnimationExchangeService
         if (embedded is not null)
         {
             document = embedded;
-            issues.Add(CreateIssue(AnimationExchangeIssueSeverity.Info, "Metadata", "Embedded TimelineAnimations metadata was used for a lossless round-trip import."));
+            issues.Add(CreateIssue(AnimationExchangeIssueSeverity.Info, "Legacy Metadata", "Legacy embedded TimelineAnimations metadata was detected and used during import."));
         }
         else
         {
-            issues.Add(CreateIssue(AnimationExchangeIssueSeverity.Warning, "Fallback Parser", "Embedded TimelineAnimations metadata was not found. A best-effort fallback parser was used."));
             var fallback = format switch
             {
                 AnimationExchangeFormat.AvaloniaXaml => ImportAvaloniaXaml(content, sourceLabel),
+                AnimationExchangeFormat.FlashXfl => FlashXflExchangeService.Import(content, sourceLabel),
                 AnimationExchangeFormat.SvgSmil => ImportSvg(content, sourceLabel),
                 AnimationExchangeFormat.HtmlCss => ImportHtml(content, sourceLabel),
                 _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
@@ -114,7 +117,6 @@ public static partial class AnimationExchangeService
     private static string ExportAvaloniaXaml(TimelineDocument document)
     {
         var scene = GetActiveScene(document);
-        var metadata = EncodeDocumentMetadata(document);
         var canvas = new XElement(
             s_avaloniaNs + "Canvas",
             new XAttribute("Width", FormatNumber(scene.CanvasWidth)),
@@ -152,7 +154,6 @@ public static partial class AnimationExchangeService
             new XAttribute("Width", FormatNumber(scene.CanvasWidth)),
             new XAttribute("Height", FormatNumber(scene.CanvasHeight)));
 
-        root.AddFirst(new XComment($"{MetadataMarker}{metadata}"));
         if (styles.Count > 0)
         {
             root.Add(new XElement(s_avaloniaNs + "UserControl.Styles", styles));
@@ -165,14 +166,12 @@ public static partial class AnimationExchangeService
     private static string ExportSvg(TimelineDocument document)
     {
         var scene = GetActiveScene(document);
-        var metadata = EncodeDocumentMetadata(document);
         var root = new XElement(
             s_svgNs + "svg",
             new XAttribute("width", FormatNumber(scene.CanvasWidth)),
             new XAttribute("height", FormatNumber(scene.CanvasHeight)),
             new XAttribute("viewBox", FormattableString.Invariant($"0 0 {scene.CanvasWidth:0.###} {scene.CanvasHeight:0.###}")));
 
-        root.Add(new XElement(s_svgNs + "metadata", new XAttribute("id", SvgMetadataId), metadata));
         root.Add(
             new XElement(
                 s_svgNs + "defs",
@@ -204,7 +203,6 @@ public static partial class AnimationExchangeService
     private static string ExportHtml(TimelineDocument document)
     {
         var scene = GetActiveScene(document);
-        var metadata = EncodeDocumentMetadata(document);
         var css = new StringBuilder();
         css.AppendLine("html, body { margin: 0; padding: 0; background: #0b111d; }");
         css.AppendLine("body { font-family: Segoe UI, Arial, sans-serif; color: #f4f7fb; }");
@@ -239,7 +237,6 @@ public static partial class AnimationExchangeService
             new XElement(
                 s_htmlNs + "head",
                 new XElement(s_htmlNs + "meta", new XAttribute("charset", "utf-8")),
-                new XElement(s_htmlNs + "meta", new XAttribute("name", HtmlMetadataName), new XAttribute("content", metadata)),
                 new XElement(s_htmlNs + "title", scene.Name),
                 new XElement(s_htmlNs + "style", new XCData(css.ToString()))),
             new XElement(s_htmlNs + "body", stage));
@@ -252,6 +249,7 @@ public static partial class AnimationExchangeService
         var metadata = format switch
         {
             AnimationExchangeFormat.AvaloniaXaml => ExtractMetadataFromComment(content),
+            AnimationExchangeFormat.FlashXfl => null,
             AnimationExchangeFormat.SvgSmil => ExtractMetadataFromSvg(content),
             AnimationExchangeFormat.HtmlCss => ExtractMetadataFromHtml(content),
             _ => null
@@ -1783,11 +1781,6 @@ public static partial class AnimationExchangeService
         };
     }
 
-    private static string EncodeDocumentMetadata(TimelineDocument document)
-    {
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(DocumentSerializer.ToJson(document)));
-    }
-
     private static string? ExtractMetadataFromComment(string content)
     {
         var markerIndex = content.IndexOf(MetadataMarker, StringComparison.Ordinal);
@@ -1832,10 +1825,7 @@ public static partial class AnimationExchangeService
 
     private static IReadOnlyList<AnimationExchangeIssue> CollectExportIssues(TimelineDocument document, AnimationExchangeFormat format)
     {
-        var issues = new List<AnimationExchangeIssue>
-        {
-            CreateIssue(AnimationExchangeIssueSeverity.Info, "Metadata", "Embedded TimelineAnimations metadata is included for lossless re-import.")
-        };
+        var issues = new List<AnimationExchangeIssue>();
 
         if (document.Scenes.Count > 1)
         {
@@ -1844,7 +1834,14 @@ public static partial class AnimationExchangeService
 
         if (document.Layers.Any(layer => layer.Kind is LayerKind.Video or LayerKind.Audio))
         {
-            issues.Add(CreateIssue(AnimationExchangeIssueSeverity.Warning, "Media", "Audio and video layers export as styled placeholders in interchange formats."));
+            issues.Add(format == AnimationExchangeFormat.FlashXfl
+                ? CreateIssue(AnimationExchangeIssueSeverity.Info, "Media", "Flash XFL exports media as authoring references and timeline placeholders without embedding binary payloads.")
+                : CreateIssue(AnimationExchangeIssueSeverity.Warning, "Media", "Audio and video layers export as styled placeholders in interchange formats."));
+        }
+
+        if (format == AnimationExchangeFormat.FlashXfl)
+        {
+            issues.Add(CreateIssue(AnimationExchangeIssueSeverity.Info, "Flash XFL", "Flash XFL export writes DOM timelines plus linkage-sharing metadata, Scale-9 grids, instance names, classic text settings, explicit tracks, easing, shape-tween, effect, and media-sync metadata for editable round-trip without binary SWF data."));
         }
 
         if (format is AnimationExchangeFormat.SvgSmil or AnimationExchangeFormat.HtmlCss)

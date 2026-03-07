@@ -12,7 +12,31 @@ public sealed class TimelineLayer
 
     public bool IsLocked { get; set; }
 
+    public bool IsMuted { get; set; }
+
+    public bool IsSolo { get; set; }
+
+    public bool IsExpanded { get; set; } = true;
+
+    public Guid? ParentLayerId { get; set; }
+
     public Guid? SourceLibraryItemId { get; set; }
+
+    public string InstanceName { get; set; } = string.Empty;
+
+    public Guid? GuidedByLayerId { get; set; }
+
+    public bool OrientToGuidePath { get; set; }
+
+    public bool SnapToGuidePath { get; set; }
+
+    public bool ShowAsOutline { get; set; }
+
+    public string OutlineColor { get; set; } = "#57C9FF";
+
+    public bool CacheAsBitmap { get; set; }
+
+    public string BitmapCacheBackgroundColor { get; set; } = "#000000";
 
     public SymbolPlaybackMode SymbolPlaybackMode { get; set; } = SymbolPlaybackMode.SceneTime;
 
@@ -37,6 +61,8 @@ public sealed class TimelineLayer
     public List<FrameSpanModel> FrameSpans { get; set; } = [];
 
     public List<ShapeKeyframeModel> ShapeKeyframes { get; set; } = [];
+
+    public List<VisualStateGroupModel> VisualStateGroups { get; set; } = [];
 
     public List<LayerTrack> Tracks { get; set; } = [];
 }

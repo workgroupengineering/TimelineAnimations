@@ -6,6 +6,10 @@ public enum AnimatedProperty
     Y,
     Width,
     Height,
+    ScaleX,
+    ScaleY,
+    SkewX,
+    SkewY,
     Rotation,
     Opacity
 }

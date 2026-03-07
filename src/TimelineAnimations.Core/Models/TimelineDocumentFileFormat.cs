@@ -4,6 +4,7 @@ public enum TimelineDocumentFileFormat
 {
     NativeProject,
     AvaloniaXaml,
+    FlashXfl,
     SvgSmil,
     HtmlCss
 }

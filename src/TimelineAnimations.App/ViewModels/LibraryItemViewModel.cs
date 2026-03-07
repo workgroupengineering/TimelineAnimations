@@ -55,6 +55,40 @@ public partial class LibraryItemViewModel : ViewModelBase
         ? "Embedded asset"
         : $"Source • {Model.SourceAssetPath}";
 
+    public string FlashInteropLabel
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Model.BaseClassName))
+            {
+                parts.Add($"Base • {Model.BaseClassName}");
+            }
+
+            if (Model.ExportForRuntimeSharing)
+            {
+                parts.Add(Model.ExportInFirstFrame ? "Runtime Export" : "Runtime Export (Deferred)");
+            }
+
+            if (Model.ImportForRuntimeSharing && !string.IsNullOrWhiteSpace(Model.SharedLibraryPath))
+            {
+                parts.Add($"Shared • {Model.SharedLibraryPath}");
+            }
+
+            if (Model.UseScale9Grid)
+            {
+                parts.Add("Scale-9");
+            }
+
+            if (Math.Abs(Model.RegistrationPointX) > 0.0001d || Math.Abs(Model.RegistrationPointY) > 0.0001d)
+            {
+                parts.Add($"Reg • {Model.RegistrationPointX:0.##},{Model.RegistrationPointY:0.##}");
+            }
+
+            return parts.Count == 0 ? "Animate metadata ready" : string.Join(" • ", parts);
+        }
+    }
+
     [ObservableProperty]
     private string name = string.Empty;
 
@@ -62,7 +96,7 @@ public partial class LibraryItemViewModel : ViewModelBase
     private string subtitle = string.Empty;
 
     [ObservableProperty]
-    private SolidColorBrush previewBrush;
+    private ISolidColorBrush previewBrush;
 
     public void RefreshMetadata()
     {
@@ -82,6 +116,7 @@ public partial class LibraryItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(FolderPathLabel));
         OnPropertyChanged(nameof(LinkageLabel));
         OnPropertyChanged(nameof(SourceAssetLabel));
+        OnPropertyChanged(nameof(FlashInteropLabel));
     }
 
     private static string BuildSubtitle(TimelineLayer template)

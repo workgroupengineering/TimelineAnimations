@@ -36,6 +36,32 @@ public sealed class LayerCompositeSettings
 
     public double ParallaxDepth { get; set; } = 1d;
 
+    public FlashColorEffectMode FlashColorEffectMode { get; set; } = FlashColorEffectMode.None;
+
+    public double FlashAlphaPercent { get; set; } = 100d;
+
+    public string FlashTintColor { get; set; } = "#FFFFFF";
+
+    public double FlashTintPercent { get; set; }
+
+    public double FlashBrightnessPercent { get; set; }
+
+    public double FlashRedPercent { get; set; } = 100d;
+
+    public double FlashGreenPercent { get; set; } = 100d;
+
+    public double FlashBluePercent { get; set; } = 100d;
+
+    public double FlashAdvancedAlphaPercent { get; set; } = 100d;
+
+    public double FlashRedOffset { get; set; }
+
+    public double FlashGreenOffset { get; set; }
+
+    public double FlashBlueOffset { get; set; }
+
+    public double FlashAlphaOffset { get; set; }
+
     public LayerCompositeSettings Clone()
     {
         return new LayerCompositeSettings
@@ -56,7 +82,20 @@ public sealed class LayerCompositeSettings
             TintColor = TintColor,
             Brightness = Brightness,
             Saturation = Saturation,
-            ParallaxDepth = ParallaxDepth
+            ParallaxDepth = ParallaxDepth,
+            FlashColorEffectMode = FlashColorEffectMode,
+            FlashAlphaPercent = FlashAlphaPercent,
+            FlashTintColor = FlashTintColor,
+            FlashTintPercent = FlashTintPercent,
+            FlashBrightnessPercent = FlashBrightnessPercent,
+            FlashRedPercent = FlashRedPercent,
+            FlashGreenPercent = FlashGreenPercent,
+            FlashBluePercent = FlashBluePercent,
+            FlashAdvancedAlphaPercent = FlashAdvancedAlphaPercent,
+            FlashRedOffset = FlashRedOffset,
+            FlashGreenOffset = FlashGreenOffset,
+            FlashBlueOffset = FlashBlueOffset,
+            FlashAlphaOffset = FlashAlphaOffset
         };
     }
 }

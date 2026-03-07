@@ -12,6 +12,7 @@ public static class TimelineDocumentFileService
         {
             TimelineDocumentFileFormat.NativeProject => "Timeline Project",
             TimelineDocumentFileFormat.AvaloniaXaml => AnimationExchangeService.GetDisplayName(AnimationExchangeFormat.AvaloniaXaml),
+            TimelineDocumentFileFormat.FlashXfl => AnimationExchangeService.GetDisplayName(AnimationExchangeFormat.FlashXfl),
             TimelineDocumentFileFormat.SvgSmil => AnimationExchangeService.GetDisplayName(AnimationExchangeFormat.SvgSmil),
             TimelineDocumentFileFormat.HtmlCss => AnimationExchangeService.GetDisplayName(AnimationExchangeFormat.HtmlCss),
             _ => format.ToString()
@@ -24,6 +25,7 @@ public static class TimelineDocumentFileService
         {
             TimelineDocumentFileFormat.NativeProject => "timeline.json",
             TimelineDocumentFileFormat.AvaloniaXaml => AnimationExchangeService.GetSuggestedExtension(AnimationExchangeFormat.AvaloniaXaml),
+            TimelineDocumentFileFormat.FlashXfl => AnimationExchangeService.GetSuggestedExtension(AnimationExchangeFormat.FlashXfl),
             TimelineDocumentFileFormat.SvgSmil => AnimationExchangeService.GetSuggestedExtension(AnimationExchangeFormat.SvgSmil),
             TimelineDocumentFileFormat.HtmlCss => AnimationExchangeService.GetSuggestedExtension(AnimationExchangeFormat.HtmlCss),
             _ => "timeline.json"
@@ -54,6 +56,11 @@ public static class TimelineDocumentFileService
             return TimelineDocumentFileFormat.AvaloniaXaml;
         }
 
+        if (extension is ".xfl" or ".fla")
+        {
+            return TimelineDocumentFileFormat.FlashXfl;
+        }
+
         if (extension is ".svg")
         {
             return TimelineDocumentFileFormat.SvgSmil;
@@ -74,6 +81,12 @@ public static class TimelineDocumentFileService
             Regex.IsMatch(trimmed, @"<(UserControl|Window|Canvas|Grid|StackPanel|Border)\b", RegexOptions.IgnoreCase))
         {
             return TimelineDocumentFileFormat.AvaloniaXaml;
+        }
+
+        if (trimmed.Contains("<DOMDocument", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Contains("ns.adobe.com/xfl", StringComparison.OrdinalIgnoreCase))
+        {
+            return TimelineDocumentFileFormat.FlashXfl;
         }
 
         if (trimmed.Contains("<svg", StringComparison.OrdinalIgnoreCase))
@@ -112,6 +125,7 @@ public static class TimelineDocumentFileService
                 Issues = []
             },
             TimelineDocumentFileFormat.AvaloniaXaml => MapLoadResult(AnimationExchangeService.Import(AnimationExchangeFormat.AvaloniaXaml, content, sourceLabel), format),
+            TimelineDocumentFileFormat.FlashXfl => MapLoadResult(FlashXflExchangeService.ImportPackage(data, sourceLabel), format),
             TimelineDocumentFileFormat.SvgSmil => MapLoadResult(AnimationExchangeService.Import(AnimationExchangeFormat.SvgSmil, content, sourceLabel), format),
             TimelineDocumentFileFormat.HtmlCss => MapLoadResult(AnimationExchangeService.Import(AnimationExchangeFormat.HtmlCss, content, sourceLabel), format),
             _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
@@ -122,6 +136,7 @@ public static class TimelineDocumentFileService
         Stream stream,
         TimelineDocument document,
         TimelineDocumentFileFormat format,
+        string? targetLabel = null,
         CancellationToken cancellationToken = default)
     {
         switch (format)
@@ -138,6 +153,8 @@ public static class TimelineDocumentFileService
 
             case TimelineDocumentFileFormat.AvaloniaXaml:
                 return await SaveExchangeAsync(stream, document, format, AnimationExchangeFormat.AvaloniaXaml, cancellationToken);
+            case TimelineDocumentFileFormat.FlashXfl:
+                return await SaveFlashAsync(stream, document, format, targetLabel, cancellationToken);
             case TimelineDocumentFileFormat.SvgSmil:
                 return await SaveExchangeAsync(stream, document, format, AnimationExchangeFormat.SvgSmil, cancellationToken);
             case TimelineDocumentFileFormat.HtmlCss:
@@ -152,10 +169,43 @@ public static class TimelineDocumentFileService
         return format switch
         {
             TimelineDocumentFileFormat.AvaloniaXaml => AnimationExchangeFormat.AvaloniaXaml,
+            TimelineDocumentFileFormat.FlashXfl => AnimationExchangeFormat.FlashXfl,
             TimelineDocumentFileFormat.SvgSmil => AnimationExchangeFormat.SvgSmil,
             TimelineDocumentFileFormat.HtmlCss => AnimationExchangeFormat.HtmlCss,
             _ => null
         };
+    }
+
+    private static async Task<TimelineDocumentFileSaveResult> SaveFlashAsync(
+        Stream stream,
+        TimelineDocument document,
+        TimelineDocumentFileFormat format,
+        string? targetLabel,
+        CancellationToken cancellationToken)
+    {
+        var extension = Path.GetExtension(targetLabel ?? string.Empty);
+        if (string.Equals(extension, ".fla", StringComparison.OrdinalIgnoreCase))
+        {
+            FlashXflExchangeService.ExportPackage(stream, document);
+            await stream.FlushAsync(cancellationToken);
+            return new TimelineDocumentFileSaveResult
+            {
+                Format = format,
+                Summary = $"{GetDisplayName(format)} packaged from {document.Name}",
+                SuggestedFileName = $"{SanitizeFileName(StripKnownExtensions(document.Name))}.fla",
+                Issues =
+                [
+                    new AnimationExchangeIssue
+                    {
+                        Severity = AnimationExchangeIssueSeverity.Info,
+                        Source = "Flash XFL",
+                        Message = "Saved as a packaged Flash authoring archive with DOMDocument.xml, LIBRARY symbol XML files, and PublishSettings.xml."
+                    }
+                ]
+            };
+        }
+
+        return await SaveExchangeAsync(stream, document, format, AnimationExchangeFormat.FlashXfl, cancellationToken);
     }
 
     private static TimelineDocumentFileLoadResult MapLoadResult(AnimationExchangeImportResult result, TimelineDocumentFileFormat format)

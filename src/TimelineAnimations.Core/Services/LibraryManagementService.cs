@@ -28,7 +28,11 @@ public static class LibraryManagementService
                 NormalizeLinkageId(item.Name),
                 "_",
                 "symbol");
+            item.BaseClassName = NormalizeClassName(item.BaseClassName);
+            item.SharedLibraryPath = NormalizeSharedLibraryPath(item.SharedLibraryPath);
             item.SourceAssetPath = NormalizeSourceAssetPath(item.SourceAssetPath);
+            NormalizeScale9Grid(item);
+            NormalizeRegistrationPoint(item);
         }
     }
 
@@ -155,6 +159,14 @@ public static class LibraryManagementService
         relinked.SymbolPlaybackOffset = sourceLayer.SymbolPlaybackOffset;
         relinked.SymbolLockedFrame = sourceLayer.SymbolLockedFrame;
         relinked.SymbolButtonState = sourceLayer.SymbolButtonState;
+        relinked.InstanceName = sourceLayer.InstanceName;
+        relinked.GuidedByLayerId = sourceLayer.GuidedByLayerId;
+        relinked.OrientToGuidePath = sourceLayer.OrientToGuidePath;
+        relinked.SnapToGuidePath = sourceLayer.SnapToGuidePath;
+        relinked.ShowAsOutline = sourceLayer.ShowAsOutline;
+        relinked.OutlineColor = sourceLayer.OutlineColor;
+        relinked.CacheAsBitmap = sourceLayer.CacheAsBitmap;
+        relinked.BitmapCacheBackgroundColor = sourceLayer.BitmapCacheBackgroundColor;
         relinked.Behaviors = InteractionBehaviorService.CloneBehaviors(sourceLayer.Behaviors);
         return relinked;
     }
@@ -185,6 +197,34 @@ public static class LibraryManagementService
             : sourceAssetPath.Trim();
     }
 
+    public static string NormalizeSharedLibraryPath(string? sharedLibraryPath)
+    {
+        return string.IsNullOrWhiteSpace(sharedLibraryPath)
+            ? string.Empty
+            : sharedLibraryPath.Trim();
+    }
+
+    public static string NormalizeClassName(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim();
+    }
+
+    public static void NormalizeScale9Grid(LibraryItem item)
+    {
+        item.Scale9Left = Math.Max(0d, item.Scale9Left);
+        item.Scale9Top = Math.Max(0d, item.Scale9Top);
+        item.Scale9Right = Math.Max(item.Scale9Left + 1d, item.Scale9Right);
+        item.Scale9Bottom = Math.Max(item.Scale9Top + 1d, item.Scale9Bottom);
+    }
+
+    public static void NormalizeRegistrationPoint(LibraryItem item)
+    {
+        item.RegistrationPointX = TimelineMath.Clamp(item.RegistrationPointX, 0d, 1d);
+        item.RegistrationPointY = TimelineMath.Clamp(item.RegistrationPointY, 0d, 1d);
+    }
+
     private static bool MatchesFolder(LibraryItem item, string folderFilter)
     {
         if (string.IsNullOrWhiteSpace(folderFilter) ||
@@ -204,6 +244,9 @@ public static class LibraryManagementService
         return item.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
                GetDisplayFolderPath(item.FolderPath).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
                item.LinkageId.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+               item.BaseClassName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+               item.SharedLibraryPath.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+               $"{item.RegistrationPointX:0.##},{item.RegistrationPointY:0.##}".Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
                item.SourceAssetPath.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
                item.ComponentCategory.Contains(searchText, StringComparison.OrdinalIgnoreCase);
     }

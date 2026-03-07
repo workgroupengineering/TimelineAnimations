@@ -80,6 +80,17 @@ public static class SampleProjectFactory
                          """
             }
         ];
+        SceneTimelineService.AddOrUpdateMarker(introScene, null, 6, "Intro cue", SceneMarkerKind.Cue, "Hero card enters.", "#57C9FF", FrameTimelineService.GetTotalFrames(introScene.Duration, introScene.FrameRate));
+        SceneTimelineService.AddOrUpdateMarker(introScene, null, 18, "Comment", SceneMarkerKind.Comment, "Sync caption reveal with VO.", "#FFD166", FrameTimelineService.GetTotalFrames(introScene.Duration, introScene.FrameRate));
+        SceneTimelineService.SetInPoint(introScene, 0, FrameTimelineService.GetTotalFrames(introScene.Duration, introScene.FrameRate));
+        SceneTimelineService.SetOutPoint(introScene, 54, FrameTimelineService.GetTotalFrames(introScene.Duration, introScene.FrameRate));
+        SceneTimelineService.SetWorkArea(introScene, 6, 42, FrameTimelineService.GetTotalFrames(introScene.Duration, introScene.FrameRate));
+        introScene.OutgoingTransition = new SceneTransitionModel
+        {
+            Kind = SceneTransitionKind.CrossDissolve,
+            Duration = 0.45d,
+            AccentColor = "#000000"
+        };
         introScene.Layers[2].FrameSpans =
         [
             new FrameSpanModel { StartFrame = 0, EndFrame = 9, IsBlank = true },
@@ -112,6 +123,17 @@ public static class SampleProjectFactory
                          """
             }
         ];
+        SceneTimelineService.AddOrUpdateMarker(featureScene, null, 10, "Feature chapter", SceneMarkerKind.Chapter, "Enter focused feature section.", "#24E5C1", FrameTimelineService.GetTotalFrames(featureScene.Duration, featureScene.FrameRate));
+        SceneTimelineService.AddOrUpdateMarker(featureScene, null, 30, "Publish note", SceneMarkerKind.PublishNote, "Hold 12f for social export.", "#FF8A4C", FrameTimelineService.GetTotalFrames(featureScene.Duration, featureScene.FrameRate));
+        SceneTimelineService.SetInPoint(featureScene, 0, FrameTimelineService.GetTotalFrames(featureScene.Duration, featureScene.FrameRate));
+        SceneTimelineService.SetOutPoint(featureScene, 52, FrameTimelineService.GetTotalFrames(featureScene.Duration, featureScene.FrameRate));
+        SceneTimelineService.SetWorkArea(featureScene, 8, 38, FrameTimelineService.GetTotalFrames(featureScene.Duration, featureScene.FrameRate));
+        featureScene.OutgoingTransition = new SceneTransitionModel
+        {
+            Kind = SceneTransitionKind.DipToBlack,
+            Duration = 0.40d,
+            AccentColor = "#09111F"
+        };
         featureScene.Layers[0].Defaults.X = 252;
         featureScene.Layers[0].Defaults.Y = 154;
         featureScene.Layers[1].Defaults.X = 822;
@@ -187,7 +209,7 @@ public static class SampleProjectFactory
 
     private static TimelineLayer CreateHeroCard()
     {
-        return new TimelineLayer
+        var layer = new TimelineLayer
         {
             Name = "Hero Card",
             Kind = LayerKind.Rectangle,
@@ -230,6 +252,10 @@ public static class SampleProjectFactory
             (AnimatedProperty.X, 1, EasingKind.EaseOut),
             (AnimatedProperty.X, 2, EasingKind.EaseInOut),
             (AnimatedProperty.Rotation, 1, EasingKind.BackOut));
+        VisualStateEditingService.CaptureState(layer, "CardStates", "Intro", 0d);
+        VisualStateEditingService.CaptureState(layer, "CardStates", "Reveal", 1.8d);
+        VisualStateEditingService.CaptureState(layer, "CardStates", "Accent", 4.8d);
+        return layer;
     }
 
     private static TimelineLayer CreateOrb()

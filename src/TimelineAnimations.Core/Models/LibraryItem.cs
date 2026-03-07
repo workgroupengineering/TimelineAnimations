@@ -10,6 +10,18 @@ public sealed class LibraryItem
 
     public string LinkageId { get; set; } = string.Empty;
 
+    public string BaseClassName { get; set; } = string.Empty;
+
+    public bool ExportForRuntimeSharing { get; set; }
+
+    public bool ImportForRuntimeSharing { get; set; }
+
+    public bool ExportInFirstFrame { get; set; } = true;
+
+    public string SharedLibraryPath { get; set; } = string.Empty;
+
+    public bool UpdateAutomatically { get; set; }
+
     public string SourceAssetPath { get; set; } = string.Empty;
 
     public SymbolKind SymbolKind { get; set; } = SymbolKind.Graphic;
@@ -23,6 +35,20 @@ public sealed class LibraryItem
     public string ComponentCategory { get; set; } = string.Empty;
 
     public string ComponentDescription { get; set; } = string.Empty;
+
+    public bool UseScale9Grid { get; set; }
+
+    public double Scale9Left { get; set; } = 16d;
+
+    public double Scale9Top { get; set; } = 16d;
+
+    public double Scale9Right { get; set; } = 144d;
+
+    public double Scale9Bottom { get; set; } = 84d;
+
+    public double RegistrationPointX { get; set; }
+
+    public double RegistrationPointY { get; set; }
 
     public TimelineLayer Template { get; set; } = new();
 

@@ -24,6 +24,9 @@ public sealed class FrameTimelineControl : Control
     public static readonly StyledProperty<IReadOnlyList<FrameLabelViewModel>?> LabelsProperty =
         AvaloniaProperty.Register<FrameTimelineControl, IReadOnlyList<FrameLabelViewModel>?>(nameof(Labels));
 
+    public static readonly StyledProperty<IReadOnlyList<SceneMarkerViewModel>?> MarkersProperty =
+        AvaloniaProperty.Register<FrameTimelineControl, IReadOnlyList<SceneMarkerViewModel>?>(nameof(Markers));
+
     public static readonly StyledProperty<int> CurrentFrameProperty =
         AvaloniaProperty.Register<FrameTimelineControl, int>(nameof(CurrentFrame));
 
@@ -42,17 +45,34 @@ public sealed class FrameTimelineControl : Control
     public static readonly StyledProperty<int> SelectionEndFrameProperty =
         AvaloniaProperty.Register<FrameTimelineControl, int>(nameof(SelectionEndFrame), -1);
 
+    public static readonly StyledProperty<int> InFrameProperty =
+        AvaloniaProperty.Register<FrameTimelineControl, int>(nameof(InFrame), 0);
+
+    public static readonly StyledProperty<int> OutFrameProperty =
+        AvaloniaProperty.Register<FrameTimelineControl, int>(nameof(OutFrame), 0);
+
+    public static readonly StyledProperty<int> WorkAreaStartFrameProperty =
+        AvaloniaProperty.Register<FrameTimelineControl, int>(nameof(WorkAreaStartFrame), 0);
+
+    public static readonly StyledProperty<int> WorkAreaEndFrameProperty =
+        AvaloniaProperty.Register<FrameTimelineControl, int>(nameof(WorkAreaEndFrame), 0);
+
     static FrameTimelineControl()
     {
         AffectsRender<FrameTimelineControl>(
             RowsProperty,
             LabelsProperty,
+            MarkersProperty,
             CurrentFrameProperty,
             TotalFramesProperty,
             PixelsPerFrameProperty,
             SelectedLayerIdProperty,
             SelectionStartFrameProperty,
-            SelectionEndFrameProperty);
+            SelectionEndFrameProperty,
+            InFrameProperty,
+            OutFrameProperty,
+            WorkAreaStartFrameProperty,
+            WorkAreaEndFrameProperty);
     }
 
     public event EventHandler<FrameTimelineFrameRequestedEventArgs>? FrameRequested;
@@ -71,6 +91,12 @@ public sealed class FrameTimelineControl : Control
     {
         get => GetValue(LabelsProperty);
         set => SetValue(LabelsProperty, value);
+    }
+
+    public IReadOnlyList<SceneMarkerViewModel>? Markers
+    {
+        get => GetValue(MarkersProperty);
+        set => SetValue(MarkersProperty, value);
     }
 
     public int CurrentFrame
@@ -107,6 +133,30 @@ public sealed class FrameTimelineControl : Control
     {
         get => GetValue(SelectionEndFrameProperty);
         set => SetValue(SelectionEndFrameProperty, value);
+    }
+
+    public int InFrame
+    {
+        get => GetValue(InFrameProperty);
+        set => SetValue(InFrameProperty, value);
+    }
+
+    public int OutFrame
+    {
+        get => GetValue(OutFrameProperty);
+        set => SetValue(OutFrameProperty, value);
+    }
+
+    public int WorkAreaStartFrame
+    {
+        get => GetValue(WorkAreaStartFrameProperty);
+        set => SetValue(WorkAreaStartFrameProperty, value);
+    }
+
+    public int WorkAreaEndFrame
+    {
+        get => GetValue(WorkAreaEndFrameProperty);
+        set => SetValue(WorkAreaEndFrameProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -206,6 +256,7 @@ public sealed class FrameTimelineControl : Control
     {
         var headerRect = new Rect(0, 0, rect.Width, HeaderHeight);
         context.DrawRectangle(new SolidColorBrush(Color.Parse("#0B1422")), new Pen(new SolidColorBrush(Color.Parse("#223352")), 1), headerRect, 20, 20);
+        DrawWorkAreaBand(context, headerRect);
         DrawLabel(context, "Frames", new Point(18, 12), 13, Color.Parse("#B9C7E8"));
 
         var minorPen = new Pen(new SolidColorBrush(Color.Parse("#162338")), 1);
@@ -235,6 +286,22 @@ public sealed class FrameTimelineControl : Control
             context.DrawRectangle(new SolidColorBrush(Color.Parse("#2C4568")), null, tagRect, 8, 8);
             DrawLabel(context, label.Name, new Point(tagRect.X + 6, tagRect.Y + 3), 10, Color.Parse("#F1F6FF"));
         }
+
+        if (Markers is not null)
+        {
+            foreach (var marker in Markers)
+            {
+                var x = TimelineStartX + (marker.Frame * PixelsPerFrame);
+                var brush = marker.ColorBrush as ISolidColorBrush ?? new SolidColorBrush(Color.Parse("#57C9FF"));
+                var badgeRect = new Rect(x + 4, 24, Math.Max(44, (marker.Name.Length * 6.4) + 18), 14);
+                context.DrawRectangle(brush, null, new Rect(x - 1, 22, 3, 18));
+                context.DrawRectangle(new SolidColorBrush(Color.Parse("#122236")), new Pen(brush, 1), badgeRect, 7, 7);
+                DrawLabel(context, marker.Name, new Point(badgeRect.X + 6, badgeRect.Y + 2), 9, brush.Color);
+            }
+        }
+
+        DrawRangeIndicator(context, InFrame, "In", Color.Parse("#57C9FF"), 4);
+        DrawRangeIndicator(context, OutFrame, "Out", Color.Parse("#FFB54B"), 20);
     }
 
     private void DrawRows(DrawingContext context, Rect rect)
@@ -256,13 +323,26 @@ public sealed class FrameTimelineControl : Control
                 ? new SolidColorBrush(Color.Parse("#102038"))
                 : new SolidColorBrush(Color.Parse("#0A111B"));
             context.DrawRectangle(rowFill, dividerPen, rowRect);
+            DrawWorkAreaBand(context, rowRect);
 
-            DrawLabel(context, row.LayerName, new Point(18, rowY + 10), 12, Color.Parse("#E7EEFD"));
-            DrawLabel(context, row.DurationLabel, new Point(18, rowY + 26), 10, Color.Parse("#8095BC"));
+            var labelX = 18 + (row.Depth * 14);
+            var layerLabel = row.IsFolder
+                ? $"{(row.IsExpanded ? "v" : ">")} {row.LayerName}"
+                : row.LayerName;
+            DrawLabel(context, layerLabel, new Point(labelX, rowY + 10), 12, Color.Parse("#E7EEFD"));
+            DrawLabel(context, row.IsFolder ? "Folder" : row.DurationLabel, new Point(labelX, rowY + 26), 10, Color.Parse("#8095BC"));
 
             if (row.IsLocked)
             {
                 DrawLabel(context, "Locked", new Point(LabelWidth - 64, rowY + 12), 10, Color.Parse("#FFB685"));
+            }
+            else if (row.IsMuted)
+            {
+                DrawLabel(context, "Muted", new Point(LabelWidth - 72, rowY + 12), 10, Color.Parse("#FF8C8C"));
+            }
+            else if (row.IsSolo)
+            {
+                DrawLabel(context, "Solo", new Point(LabelWidth - 60, rowY + 12), 10, Color.Parse("#FFE08A"));
             }
             else if (row.HasExplicitFrames)
             {
@@ -283,6 +363,47 @@ public sealed class FrameTimelineControl : Control
                 DrawSpan(context, row, span, rowY);
             }
         }
+
+        DrawVerticalFrameGuide(context, InFrame, rect, Color.Parse("#57C9FF"));
+        DrawVerticalFrameGuide(context, OutFrame, rect, Color.Parse("#FFB54B"));
+    }
+
+    private void DrawWorkAreaBand(DrawingContext context, Rect rowRect)
+    {
+        if (WorkAreaEndFrame < WorkAreaStartFrame)
+        {
+            return;
+        }
+
+        var startX = TimelineStartX + (WorkAreaStartFrame * PixelsPerFrame);
+        var width = Math.Max(PixelsPerFrame, ((WorkAreaEndFrame - WorkAreaStartFrame) + 1) * PixelsPerFrame);
+        var highlightRect = new Rect(startX, rowRect.Y, width, rowRect.Height);
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#18273D")), null, highlightRect);
+    }
+
+    private void DrawVerticalFrameGuide(DrawingContext context, int frame, Rect rect, Color color)
+    {
+        if (frame < 0 || frame >= TotalFrames)
+        {
+            return;
+        }
+
+        var x = TimelineStartX + (frame * PixelsPerFrame);
+        context.DrawLine(new Pen(new SolidColorBrush(color), 1.5), new Point(x, HeaderHeight), new Point(x, rect.Height));
+    }
+
+    private void DrawRangeIndicator(DrawingContext context, int frame, string label, Color color, double y)
+    {
+        if (frame < 0 || frame >= TotalFrames)
+        {
+            return;
+        }
+
+        var x = TimelineStartX + (frame * PixelsPerFrame);
+        var tagRect = new Rect(x + 4, y, label.Length > 2 ? 32 : 24, 14);
+        var brush = new SolidColorBrush(color);
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#081018")), new Pen(brush, 1), tagRect, 7, 7);
+        DrawLabel(context, label, new Point(tagRect.X + 5, tagRect.Y + 2), 9, color);
     }
 
     private void DrawSelectionRange(DrawingContext context, LayerFrameTimelineRowViewModel row, double rowY)

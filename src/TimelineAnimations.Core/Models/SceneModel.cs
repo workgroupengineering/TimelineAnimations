@@ -18,7 +18,19 @@ public sealed class SceneModel
 
     public string BackgroundTo { get; set; } = "#171F3D";
 
+    public int InFrame { get; set; }
+
+    public int OutFrame { get; set; }
+
+    public int WorkAreaStartFrame { get; set; }
+
+    public int WorkAreaEndFrame { get; set; }
+
     public List<FrameLabelModel> FrameLabels { get; set; } = [];
+
+    public List<SceneMarkerModel> Markers { get; set; } = [];
+
+    public SceneTransitionModel OutgoingTransition { get; set; } = new();
 
     public List<TimelineLayer> Layers { get; set; } = [];
 }

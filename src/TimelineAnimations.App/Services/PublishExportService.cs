@@ -132,6 +132,7 @@ public static class PublishExportService
             profile.Width,
             profile.Height,
             profile.TransparentBackground,
+            useWorkArea: false,
             cancellationToken);
 
         var result = new PublishExportResult
@@ -332,6 +333,7 @@ public static class PublishExportService
                 profile.Width,
                 profile.Height,
                 profile.TransparentBackground,
+                useWorkArea: false,
                 cancellationToken);
 
             if (isGif)
@@ -492,6 +494,7 @@ public static class PublishExportService
                     layer.ZIndex,
                     layer.IsVisible,
                     layer.SourceLibraryItemId,
+                    layer.InstanceName,
                     layer.Media.SourceMediaAssetId,
                     behaviors = layer.Behaviors.Select(behavior => new
                     {
@@ -514,7 +517,19 @@ public static class PublishExportService
                 item.Name,
                 item.SymbolKind,
                 item.IsComponent,
-                item.ComponentCategory
+                item.ComponentCategory,
+                item.LinkageId,
+                item.BaseClassName,
+                item.ExportForRuntimeSharing,
+                item.ImportForRuntimeSharing,
+                item.ExportInFirstFrame,
+                item.SharedLibraryPath,
+                item.UpdateAutomatically,
+                item.UseScale9Grid,
+                item.Scale9Left,
+                item.Scale9Top,
+                item.Scale9Right,
+                item.Scale9Bottom
             }),
             media = document.MediaAssets.Select(asset => new
             {

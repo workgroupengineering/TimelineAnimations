@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:avaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="TimelineAnimations.App.Controls.AnimationExchangeCodeEditorControl"
+             x:DataType="controls:AnimationExchangeCodeEditorControl">
+  <Border Classes="panel-soft"
+          Padding="0">
+    <avaloniaEdit:TextEditor x:Name="Editor"
+                             IsReadOnly="True"
+                             ShowLineNumbers="True"
+                             FontFamily="Consolas, Menlo, Monaco"
+                             FontSize="11.5"
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Stretch"
+                             WordWrap="False" />
+  </Border>
+</UserControl>

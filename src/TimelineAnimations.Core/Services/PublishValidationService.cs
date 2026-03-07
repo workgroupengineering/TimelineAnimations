@@ -99,6 +99,29 @@ public static class PublishValidationService
                 issues.Add(Warning(layer.Name, $"Behavior '{behavior.Name}' targets a layer that does not exist in the active scene."));
             }
 
+            if (behavior.Action == InteractionActionKind.ApplyVisualState)
+            {
+                var targetLayer = behavior.TargetLayerId is Guid targetVisualStateLayerId
+                    ? scene.Layers.FirstOrDefault(item => item.Id == targetVisualStateLayerId)
+                    : layer;
+                if (targetLayer is null)
+                {
+                    issues.Add(Warning(layer.Name, $"Behavior '{behavior.Name}' targets a layer that does not exist in the active scene."));
+                }
+                else if (targetLayer.VisualStateGroups.All(group => !string.Equals(group.Name, behavior.TargetVisualStateGroup, StringComparison.OrdinalIgnoreCase)))
+                {
+                    issues.Add(Warning(layer.Name, $"Behavior '{behavior.Name}' targets a visual state group that does not exist."));
+                }
+                else
+                {
+                    var targetGroup = targetLayer.VisualStateGroups.First(group => string.Equals(group.Name, behavior.TargetVisualStateGroup, StringComparison.OrdinalIgnoreCase));
+                    if (targetGroup.States.All(state => !string.Equals(state.Name, behavior.TargetVisualState, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        issues.Add(Warning(layer.Name, $"Behavior '{behavior.Name}' targets a visual state that does not exist."));
+                    }
+                }
+            }
+
             if (behavior.Action == InteractionActionKind.SetVariable &&
                 string.IsNullOrWhiteSpace(behavior.VariableName))
             {
@@ -175,6 +198,7 @@ public static class PublishValidationService
                 case ActionScriptCommandKind.HideLayer:
                 case ActionScriptCommandKind.SetText:
                 case ActionScriptCommandKind.SetButtonState:
+                case ActionScriptCommandKind.SetVisualState:
                     {
                         var targetLayerName = command.Arguments[0];
                         if (!string.Equals(targetLayerName, "this", StringComparison.OrdinalIgnoreCase) &&
@@ -188,6 +212,28 @@ public static class PublishValidationService
                         !Enum.TryParse<ButtonVisualState>(command.Arguments[1], ignoreCase: true, out _))
                     {
                         issues.Add(Error(source, $"Script line {command.LineNumber} uses an invalid button state '{command.Arguments[1]}'."));
+                    }
+
+                    if (command.Kind == ActionScriptCommandKind.SetVisualState)
+                    {
+                        var targetLayer = string.Equals(command.Arguments[0], "this", StringComparison.OrdinalIgnoreCase)
+                            ? null
+                            : activeScene.Layers.FirstOrDefault(layer => string.Equals(layer.Name, command.Arguments[0], StringComparison.OrdinalIgnoreCase));
+                        var targetGroupName = command.Arguments[1];
+                        var targetStateName = command.Arguments[2];
+
+                        if (targetLayer is not null)
+                        {
+                            var targetGroup = targetLayer.VisualStateGroups.FirstOrDefault(group => string.Equals(group.Name, targetGroupName, StringComparison.OrdinalIgnoreCase));
+                            if (targetGroup is null)
+                            {
+                                issues.Add(Warning(source, $"Script line {command.LineNumber} targets missing visual state group '{targetGroupName}' on '{targetLayer.Name}'."));
+                            }
+                            else if (targetGroup.States.All(state => !string.Equals(state.Name, targetStateName, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                issues.Add(Warning(source, $"Script line {command.LineNumber} targets missing visual state '{targetStateName}' on '{targetLayer.Name}'."));
+                            }
+                        }
                     }
 
                     break;

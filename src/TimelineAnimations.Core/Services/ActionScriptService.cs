@@ -77,6 +77,7 @@ public static class ActionScriptService
             "set_var" => CreateVariableCommand(ActionScriptCommandKind.SetVariable, tokens, lineNumber, rawLine, 2, errors),
             "set_text" => CreateVariableCommand(ActionScriptCommandKind.SetText, tokens, lineNumber, rawLine, 2, errors),
             "set_button" => CreateFixedCommand(ActionScriptCommandKind.SetButtonState, tokens, lineNumber, rawLine, 2, errors),
+            "set_state" => CreateFixedCommand(ActionScriptCommandKind.SetVisualState, tokens, lineNumber, rawLine, 3, errors),
             "trace" => CreateVariableCommand(ActionScriptCommandKind.Trace, tokens, lineNumber, rawLine, 1, errors),
             _ => AddUnknownCommandError(tokens[0], lineNumber, errors)
         };

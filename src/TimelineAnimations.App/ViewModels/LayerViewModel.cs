@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using TimelineAnimations.App.Helpers;
@@ -46,6 +47,7 @@ public partial class LayerViewModel : ViewModelBase
         LayerCompositeRole.Camera => "Camera",
         _ => Kind switch
         {
+            LayerKind.Folder => "Folder",
             LayerKind.Rectangle => "Card",
             LayerKind.Ellipse => "Orb",
             LayerKind.Text => "Caption",
@@ -81,6 +83,8 @@ public partial class LayerViewModel : ViewModelBase
         {
             var sizeLabel = Kind == LayerKind.Path
                 ? $"{Model.Style.PathPoints.Count} pts • {Math.Round(Width):0}×{Math.Round(Height):0}"
+                : Kind == LayerKind.Folder
+                    ? HasChildren ? "Hierarchy folder" : "Empty folder"
                 : Kind == LayerKind.Audio
                     ? $"{Math.Max(0.05d, Model.Media.ClipDuration):0.00}s • {Model.Media.PlaybackMode}"
                 : $"{Math.Round(Width):0}×{Math.Round(Height):0}";
@@ -90,6 +94,8 @@ public partial class LayerViewModel : ViewModelBase
                 LayerCompositeRole.Mask => $"{sizeLabel} • masks {Math.Max(1, Model.Compositing.MaskLayerCount)} layer(s)",
                 LayerCompositeRole.Guide => $"{sizeLabel} • stage guide",
                 LayerCompositeRole.Camera => $"{sizeLabel} • viewport",
+                _ when Model.ShowAsOutline => $"{KindLabel} • {sizeLabel} • outline",
+                _ when Model.GuidedByLayerId is not null => $"{KindLabel} • {sizeLabel} • guided",
                 _ when BlendMode != LayerBlendMode.Normal => $"{KindLabel} • {sizeLabel} • {BlendModeLabel}",
                 _ => $"{KindLabel} • {sizeLabel}"
             };
@@ -102,10 +108,27 @@ public partial class LayerViewModel : ViewModelBase
 
     public bool IsStageRenderable => MediaTimelineService.IsStageRenderable(Model);
 
+    public Thickness HierarchyMargin => new(Math.Max(0, Depth) * 14d, 0, 0, 0);
+
     public string StateBadge
     {
         get
         {
+            if (IsSolo && IsMuted)
+            {
+                return "Solo • Muted";
+            }
+
+            if (IsSolo)
+            {
+                return "Solo";
+            }
+
+            if (IsMuted)
+            {
+                return "Muted";
+            }
+
             if (IsLocked && !IsVisible)
             {
                 return CompositeRole == LayerCompositeRole.Normal
@@ -149,6 +172,24 @@ public partial class LayerViewModel : ViewModelBase
     private bool isLocked;
 
     [ObservableProperty]
+    private bool isMuted;
+
+    [ObservableProperty]
+    private bool isSolo;
+
+    [ObservableProperty]
+    private bool isExpanded = true;
+
+    [ObservableProperty]
+    private bool isFolder;
+
+    [ObservableProperty]
+    private bool hasChildren;
+
+    [ObservableProperty]
+    private int depth;
+
+    [ObservableProperty]
     private bool isSelected;
 
     [ObservableProperty]
@@ -182,22 +223,38 @@ public partial class LayerViewModel : ViewModelBase
     private double height;
 
     [ObservableProperty]
+    private double scaleX = 1d;
+
+    [ObservableProperty]
+    private double scaleY = 1d;
+
+    [ObservableProperty]
+    private double skewX;
+
+    [ObservableProperty]
+    private double skewY;
+
+    [ObservableProperty]
     private double rotation;
 
     [ObservableProperty]
     private double opacity;
 
     [ObservableProperty]
-    private SolidColorBrush fillBrush;
+    private ISolidColorBrush fillBrush;
 
     [ObservableProperty]
-    private SolidColorBrush strokeBrush;
+    private ISolidColorBrush strokeBrush;
 
     public void RefreshMetadata()
     {
         Name = Model.Name;
         IsVisible = Model.IsVisible;
         IsLocked = Model.IsLocked;
+        IsMuted = Model.IsMuted;
+        IsSolo = Model.IsSolo;
+        IsExpanded = Model.IsExpanded;
+        IsFolder = Model.Kind == LayerKind.Folder;
         ZIndex = Model.ZIndex;
         FillHex = Model.Style.Fill;
         StrokeHex = Model.Style.Stroke;
@@ -210,8 +267,12 @@ public partial class LayerViewModel : ViewModelBase
             LayerKind.Audio or LayerKind.Video => Model.Style.Fill,
             _ => Model.Style.UseGradient ? Model.Style.GradientFrom : FillHex
         };
-        FillBrush = ColorHelpers.Brush(previewFill, "#FFFFFF");
-        StrokeBrush = ColorHelpers.Brush(StrokeHex, "#FFFFFF");
+        FillBrush = Model.Style.HasFill
+            ? ColorHelpers.Brush(previewFill, "#FFFFFF")
+            : ColorHelpers.Brush("#00000000", "#00000000");
+        StrokeBrush = Model.Style.HasStroke
+            ? ColorHelpers.Brush(StrokeHex, "#FFFFFF")
+            : ColorHelpers.Brush("#00000000", "#00000000");
         OnPropertyChanged(nameof(KindLabel));
         OnPropertyChanged(nameof(RoleLabel));
         OnPropertyChanged(nameof(BlendModeLabel));
@@ -220,6 +281,16 @@ public partial class LayerViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasLibraryLink));
         OnPropertyChanged(nameof(IsStageRenderable));
         OnPropertyChanged(nameof(IsRenderable));
+        OnPropertyChanged(nameof(HierarchyMargin));
+    }
+
+    public void ApplyHierarchyState(int depth, bool hasChildren)
+    {
+        Depth = Math.Max(0, depth);
+        HasChildren = hasChildren;
+        IsFolder = Model.Kind == LayerKind.Folder;
+        IsExpanded = Model.IsExpanded;
+        OnPropertyChanged(nameof(HierarchyMargin));
     }
 
     public void UpdatePreview(double time)
@@ -229,6 +300,10 @@ public partial class LayerViewModel : ViewModelBase
         Y = snapshot.Y;
         Width = snapshot.Width;
         Height = snapshot.Height;
+        ScaleX = snapshot.ScaleX;
+        ScaleY = snapshot.ScaleY;
+        SkewX = snapshot.SkewX;
+        SkewY = snapshot.SkewY;
         Rotation = snapshot.Rotation;
         Opacity = snapshot.Opacity;
         CornerRadius = snapshot.CornerRadius;
@@ -251,6 +326,10 @@ public partial class LayerViewModel : ViewModelBase
             Y = fallback.Y;
             Width = fallback.Width;
             Height = fallback.Height;
+            ScaleX = fallback.ScaleX;
+            ScaleY = fallback.ScaleY;
+            SkewX = fallback.SkewX;
+            SkewY = fallback.SkewY;
             Rotation = fallback.Rotation;
             Opacity = fallback.Opacity;
             CornerRadius = fallback.CornerRadius;
@@ -266,6 +345,10 @@ public partial class LayerViewModel : ViewModelBase
         Y = snapshot.Value.Y;
         Width = snapshot.Value.Width;
         Height = snapshot.Value.Height;
+        ScaleX = snapshot.Value.ScaleX;
+        ScaleY = snapshot.Value.ScaleY;
+        SkewX = snapshot.Value.SkewX;
+        SkewY = snapshot.Value.SkewY;
         Rotation = snapshot.Value.Rotation;
         Opacity = snapshot.Value.Opacity;
         CornerRadius = snapshot.Value.CornerRadius;

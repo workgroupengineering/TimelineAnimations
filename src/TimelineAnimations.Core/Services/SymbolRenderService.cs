@@ -17,8 +17,9 @@ public static class SymbolRenderService
         var mediaLookup = document.MediaAssets.ToDictionary(item => item.Id);
         var samples = new List<RenderableLayerSample>();
         var totalFrames = FrameTimelineService.GetTotalFrames(duration, frameRate);
+        var renderableLayers = LayerHierarchyService.GetRenderableLayers(layers);
 
-        foreach (var layer in layers.OrderBy(item => item.ZIndex))
+        foreach (var layer in renderableLayers.OrderBy(item => item.ZIndex))
         {
             AppendLayerSamples(
                 samples,
@@ -48,12 +49,12 @@ public static class SymbolRenderService
         int depth,
         HashSet<Guid> activePath)
     {
-        if (depth > MaxDepth || !layer.IsVisible)
+        if (depth > MaxDepth || !layer.IsVisible || layer.IsMuted)
         {
             return;
         }
 
-        if (layer.Kind == LayerKind.Audio)
+        if (layer.Kind is LayerKind.Audio or LayerKind.Folder)
         {
             return;
         }

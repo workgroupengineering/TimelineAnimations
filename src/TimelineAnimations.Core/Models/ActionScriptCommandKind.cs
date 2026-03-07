@@ -12,5 +12,6 @@ public enum ActionScriptCommandKind
     SetVariable,
     SetText,
     SetButtonState,
+    SetVisualState,
     Trace
 }

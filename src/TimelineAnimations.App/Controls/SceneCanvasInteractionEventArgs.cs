@@ -53,6 +53,13 @@ public sealed class CanvasPathPointMoveRequestedEventArgs(Guid layerId, int poin
     public Point DocumentPoint { get; } = documentPoint;
 }
 
+public sealed class CanvasResizeRequestedEventArgs(double width, double height) : EventArgs
+{
+    public double Width { get; } = width;
+
+    public double Height { get; } = height;
+}
+
 public sealed class CanvasPrototypeTriggerRequestedEventArgs(Guid? layerId, InteractionTriggerKind trigger) : EventArgs
 {
     public Guid? LayerId { get; } = layerId;

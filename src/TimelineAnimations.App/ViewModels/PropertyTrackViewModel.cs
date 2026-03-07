@@ -20,6 +20,10 @@ public partial class PropertyTrackViewModel : ViewModelBase
         AnimatedProperty.Y => "Position Y",
         AnimatedProperty.Width => "Width",
         AnimatedProperty.Height => "Height",
+        AnimatedProperty.ScaleX => "Scale X",
+        AnimatedProperty.ScaleY => "Scale Y",
+        AnimatedProperty.SkewX => "Skew X",
+        AnimatedProperty.SkewY => "Skew Y",
         AnimatedProperty.Rotation => "Rotation",
         AnimatedProperty.Opacity => "Opacity",
         _ => Property.ToString()
@@ -33,9 +37,12 @@ public partial class PropertyTrackViewModel : ViewModelBase
     [ObservableProperty]
     private double currentValue;
 
-    public string CurrentValueLabel => Property == AnimatedProperty.Opacity
-        ? $"{CurrentValue:P0}"
-        : $"{CurrentValue:0.##}";
+    public string CurrentValueLabel => Property switch
+    {
+        AnimatedProperty.Opacity => $"{CurrentValue:P0}",
+        AnimatedProperty.ScaleX or AnimatedProperty.ScaleY => $"{CurrentValue * 100:0.#}%",
+        _ => $"{CurrentValue:0.##}"
+    };
 
     public void LoadFromLayer(TimelineLayer layer, double time, Guid? selectedKeyframeId)
     {
