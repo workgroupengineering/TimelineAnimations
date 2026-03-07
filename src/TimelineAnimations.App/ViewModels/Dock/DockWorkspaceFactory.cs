@@ -1,3 +1,4 @@
+using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Mvvm;
@@ -13,6 +14,7 @@ public sealed class DockWorkspaceFactory : Factory
     public DockWorkspaceFactory(MainWindowViewModel host)
     {
         _host = host;
+        DefaultHostWindowLocator = static () => new HostWindow();
     }
 
     public override IRootDock CreateLayout() => CreateLayout(DockWorkspacePreset.Animate);

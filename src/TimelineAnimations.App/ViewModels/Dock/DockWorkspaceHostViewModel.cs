@@ -36,6 +36,10 @@ public partial class DockWorkspaceHostViewModel : ViewModelBase
 
     public MainWindowViewModel Host { get; }
 
+    public IFactory Factory => _factory;
+
+    public Func<IHostWindow> HostWindowFactory => _factory.DefaultHostWindowLocator!;
+
     public IReadOnlyList<DockWorkspacePreset> AvailablePresets { get; } = Enum.GetValues<DockWorkspacePreset>();
 
     [ObservableProperty]
