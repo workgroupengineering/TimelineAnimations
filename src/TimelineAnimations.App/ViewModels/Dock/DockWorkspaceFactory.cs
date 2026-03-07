@@ -33,7 +33,7 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateAnimateLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("AnimateLeftTools", Alignment.Left, 0.19d, surfaces.Project, surfaces.Project);
+        var leftDock = CreateToolDock("AnimateLeftTools", Alignment.Left, 0.215d, surfaces.Project, surfaces.Project);
         var rightDock = CreateToolDock("AnimateRightPanels", Alignment.Right, 0.21d, surfaces.Inspector, surfaces.Inspector, surfaces.Output);
         var monitorDock = CreateToolDock("AnimateMonitorTabs", Alignment.Right, 0.26d, surfaces.Source, surfaces.Source, surfaces.Program);
         var timelineDock = CreateToolDock("AnimateTimelineTabs", Alignment.Bottom, 0.34d, surfaces.Frames, surfaces.Frames, surfaces.Curves);
@@ -60,7 +60,7 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateEditorialLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("EditorialLeftTools", Alignment.Left, 0.18d, surfaces.Project, surfaces.Project);
+        var leftDock = CreateToolDock("EditorialLeftTools", Alignment.Left, 0.20d, surfaces.Project, surfaces.Project);
         var rightDock = CreateToolDock("EditorialRightPanels", Alignment.Right, 0.20d, surfaces.Inspector, surfaces.Inspector, surfaces.Output);
         var stageDock = CreateDocumentDock("EditorialStageDocuments", 0.60d, surfaces.Stage, surfaces.Stage);
         var sourceDock = CreateToolDock("EditorialSourceDock", Alignment.Right, 0.50d, surfaces.Source, surfaces.Source);
@@ -105,7 +105,7 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateReviewLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("ReviewLeftTools", Alignment.Left, 0.16d, surfaces.Project, surfaces.Project);
+        var leftDock = CreateToolDock("ReviewLeftTools", Alignment.Left, 0.18d, surfaces.Project, surfaces.Project);
         var rightDock = CreateToolDock("ReviewRightPanels", Alignment.Right, 0.18d, surfaces.Output, surfaces.Output, surfaces.Inspector);
         var sourceDock = CreateToolDock("ReviewSourceDock", Alignment.Left, 0.26d, surfaces.Source, surfaces.Source);
         var programDock = CreateToolDock("ReviewProgramDock", Alignment.Right, 0.48d, surfaces.Program, surfaces.Program);
@@ -133,7 +133,7 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateStageFocusLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("StageFocusLeftTools", Alignment.Left, 0.17d, surfaces.Project, surfaces.Project);
+        var leftDock = CreateToolDock("StageFocusLeftTools", Alignment.Left, 0.195d, surfaces.Project, surfaces.Project);
         var rightDock = CreateToolDock("StageFocusRightPanels", Alignment.Right, 0.19d, surfaces.Inspector, surfaces.Inspector, surfaces.Output);
         var stageDock = CreateDocumentDock("StageFocusStageDocuments", 0.78d, surfaces.Stage, surfaces.Stage);
         var monitorDock = CreateToolDock("StageFocusMonitorTabs", Alignment.Right, 0.22d, surfaces.Program, surfaces.Program, surfaces.Source);
