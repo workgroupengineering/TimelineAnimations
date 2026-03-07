@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -54,6 +55,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private WorkspacePanelMode _leftRestoreMode = WorkspacePanelMode.Docked;
     private WorkspacePanelMode _rightRestoreMode = WorkspacePanelMode.Docked;
     private WorkspacePanelMode _timelineRestoreMode = WorkspacePanelMode.Docked;
+    private bool _isNativeMenuExported;
 
     public MainWindowViewModel()
     {
@@ -244,6 +246,57 @@ public partial class MainWindowViewModel : ViewModelBase
     public string CanvasZoomLabel => $"{CanvasZoom * 100:0}%";
 
     public string CanvasViewportHint => "Wheel pans, Ctrl/Cmd+wheel zooms, middle-drag pans, and Fit restores the stage.";
+
+    public string ApplicationTitle => "TimelineAnimations Studio";
+
+    public bool UseIntegratedTitleBar => OperatingSystem.IsMacOS();
+
+    public bool IsNativeMenuExported => _isNativeMenuExported;
+
+    public bool IsFallbackAppMenuVisible => !_isNativeMenuExported;
+
+    public bool UseNativeMenuTitleBarLayout => UseIntegratedTitleBar && _isNativeMenuExported;
+
+    public bool ShowWorkspacePresetStrip => !UseNativeMenuTitleBarLayout;
+
+    public bool ShowSecondaryWorkspaceActions => !UseNativeMenuTitleBarLayout;
+
+    public bool ShowDockWorkspaceOrganizerMenus => !UseNativeMenuTitleBarLayout;
+
+    public ExtendClientAreaChromeHints IntegratedTitleBarChromeHints => UseIntegratedTitleBar
+        ? ExtendClientAreaChromeHints.PreferSystemChrome | ExtendClientAreaChromeHints.OSXThickTitleBar
+        : ExtendClientAreaChromeHints.Default;
+
+    public double IntegratedTitleBarHeightHint => UseNativeMenuTitleBarLayout
+        ? 54
+        : UseIntegratedTitleBar ? 44 : -1;
+
+    public Thickness WindowContentMargin => UseIntegratedTitleBar
+        ? new Thickness(6, 4, 6, 6)
+        : new Thickness(6);
+
+    public Thickness TitleBarChromePadding => UseIntegratedTitleBar
+        ? new Thickness(4, 7, 4, 3)
+        : new Thickness(4, 3);
+
+    public double TitleBarLeadingInsetWidth => UseIntegratedTitleBar ? 78 : 0;
+
+    public void SetNativeMenuExported(bool isExported)
+    {
+        if (_isNativeMenuExported == isExported)
+        {
+            return;
+        }
+
+        _isNativeMenuExported = isExported;
+        OnPropertyChanged(nameof(IsNativeMenuExported));
+        OnPropertyChanged(nameof(IsFallbackAppMenuVisible));
+        OnPropertyChanged(nameof(UseNativeMenuTitleBarLayout));
+        OnPropertyChanged(nameof(ShowWorkspacePresetStrip));
+        OnPropertyChanged(nameof(ShowSecondaryWorkspaceActions));
+        OnPropertyChanged(nameof(ShowDockWorkspaceOrganizerMenus));
+        OnPropertyChanged(nameof(IntegratedTitleBarHeightHint));
+    }
 
     public int TotalFrames => FrameTimelineService.GetTotalFrames(Duration, SceneFrameRate);
 

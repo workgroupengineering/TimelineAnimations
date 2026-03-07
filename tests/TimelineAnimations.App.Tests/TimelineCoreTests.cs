@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using TimelineAnimations.App.Helpers;
+using TimelineAnimations.App.Services;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using TimelineAnimations.App.Models;
@@ -2955,6 +2957,7 @@ public class TimelineCoreTests
     public void MainWindowViewModel_InitializesDockWorkspace()
     {
         var viewModel = new MainWindowViewModel();
+        viewModel.DockWorkspace.ResetLayoutCommand.Execute(null);
 
         Assert.True(viewModel.IsDockWorkspaceVisible);
         Assert.NotNull(viewModel.DockWorkspace.Layout);
@@ -3152,5 +3155,90 @@ public class TimelineCoreTests
                 yield return nested;
             }
         }
+    }
+
+    [Fact]
+    public void TitleBarDragHelper_DistinguishesInteractiveChrome_And_TogglesWindowState()
+    {
+        var boundary = new Grid();
+        var title = new TextBlock { Text = "TimelineAnimations Studio" };
+        var button = new Button { Content = "Save" };
+
+        boundary.Children.Add(title);
+        boundary.Children.Add(button);
+
+        Assert.True(TitleBarDragHelper.ShouldBeginWindowDrag(title, boundary));
+        Assert.True(TitleBarDragHelper.ShouldBeginWindowDrag(boundary, boundary));
+        Assert.False(TitleBarDragHelper.ShouldBeginWindowDrag(title, boundary, clickCount: 2));
+        Assert.False(TitleBarDragHelper.ShouldBeginWindowDrag(button, boundary));
+
+        Assert.True(TitleBarDragHelper.ShouldToggleWindowState(title, boundary));
+        Assert.False(TitleBarDragHelper.ShouldToggleWindowState(button, boundary));
+
+        Assert.Equal(WindowState.Maximized, TitleBarDragHelper.GetNextWindowState(WindowState.Normal, canResize: true));
+        Assert.Equal(WindowState.Normal, TitleBarDragHelper.GetNextWindowState(WindowState.Maximized, canResize: true));
+        Assert.Equal(WindowState.FullScreen, TitleBarDragHelper.GetNextWindowState(WindowState.FullScreen, canResize: true));
+        Assert.Equal(WindowState.Normal, TitleBarDragHelper.GetNextWindowState(WindowState.Normal, canResize: false));
+    }
+
+    [Fact]
+    public void MainWindowViewModel_TracksNativeMenuLayoutState()
+    {
+        var viewModel = new MainWindowViewModel();
+
+        Assert.True(viewModel.IsFallbackAppMenuVisible);
+        Assert.False(viewModel.UseNativeMenuTitleBarLayout);
+        Assert.True(viewModel.ShowWorkspacePresetStrip);
+        Assert.True(viewModel.ShowSecondaryWorkspaceActions);
+        Assert.True(viewModel.ShowDockWorkspaceOrganizerMenus);
+
+        viewModel.SetNativeMenuExported(true);
+
+        Assert.True(viewModel.IsNativeMenuExported);
+        Assert.False(viewModel.IsFallbackAppMenuVisible);
+        Assert.True(viewModel.UseNativeMenuTitleBarLayout);
+        Assert.False(viewModel.ShowWorkspacePresetStrip);
+        Assert.False(viewModel.ShowSecondaryWorkspaceActions);
+        Assert.False(viewModel.ShowDockWorkspaceOrganizerMenus);
+    }
+
+    [Fact]
+    public void MainWindowNativeMenuFactory_CreatesCoreTopLevelMenus()
+    {
+        var viewModel = new MainWindowViewModel();
+        var factory = new MainWindowNativeMenuFactory();
+        var menu = factory.Create(
+            viewModel,
+            new MainWindowNativeMenuActions(
+                () => Task.CompletedTask,
+                () => Task.CompletedTask,
+                _ => Task.CompletedTask,
+                _ => Task.CompletedTask,
+                () => Task.CompletedTask,
+                () => Task.CompletedTask,
+                () => { },
+                () => Task.CompletedTask,
+                () => Task.CompletedTask,
+                () => Task.CompletedTask,
+                () => Task.CompletedTask,
+                () => { },
+                () => { },
+                () => true,
+                () => true,
+                () => true));
+
+        var headers = menu.Items
+            .OfType<NativeMenuItem>()
+            .Select(item => item.Header)
+            .ToArray();
+
+        Assert.Contains("_File", headers);
+        Assert.Contains("_Edit", headers);
+        Assert.Contains("_View", headers);
+        Assert.Contains("_Insert", headers);
+        Assert.Contains("Modify", headers);
+        Assert.Contains("C_ontrol", headers);
+        Assert.Contains("_Window", headers);
+        Assert.Contains("_Help", headers);
     }
 }

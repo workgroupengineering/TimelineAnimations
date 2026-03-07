@@ -12,7 +12,10 @@ namespace TimelineAnimations.App.Views;
 
 public partial class MainWindow : Window
 {
+    private readonly MainWindowNativeMenuFactory _nativeMenuFactory = new();
     private bool _isTimelineResizeDragging;
+    private NativeMenu? _attachedNativeMenu;
+    private MainWindowViewModel? _attachedNativeMenuViewModel;
     private Point _timelineResizeOrigin;
     private double _timelineResizeHeightOrigin;
 
@@ -20,7 +23,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         HookInteractions();
+        Opened += HandleOpened;
         Closing += HandleClosing;
+        DataContextChanged += HandleDataContextChanged;
+        PropertyChanged += HandleWindowPropertyChanged;
     }
 
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
@@ -28,6 +34,72 @@ public partial class MainWindow : Window
     private void HandleClosing(object? sender, WindowClosingEventArgs e)
     {
         ViewModel?.DockWorkspace.SaveLayout();
+    }
+
+    private void HandleOpened(object? sender, EventArgs e)
+    {
+        AttachNativeMenuIfPossible();
+        SyncNativeMenuExportedState();
+    }
+
+    private void HandleDataContextChanged(object? sender, EventArgs e)
+    {
+        AttachNativeMenuIfPossible();
+        SyncNativeMenuExportedState();
+    }
+
+    private void HandleWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == NativeMenu.IsNativeMenuExportedProperty &&
+            e.NewValue is bool isExported)
+        {
+            HandleNativeMenuExportedChanged(isExported);
+        }
+    }
+
+    private void HandleNativeMenuExportedChanged(bool isExported)
+    {
+        ViewModel?.SetNativeMenuExported(isExported);
+    }
+
+    private void SyncNativeMenuExportedState()
+    {
+        ViewModel?.SetNativeMenuExported(NativeMenu.GetIsNativeMenuExported(this));
+    }
+
+    private void AttachNativeMenuIfPossible()
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(ViewModel, _attachedNativeMenuViewModel) && _attachedNativeMenu is not null)
+        {
+            return;
+        }
+
+        _attachedNativeMenu = _nativeMenuFactory.Create(
+            ViewModel,
+            new MainWindowNativeMenuActions(
+                OpenDocumentAsync,
+                SaveDocumentAsync,
+                ImportAnimationFormatAsync,
+                ExportAnimationFormatAsync,
+                ImportAudioAsync,
+                ImportVideoAsync,
+                PreviewPublishProfile,
+                ExportPublishProfileAsync,
+                ExportFrameAsync,
+                RenderSequenceAsync,
+                RenderProjectAsync,
+                () => SceneCanvas.ResetViewport(),
+                () => SceneCanvas.ZoomToActualSize(),
+                () => StorageProvider.CanOpen,
+                () => StorageProvider.CanSave,
+                () => StorageProvider.CanPickFolder));
+        _attachedNativeMenuViewModel = ViewModel;
+        NativeMenu.SetMenu(this, _attachedNativeMenu);
     }
 
     private void HookInteractions()
@@ -224,6 +296,11 @@ public partial class MainWindow : Window
 
     private async void OpenDocumentClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        await OpenDocumentAsync();
+    }
+
+    private async Task OpenDocumentAsync()
+    {
         if (ViewModel is null || !StorageProvider.CanOpen)
         {
             return;
@@ -258,6 +335,11 @@ public partial class MainWindow : Window
     }
 
     private async void SaveDocumentClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await SaveDocumentAsync();
+    }
+
+    private async Task SaveDocumentAsync()
     {
         if (ViewModel is null || !StorageProvider.CanSave)
         {
@@ -294,6 +376,11 @@ public partial class MainWindow : Window
     }
 
     private async void ExportFrameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await ExportFrameAsync();
+    }
+
+    private async Task ExportFrameAsync()
     {
         if (ViewModel is null || !StorageProvider.CanSave)
         {
@@ -334,6 +421,11 @@ public partial class MainWindow : Window
 
     private async void RenderSequenceClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        await RenderSequenceAsync();
+    }
+
+    private async Task RenderSequenceAsync()
+    {
         if (ViewModel is null || !StorageProvider.CanPickFolder)
         {
             return;
@@ -359,6 +451,11 @@ public partial class MainWindow : Window
     }
 
     private async void RenderProjectClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await RenderProjectAsync();
+    }
+
+    private async Task RenderProjectAsync()
     {
         if (ViewModel is null || !StorageProvider.CanPickFolder)
         {
@@ -386,12 +483,27 @@ public partial class MainWindow : Window
 
     private async void ImportAnimationFormatClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        await ImportAnimationFormatAsync();
+    }
+
+    private Task ImportAnimationFormatAsync(AnimationExchangeFormat formatOverride)
+    {
+        return ImportAnimationFormatAsync((AnimationExchangeFormat?)formatOverride);
+    }
+
+    private async Task ImportAnimationFormatAsync(AnimationExchangeFormat? formatOverride = null)
+    {
         if (ViewModel is null || !StorageProvider.CanOpen)
         {
             return;
         }
 
-        var selectedFormat = ViewModel.SelectedAnimationExchangeFormat;
+        if (formatOverride is AnimationExchangeFormat overrideFormat)
+        {
+            ViewModel.SelectAnimationExchangeFormatCommand.Execute(overrideFormat.ToString());
+        }
+
+        var selectedFormat = formatOverride ?? ViewModel.SelectedAnimationExchangeFormat;
         var fileType = selectedFormat switch
         {
             AnimationExchangeFormat.AvaloniaXaml => new FilePickerFileType("Avalonia XAML Animation")
@@ -464,24 +576,39 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ImportAnimationFormatMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void ImportAnimationFormatMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is MenuItem { CommandParameter: string formatKey } && ViewModel is not null)
         {
             ViewModel.SelectAnimationExchangeFormatCommand.Execute(formatKey);
         }
 
-        ImportAnimationFormatClick(sender, e);
+        await ImportAnimationFormatAsync();
     }
 
     private async void ExportAnimationFormatClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await ExportAnimationFormatAsync();
+    }
+
+    private Task ExportAnimationFormatAsync(AnimationExchangeFormat formatOverride)
+    {
+        return ExportAnimationFormatAsync((AnimationExchangeFormat?)formatOverride);
+    }
+
+    private async Task ExportAnimationFormatAsync(AnimationExchangeFormat? formatOverride = null)
     {
         if (ViewModel is null || !StorageProvider.CanSave)
         {
             return;
         }
 
-        var selectedFormat = ViewModel.SelectedAnimationExchangeFormat;
+        if (formatOverride is AnimationExchangeFormat overrideFormat)
+        {
+            ViewModel.SelectAnimationExchangeFormatCommand.Execute(overrideFormat.ToString());
+        }
+
+        var selectedFormat = formatOverride ?? ViewModel.SelectedAnimationExchangeFormat;
         var extension = AnimationExchangeService.GetSuggestedExtension(selectedFormat);
         var export = AnimationExchangeService.Export(ViewModel.CreateExportDocumentSnapshot(), selectedFormat);
         var fileType = selectedFormat switch
@@ -556,17 +683,22 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ExportAnimationFormatMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void ExportAnimationFormatMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is MenuItem { CommandParameter: string formatKey } && ViewModel is not null)
         {
             ViewModel.SelectAnimationExchangeFormatCommand.Execute(formatKey);
         }
 
-        ExportAnimationFormatClick(sender, e);
+        await ExportAnimationFormatAsync();
     }
 
     private async void ImportAudioClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await ImportAudioAsync();
+    }
+
+    private async Task ImportAudioAsync()
     {
         if (ViewModel is null || !StorageProvider.CanOpen)
         {
@@ -599,6 +731,11 @@ public partial class MainWindow : Window
     }
 
     private async void ImportVideoClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await ImportVideoAsync();
+    }
+
+    private async Task ImportVideoAsync()
     {
         if (ViewModel is null || !StorageProvider.CanOpen)
         {
@@ -645,6 +782,11 @@ public partial class MainWindow : Window
 
     private void PreviewPublishProfileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        PreviewPublishProfile();
+    }
+
+    private void PreviewPublishProfile()
+    {
         if (ViewModel?.CreateSelectedPublishProfileSnapshot() is not { } profile)
         {
             return;
@@ -659,6 +801,11 @@ public partial class MainWindow : Window
     }
 
     private async void ExportPublishProfileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await ExportPublishProfileAsync();
+    }
+
+    private async Task ExportPublishProfileAsync()
     {
         if (ViewModel?.CreateSelectedPublishProfileSnapshot() is not { } profile)
         {

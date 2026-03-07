@@ -17,7 +17,10 @@
         MinWidth="1240"
         MinHeight="760"
         UseLayoutRounding="True"
-        Title="TimelineAnimations Studio">
+        ExtendClientAreaToDecorationsHint="{Binding UseIntegratedTitleBar}"
+        ExtendClientAreaChromeHints="{Binding IntegratedTitleBarChromeHints}"
+        ExtendClientAreaTitleBarHeightHint="{Binding IntegratedTitleBarHeightHint}"
+        Title="{Binding ApplicationTitle}">
 
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+Z"
@@ -54,21 +57,28 @@
     <vm:MainWindowViewModel />
   </Design.DataContext>
 
-  <Grid Margin="6"
+  <Grid Margin="{Binding WindowContentMargin}"
         RowDefinitions="Auto,Auto,*"
         RowSpacing="3">
     <Border Grid.Row="0"
-            Classes="chrome">
-      <Grid ColumnDefinitions="Auto,*,Auto"
-            ColumnSpacing="10">
-        <StackPanel VerticalAlignment="Center">
+            Classes="chrome"
+            Padding="{Binding TitleBarChromePadding}">
+      <controls:TitleBarDragGrid ColumnDefinitions="Auto,Auto,*,Auto"
+                                 ColumnSpacing="10">
+        <Border Width="{Binding TitleBarLeadingInsetWidth}"
+                IsVisible="{Binding UseIntegratedTitleBar}" />
+
+        <StackPanel Grid.Column="1"
+                    VerticalAlignment="Center">
           <TextBlock Classes="title"
-                     Text="TimelineAnimations MX" />
+                     Text="{Binding ApplicationTitle}" />
         </StackPanel>
 
-        <Menu Grid.Column="1"
-              Classes="app-menu"
-              VerticalAlignment="Center">
+        <Grid Grid.Column="2">
+        <Menu Classes="app-menu"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Center"
+              IsVisible="{Binding IsFallbackAppMenuVisible}">
           <MenuItem Classes="app-menu-root"
                     Header="_File">
             <MenuItem Classes="menu-summary"
@@ -685,7 +695,206 @@
           </MenuItem>
         </Menu>
 
-        <Border Grid.Column="2"
+        <StackPanel Orientation="Horizontal"
+                    Spacing="6"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding UseNativeMenuTitleBarLayout}">
+          <Menu Classes="timeline-toolbar"
+                VerticalAlignment="Center">
+            <MenuItem Classes="timeline-toolbar-item"
+                      Header="Panels">
+              <MenuItem Header="Monitors">
+                <MenuItem Header="{Binding DockWorkspace.StageSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="StageDocument" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="StageDocument" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.SourceSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="SourceMonitorTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="SourceMonitorTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="SourceMonitorTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.ProgramSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="ProgramMonitorTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="ProgramMonitorTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="ProgramMonitorTool" />
+                </MenuItem>
+              </MenuItem>
+              <MenuItem Header="Timeline">
+                <MenuItem Header="{Binding DockWorkspace.FramesSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="FramesTimelineTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="FramesTimelineTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="FramesTimelineTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.CurvesSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="CurvesTimelineTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="CurvesTimelineTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="CurvesTimelineTool" />
+                </MenuItem>
+              </MenuItem>
+              <MenuItem Header="Side panels">
+                <MenuItem Header="{Binding DockWorkspace.ProjectSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="ProjectTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="ProjectTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="ProjectTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.InspectorSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="InspectorTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="InspectorTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="InspectorTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.OutputSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="OutputTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="OutputTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="OutputTool" />
+                </MenuItem>
+              </MenuItem>
+              <Separator />
+              <MenuItem Header="Reveal all"
+                        Command="{Binding DockWorkspace.RestoreAllSurfacesCommand}"
+                        IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}" />
+            </MenuItem>
+
+            <MenuItem Classes="timeline-toolbar-item"
+                      Header="More">
+              <MenuItem Header="Open..."
+                        Click="OpenDocumentClick" />
+              <MenuItem Header="Export">
+                <MenuItem Header="Current Frame PNG..."
+                          Click="ExportFrameClick" />
+                <MenuItem Header="PNG Sequence..."
+                          Click="RenderSequenceClick" />
+                <MenuItem Header="Project Sequence..."
+                          Click="RenderProjectClick" />
+              </MenuItem>
+              <Separator />
+              <MenuItem Header="New Sample Composition"
+                        Command="{Binding ResetSampleCommand}" />
+              <Separator />
+              <MenuItem Header="Show current context"
+                        Command="{Binding ShowWorkspaceHelpCommand}" />
+              <MenuItem Header="Show selection context"
+                        Command="{Binding ShowSelectionContextCommand}" />
+              <MenuItem Header="Show keyboard shortcuts"
+                        Command="{Binding ShowKeyboardShortcutsCommand}" />
+            </MenuItem>
+          </Menu>
+
+          <Border Classes="chrome-group">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        VerticalAlignment="Center">
+              <Button Classes="toolbar compact workspace-preset"
+                      Content="Animate"
+                      Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                      CommandParameter="Animate" />
+              <Button Classes="toolbar compact workspace-preset"
+                      Content="Editorial"
+                      Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                      CommandParameter="Editorial" />
+              <Button Classes="toolbar compact workspace-preset"
+                      Content="Review"
+                      Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                      CommandParameter="Review" />
+              <Button Classes="toolbar compact workspace-preset"
+                      Content="Stage"
+                      Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                      CommandParameter="StageFocus" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="chrome-group">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="5"
+                        VerticalAlignment="Center">
+              <CheckBox Content="Dock"
+                        IsChecked="{Binding UseDockWorkspace, Mode=TwoWay}" />
+              <Button Classes="toolbar"
+                      Content="Reset Dock"
+                      Command="{Binding DockWorkspace.ResetLayoutCommand}"
+                      IsVisible="{Binding IsDockWorkspaceVisible}" />
+              <Button Classes="toolbar"
+                      Content="Edit Symbol"
+                      Command="{Binding EnterSelectedSymbolEditCommand}"
+                      IsVisible="{Binding CanEnterSymbolEdit}"
+                      IsEnabled="{Binding CanEnterSymbolEdit}" />
+              <Button Classes="toolbar warm"
+                      Content="Exit Symbol"
+                      Command="{Binding ExitSymbolEditCommand}"
+                      IsVisible="{Binding CanExitSymbolEdit}"
+                      IsEnabled="{Binding CanExitSymbolEdit}" />
+              <ToggleButton Classes="toolbar warm"
+                            Content="Prototype"
+                            Command="{Binding TogglePrototypeModeCommand}"
+                            IsChecked="{Binding IsPrototypeMode, Mode=OneWay}"
+                            IsEnabled="{Binding CanTogglePrototypeModeMenu}" />
+              <Button Classes="toolbar accent"
+                      Content="Save"
+                      Click="SaveDocumentClick" />
+              <Button Classes="toolbar"
+                      Content="Undo"
+                      Command="{Binding UndoCommand}"
+                      IsEnabled="{Binding CanUndo}" />
+              <Button Classes="toolbar"
+                      Content="Redo"
+                      Command="{Binding RedoCommand}"
+                      IsEnabled="{Binding CanRedo}" />
+              <Button Classes="toolbar"
+                      Content="Reveal"
+                      Command="{Binding DockWorkspace.RestoreAllSurfacesCommand}"
+                      IsVisible="{Binding DockWorkspace.CanRevealAllSurfaces}"
+                      IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+        </Grid>
+
+        <Border Grid.Column="3"
                 Classes="workspace-tab active">
           <StackPanel Spacing="2">
             <TextBlock Classes="eyebrow"
@@ -696,16 +905,252 @@
                        Text="{Binding DocumentFileSummary}" />
           </StackPanel>
         </Border>
-      </Grid>
+      </controls:TitleBarDragGrid>
     </Border>
 
     <Border Grid.Row="1"
             Classes="chrome-soft">
-      <Grid ColumnDefinitions="Auto,*,Auto"
-            ColumnSpacing="8">
+      <Grid>
+        <Grid IsVisible="{Binding IsDockWorkspaceVisible}"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="8">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding ShowWorkspacePresetStrip}">
+            <Border Classes="workspace-tab active">
+              <TextBlock Classes="strong-label"
+                         Text="Essentials" />
+            </Border>
+            <Button Classes="toolbar compact workspace-preset"
+                    Content="Animate"
+                    Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                    CommandParameter="Animate" />
+            <Button Classes="toolbar compact workspace-preset"
+                    Content="Editorial"
+                    Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                    CommandParameter="Editorial" />
+            <Button Classes="toolbar compact workspace-preset"
+                    Content="Review"
+                    Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                    CommandParameter="Review" />
+            <Button Classes="toolbar compact workspace-preset"
+                    Content="Stage"
+                    Command="{Binding DockWorkspace.ApplyPresetCommand}"
+                    CommandParameter="StageFocus" />
+            <Border Classes="chrome-group">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="6"
+                          VerticalAlignment="Center">
+                <CheckBox Content="Dock"
+                          IsChecked="{Binding UseDockWorkspace, Mode=TwoWay}" />
+                <Button Classes="toolbar"
+                        Content="Reset"
+                        Command="{Binding DockWorkspace.ResetLayoutCommand}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <Border Grid.Column="1"
+                  Classes="workspace-summary-chip"
+                  Padding="10,5"
+                  ToolTip.Tip="{Binding DockWorkspace.WorkspaceOrganizerSummary}">
+            <Grid ColumnDefinitions="Auto,*"
+                  ColumnSpacing="12">
+              <StackPanel Spacing="1">
+                <TextBlock Classes="eyebrow"
+                           Text="{Binding DockWorkspace.CurrentPresetLabel}" />
+                <TextBlock Classes="strong-label"
+                           Text="{Binding SelectionHeadline}"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+              <StackPanel Grid.Column="1"
+                          Spacing="1">
+                <TextBlock Classes="micro-label"
+                           Text="{Binding SelectedSceneSummary}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="micro-label"
+                           Text="{Binding StatusMessage}"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <StackPanel Grid.Column="2"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding ShowDockWorkspaceOrganizerMenus}">
+            <Menu Classes="timeline-toolbar">
+              <MenuItem Classes="timeline-toolbar-item"
+                        Header="Panels">
+                <MenuItem Header="Monitors">
+                  <MenuItem Header="{Binding DockWorkspace.StageSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="StageDocument" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="StageDocument" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.SourceSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="SourceMonitorTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="SourceMonitorTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="SourceMonitorTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.ProgramSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="ProgramMonitorTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="ProgramMonitorTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="ProgramMonitorTool" />
+                  </MenuItem>
+                </MenuItem>
+                <MenuItem Header="Timeline">
+                  <MenuItem Header="{Binding DockWorkspace.FramesSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="FramesTimelineTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="FramesTimelineTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="FramesTimelineTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.CurvesSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="CurvesTimelineTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="CurvesTimelineTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="CurvesTimelineTool" />
+                  </MenuItem>
+                </MenuItem>
+                <MenuItem Header="Side panels">
+                  <MenuItem Header="{Binding DockWorkspace.ProjectSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="ProjectTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="ProjectTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="ProjectTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.InspectorSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="InspectorTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="InspectorTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="InspectorTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.OutputSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="OutputTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="OutputTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="OutputTool" />
+                  </MenuItem>
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="Reveal all"
+                          Command="{Binding DockWorkspace.RestoreAllSurfacesCommand}"
+                          IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}" />
+              </MenuItem>
+
+              <MenuItem Classes="timeline-toolbar-item"
+                        Header="More">
+                <MenuItem Header="Open..."
+                          Click="OpenDocumentClick" />
+                <MenuItem Header="Export">
+                  <MenuItem Header="Current Frame PNG..."
+                            Click="ExportFrameClick" />
+                  <MenuItem Header="PNG Sequence..."
+                            Click="RenderSequenceClick" />
+                  <MenuItem Header="Project Sequence..."
+                            Click="RenderProjectClick" />
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="New Sample Composition"
+                          Command="{Binding ResetSampleCommand}" />
+                <Separator />
+                <MenuItem Header="Show current context"
+                          Command="{Binding ShowWorkspaceHelpCommand}" />
+                <MenuItem Header="Show selection context"
+                          Command="{Binding ShowSelectionContextCommand}" />
+                <MenuItem Header="Show keyboard shortcuts"
+                          Command="{Binding ShowKeyboardShortcutsCommand}" />
+              </MenuItem>
+            </Menu>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6"
+                        IsVisible="{Binding ShowSecondaryWorkspaceActions}">
+              <Button Classes="toolbar"
+                      Content="Edit Symbol"
+                      Command="{Binding EnterSelectedSymbolEditCommand}"
+                      IsVisible="{Binding CanEnterSymbolEdit}"
+                      IsEnabled="{Binding CanEnterSymbolEdit}" />
+              <Button Classes="toolbar warm"
+                      Content="Exit Symbol"
+                      Command="{Binding ExitSymbolEditCommand}"
+                      IsVisible="{Binding CanExitSymbolEdit}"
+                      IsEnabled="{Binding CanExitSymbolEdit}" />
+              <ToggleButton Classes="toolbar warm"
+                            Content="Prototype"
+                            Command="{Binding TogglePrototypeModeCommand}"
+                            IsChecked="{Binding IsPrototypeMode, Mode=OneWay}"
+                            IsEnabled="{Binding CanTogglePrototypeModeMenu}" />
+              <Button Classes="toolbar accent"
+                      Content="Save"
+                      Click="SaveDocumentClick" />
+              <Button Classes="toolbar"
+                      Content="Undo"
+                      Command="{Binding UndoCommand}"
+                      IsEnabled="{Binding CanUndo}" />
+              <Button Classes="toolbar"
+                      Content="Redo"
+                      Command="{Binding RedoCommand}"
+                      IsEnabled="{Binding CanRedo}" />
+              <Button Classes="toolbar"
+                      Content="Reveal"
+                      Command="{Binding DockWorkspace.RestoreAllSurfacesCommand}"
+                      IsVisible="{Binding DockWorkspace.CanRevealAllSurfaces}"
+                      IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+
+        <Grid IsVisible="{Binding IsClassicWorkspaceVisible}"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="8">
         <StackPanel Orientation="Horizontal"
                     Spacing="6"
-                    VerticalAlignment="Center">
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding ShowWorkspacePresetStrip}">
           <Border Classes="workspace-tab active">
             <TextBlock Classes="strong-label"
                        Text="Essentials" />
@@ -862,7 +1307,8 @@
         <StackPanel Grid.Column="2"
                     Orientation="Horizontal"
                     Spacing="6"
-                    VerticalAlignment="Center">
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding ShowSecondaryWorkspaceActions}">
           <Border Classes="chrome-group">
             <StackPanel Orientation="Horizontal"
                         Spacing="4">
@@ -916,6 +1362,7 @@
             </StackPanel>
           </Border>
         </StackPanel>
+        </Grid>
       </Grid>
     </Border>
 

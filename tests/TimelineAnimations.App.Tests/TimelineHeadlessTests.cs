@@ -4,7 +4,10 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.VisualTree;
 using Dock.Avalonia.Controls;
+using Dock.Model.Controls;
+using Dock.Model.Core;
 using TimelineAnimations.App.Controls;
+using TimelineAnimations.App.Helpers;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.App.ViewModels.Dock;
 using TimelineAnimations.App.Views.Dock;
@@ -48,9 +51,69 @@ public sealed class TimelineHeadlessTests
             };
 
             Assert.NotNull(view.FindControl<DockControl>("WorkspaceDockControl"));
-            Assert.NotNull(view.FindControl<Button>("DockOpenButton"));
-            Assert.NotNull(view.FindControl<Button>("DockSaveButton"));
-            Assert.NotNull(view.FindControl<Button>("DockProjectExportButton"));
+            Assert.NotNull(view.FindControl<ToggleButton>("DockSelectToolButton"));
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task DockWorkspaceHostView_BindsFactory_ForFloatingWindows()
+    {
+        await AvaloniaHeadlessFixture.Session.Dispatch(() =>
+        {
+            var host = new MainWindowViewModel();
+            var dockWorkspace = host.DockWorkspace;
+            var view = new DockWorkspaceHostView
+            {
+                DataContext = dockWorkspace
+            };
+
+            var window = new Window
+            {
+                Width = 1400,
+                Height = 900,
+                Content = view
+            };
+
+            window.Show();
+            window.UpdateLayout();
+
+            var dockControl = view.FindControl<DockControl>("WorkspaceDockControl");
+
+            Assert.NotNull(dockControl);
+            Assert.Same(dockWorkspace.Factory, dockControl!.Factory);
+            Assert.Same(dockWorkspace.HostWindowFactory, dockControl.HostWindowFactory);
+            Assert.False(dockControl.InitializeFactory);
+            Assert.False(dockControl.InitializeLayout);
+
+            var sourceSurface = FindDockable(dockWorkspace.Layout, DockWorkspaceSurfaceIds.SourceMonitorTool);
+            Assert.NotNull(sourceSurface);
+
+            dockWorkspace.Factory.FloatDockable(sourceSurface!);
+
+            Assert.NotNull(dockWorkspace.Layout);
+            Assert.NotNull(dockWorkspace.Layout!.Windows);
+            Assert.NotEmpty(dockWorkspace.Layout.Windows!);
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task TitleBarDragHelper_AllowsDragOnlyForNonInteractiveChrome()
+    {
+        await AvaloniaHeadlessFixture.Session.Dispatch(() =>
+        {
+            var titleBar = new TitleBarDragGrid();
+            var title = new TextBlock { Text = "TimelineAnimations Studio" };
+            var actionButton = new Button { Content = "Save" };
+
+            titleBar.Children.Add(title);
+            titleBar.Children.Add(actionButton);
+
+            Assert.True(TitleBarDragHelper.ShouldBeginWindowDrag(title, titleBar));
+            Assert.True(TitleBarDragHelper.ShouldBeginWindowDrag(titleBar, titleBar));
+            Assert.False(TitleBarDragHelper.ShouldBeginWindowDrag(title, titleBar, clickCount: 2));
+            Assert.False(TitleBarDragHelper.ShouldBeginWindowDrag(actionButton, titleBar));
+            Assert.True(TitleBarDragHelper.ShouldToggleWindowState(title, titleBar));
+            Assert.False(TitleBarDragHelper.ShouldToggleWindowState(actionButton, titleBar));
         }, CancellationToken.None);
     }
 
@@ -226,5 +289,71 @@ public sealed class TimelineHeadlessTests
                 view.GetVisualDescendants().OfType<TextBlock>(),
                 text => string.Equals(text.Text, "Shape tween", StringComparison.Ordinal));
         }, CancellationToken.None);
+    }
+
+    private static IDockable? FindDockable(IDockable? dockable, string id)
+    {
+        if (dockable is null)
+        {
+            return null;
+        }
+
+        if (string.Equals(dockable.Id, id, StringComparison.Ordinal))
+        {
+            return dockable;
+        }
+
+        if (dockable is IDock dock && dock.VisibleDockables is { Count: > 0 } visibleDockables)
+        {
+            foreach (var child in visibleDockables)
+            {
+                var match = FindDockable(child, id);
+                if (match is not null)
+                {
+                    return match;
+                }
+            }
+        }
+
+        if (dockable is IRootDock rootDock)
+        {
+            foreach (var collection in new[]
+                     {
+                         rootDock.HiddenDockables,
+                         rootDock.LeftPinnedDockables,
+                         rootDock.RightPinnedDockables,
+                         rootDock.TopPinnedDockables,
+                         rootDock.BottomPinnedDockables
+                     })
+            {
+                if (collection is null)
+                {
+                    continue;
+                }
+
+                foreach (var child in collection)
+                {
+                    var match = FindDockable(child, id);
+                    if (match is not null)
+                    {
+                        return match;
+                    }
+                }
+            }
+
+            if (rootDock.Windows is { Count: > 0 } windows)
+            {
+                foreach (var dockWindow in windows)
+                {
+                    var match = FindDockable(dockWindow.Layout, id);
+                    if (match is not null)
+                    {
+                        return match;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }
