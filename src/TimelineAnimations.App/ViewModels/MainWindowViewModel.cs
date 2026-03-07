@@ -4074,6 +4074,13 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void ResetBlank()
+    {
+        LoadDocument(BlankProjectFactory.Create(), "Blank Animation");
+        StatusMessage = "Blank animation created";
+    }
+
+    [RelayCommand]
     private void ResetSample()
     {
         LoadDocument(SampleProjectFactory.Create(), "Sample Composition");

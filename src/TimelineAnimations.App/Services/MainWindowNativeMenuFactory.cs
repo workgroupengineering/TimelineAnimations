@@ -36,6 +36,7 @@ public sealed class MainWindowNativeMenuFactory
         NativeMenuDynamicState state)
     {
         var fileMenu = Submenu("_File");
+        fileMenu.Menu!.Items.Add(CommandItem("New Blank Animation", viewModel.ResetBlankCommand));
         fileMenu.Menu!.Items.Add(CommandItem("New Sample Composition", viewModel.ResetSampleCommand));
         fileMenu.Menu.Items.Add(ActionItem("Open...", actions.OpenDocumentAsync, canExecute: actions.CanOpenDocuments));
         fileMenu.Menu.Items.Add(ActionItem("Save...", actions.SaveDocumentAsync, canExecute: actions.CanSaveDocuments));

@@ -85,6 +85,8 @@
                       Header="{Binding DocumentFileSummary}"
                       IsEnabled="False" />
             <Separator />
+            <MenuItem Header="New Blank Animation"
+                      Command="{Binding ResetBlankCommand}" />
             <MenuItem Header="New Sample Composition"
                       Command="{Binding ResetSampleCommand}" />
             <MenuItem Header="Open..."
@@ -813,6 +815,8 @@
                           Click="RenderProjectClick" />
               </MenuItem>
               <Separator />
+              <MenuItem Header="New Blank Animation"
+                        Command="{Binding ResetBlankCommand}" />
               <MenuItem Header="New Sample Composition"
                         Command="{Binding ResetSampleCommand}" />
               <Separator />
@@ -1094,6 +1098,8 @@
                             Click="RenderProjectClick" />
                 </MenuItem>
                 <Separator />
+                <MenuItem Header="New Blank Animation"
+                          Command="{Binding ResetBlankCommand}" />
                 <MenuItem Header="New Sample Composition"
                           Command="{Binding ResetSampleCommand}" />
                 <Separator />

@@ -120,6 +120,19 @@ public class TimelineCoreTests
     }
 
     [Fact]
+    public void BlankProjectFactory_CreatesEmptyAuthoringDocument()
+    {
+        var document = BlankProjectFactory.Create();
+
+        Assert.Equal("Blank Animation", document.Name);
+        Assert.Single(document.Scenes);
+        Assert.Equal(document.ActiveSceneId, document.Scenes[0].Id);
+        Assert.Empty(document.Layers);
+        Assert.Empty(document.Scenes[0].Layers);
+        Assert.NotEmpty(document.PublishProfiles);
+    }
+
+    [Fact]
     public void WorkspaceLayoutPersistenceService_RoundTrips_LayoutState()
     {
         var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.workspace.json");
@@ -185,6 +198,21 @@ public class TimelineCoreTests
 
         Assert.Equal(4, viewModel.OnionSkinBefore);
         Assert.Equal(1, viewModel.OnionSkinAfter);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_ResetBlank_CreatesEmptyAnimation()
+    {
+        var viewModel = new MainWindowViewModel();
+
+        viewModel.ResetBlankCommand.Execute(null);
+
+        Assert.Equal("Blank Animation", viewModel.DocumentName);
+        Assert.Equal("Blank Animation", viewModel.FileLabel);
+        Assert.Empty(viewModel.Document.Layers);
+        Assert.Single(viewModel.Document.Scenes);
+        Assert.Empty(viewModel.Document.Scenes[0].Layers);
+        Assert.Contains("Blank animation created", viewModel.StatusMessage, StringComparison.Ordinal);
     }
 
     [Fact]
