@@ -8,6 +8,7 @@ using Dock.Model.Controls;
 using Dock.Model.Core;
 using TimelineAnimations.App.Controls;
 using TimelineAnimations.App.Helpers;
+using TimelineAnimations.App.Services;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.App.ViewModels.Dock;
 using TimelineAnimations.App.Views.Dock;

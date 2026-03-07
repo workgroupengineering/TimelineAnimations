@@ -1159,18 +1159,7 @@ public partial class MainWindowViewModel : ViewModelBase
             .Select(item => item.Name)
             .ToArray() ?? [];
 
-    public IReadOnlyList<string> AvailableBehaviorVisualStates
-    {
-        get
-        {
-            var group = ResolveBehaviorVisualStateTargetLayer()?.VisualStateGroups
-                .FirstOrDefault(item => string.Equals(item.Name, SelectedBehaviorTargetVisualStateGroupEditor, StringComparison.OrdinalIgnoreCase));
-            return group?.States
-                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(item => item.Name)
-                .ToArray() ?? [];
-        }
-    }
+    public IReadOnlyList<string> AvailableBehaviorVisualStates => GetAvailableBehaviorVisualStates(SelectedBehaviorTargetVisualStateGroupEditor);
 
     public bool CanEditCurrentFrameActionScript => !IsEditingSymbol && !IsPrototypeMode && FindCurrentFrameLabelModel() is not null;
 
@@ -3614,12 +3603,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedBehaviorActionEditorChanged(InteractionActionKind value)
     {
+        var normalizeVisualStateTargets = value == InteractionActionKind.ApplyVisualState;
         UpdateSelectedBehavior(
             behavior => behavior.Action = value,
-            "Behavior action updated");
-        if (value == InteractionActionKind.ApplyVisualState)
+            "Behavior action updated",
+            recordHistory: !normalizeVisualStateTargets);
+        if (normalizeVisualStateTargets)
         {
-            RefreshBehaviorVisualStateTargets();
+            NormalizeSelectedBehaviorVisualStateTargets(recordHistory: true, "Behavior action updated", forceRecordHistory: true);
         }
 
         RefreshBehaviorEditorStateProperties();
@@ -3634,10 +3625,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedBehaviorTargetLayerChanged(LayerViewModel? oldValue, LayerViewModel? newValue)
     {
+        var normalizeVisualStateTargets = SelectedBehaviorUsesVisualState;
         UpdateSelectedBehavior(
             behavior => behavior.TargetLayerId = newValue?.Id,
-            "Behavior layer target updated");
-        RefreshBehaviorVisualStateTargets();
+            "Behavior layer target updated",
+            recordHistory: !normalizeVisualStateTargets);
+        if (normalizeVisualStateTargets)
+        {
+            NormalizeSelectedBehaviorVisualStateTargets(recordHistory: true, "Behavior layer target updated", forceRecordHistory: true);
+        }
     }
 
     partial void OnSelectedBehaviorTargetFrameLabelEditorChanged(string value)
@@ -3677,9 +3673,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedBehaviorTargetVisualStateGroupEditorChanged(string value)
     {
+        var normalizeVisualStateTargets = SelectedBehaviorUsesVisualState;
         UpdateSelectedBehavior(
             behavior => behavior.TargetVisualStateGroup = value?.Trim() ?? string.Empty,
-            "Behavior visual state group updated");
+            "Behavior visual state group updated",
+            recordHistory: !normalizeVisualStateTargets);
+        if (normalizeVisualStateTargets)
+        {
+            NormalizeSelectedBehaviorVisualStateTargets(recordHistory: true, "Behavior visual state group updated", forceRecordHistory: true);
+        }
+
         RefreshBehaviorEditorStateProperties();
     }
 
@@ -6484,28 +6487,35 @@ public partial class MainWindowViewModel : ViewModelBase
     private void RefreshSelectedBehaviorEditor()
     {
         _suppressBehaviorEditor = true;
-        var behavior = SelectedBehavior?.Model;
-        SelectedBehaviorNameEditor = behavior?.Name ?? string.Empty;
-        SelectedBehaviorEnabledEditor = behavior?.IsEnabled ?? true;
-        SelectedBehaviorTriggerEditor = behavior?.Trigger ?? InteractionTriggerKind.PointerClick;
-        SelectedBehaviorTriggerArgumentEditor = behavior?.TriggerArgument ?? string.Empty;
-        SelectedBehaviorActionEditor = behavior?.Action ?? InteractionActionKind.Play;
-        SelectedBehaviorTargetScene = behavior?.TargetSceneId is Guid sceneId
-            ? Scenes.FirstOrDefault(item => item.Id == sceneId)
-            : null;
-        SelectedBehaviorTargetLayer = behavior?.TargetLayerId is Guid layerId
-            ? Layers.FirstOrDefault(item => item.Id == layerId)
-            : null;
-        SelectedBehaviorTargetFrameLabelEditor = behavior?.TargetFrameLabel ?? string.Empty;
-        SelectedBehaviorTargetButtonStateEditor = behavior?.TargetButtonState ?? ButtonVisualState.Up;
-        SelectedBehaviorBoolValueEditor = behavior?.BoolValue ?? true;
-        SelectedBehaviorVariableNameEditor = behavior?.VariableName ?? string.Empty;
-        SelectedBehaviorVariableValueEditor = behavior?.VariableValue ?? string.Empty;
-        SelectedBehaviorTargetVisualStateGroupEditor = behavior?.TargetVisualStateGroup ?? string.Empty;
-        SelectedBehaviorTargetVisualStateEditor = behavior?.TargetVisualState ?? string.Empty;
-        SelectedBehaviorScriptEditor = behavior?.Script ?? string.Empty;
-        _suppressBehaviorEditor = false;
-        RefreshBehaviorVisualStateTargets();
+        try
+        {
+            var behavior = SelectedBehavior?.Model;
+            SelectedBehaviorNameEditor = behavior?.Name ?? string.Empty;
+            SelectedBehaviorEnabledEditor = behavior?.IsEnabled ?? true;
+            SelectedBehaviorTriggerEditor = behavior?.Trigger ?? InteractionTriggerKind.PointerClick;
+            SelectedBehaviorTriggerArgumentEditor = behavior?.TriggerArgument ?? string.Empty;
+            SelectedBehaviorActionEditor = behavior?.Action ?? InteractionActionKind.Play;
+            SelectedBehaviorTargetScene = behavior?.TargetSceneId is Guid sceneId
+                ? Scenes.FirstOrDefault(item => item.Id == sceneId)
+                : null;
+            SelectedBehaviorTargetLayer = behavior?.TargetLayerId is Guid layerId
+                ? Layers.FirstOrDefault(item => item.Id == layerId)
+                : null;
+            SelectedBehaviorTargetFrameLabelEditor = behavior?.TargetFrameLabel ?? string.Empty;
+            SelectedBehaviorTargetButtonStateEditor = behavior?.TargetButtonState ?? ButtonVisualState.Up;
+            SelectedBehaviorBoolValueEditor = behavior?.BoolValue ?? true;
+            SelectedBehaviorVariableNameEditor = behavior?.VariableName ?? string.Empty;
+            SelectedBehaviorVariableValueEditor = behavior?.VariableValue ?? string.Empty;
+            SelectedBehaviorTargetVisualStateGroupEditor = behavior?.TargetVisualStateGroup ?? string.Empty;
+            SelectedBehaviorTargetVisualStateEditor = behavior?.TargetVisualState ?? string.Empty;
+            SelectedBehaviorScriptEditor = behavior?.Script ?? string.Empty;
+            NormalizeSelectedBehaviorVisualStateTargets(recordHistory: false);
+        }
+        finally
+        {
+            _suppressBehaviorEditor = false;
+        }
+
         RefreshBehaviorEditorStateProperties();
     }
 
@@ -6529,20 +6539,85 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedBehaviorScriptSummary));
     }
 
-    private void RefreshBehaviorVisualStateTargets()
+    private IReadOnlyList<string> GetAvailableBehaviorVisualStates(string? groupName)
     {
-        var availableGroups = AvailableBehaviorVisualStateGroups;
-        if (availableGroups.Count > 0 &&
-            !availableGroups.Any(item => string.Equals(item, SelectedBehaviorTargetVisualStateGroupEditor, StringComparison.OrdinalIgnoreCase)))
+        var group = ResolveBehaviorVisualStateTargetLayer()?.VisualStateGroups
+            .FirstOrDefault(item => string.Equals(item.Name, groupName, StringComparison.OrdinalIgnoreCase));
+        return group?.States
+            .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.Name)
+            .ToArray() ?? [];
+    }
+
+    private void NormalizeSelectedBehaviorVisualStateTargets(bool recordHistory, string? statusMessage = null, bool forceRecordHistory = false)
+    {
+        if (SelectedBehavior?.Model is not { } behavior || !SelectedBehaviorUsesVisualState)
         {
-            SelectedBehaviorTargetVisualStateGroupEditor = availableGroups[0];
+            OnPropertyChanged(nameof(AvailableBehaviorVisualStateGroups));
+            OnPropertyChanged(nameof(AvailableBehaviorVisualStates));
+            return;
         }
 
-        var availableStates = AvailableBehaviorVisualStates;
-        if (availableStates.Count > 0 &&
-            !availableStates.Any(item => string.Equals(item, SelectedBehaviorTargetVisualStateEditor, StringComparison.OrdinalIgnoreCase)))
+        var availableGroups = AvailableBehaviorVisualStateGroups;
+        var normalizedGroup = SelectedBehaviorTargetVisualStateGroupEditor ?? string.Empty;
+        if (availableGroups.Count == 0)
         {
-            SelectedBehaviorTargetVisualStateEditor = availableStates[0];
+            normalizedGroup = string.Empty;
+        }
+        else if (!availableGroups.Any(item => string.Equals(item, normalizedGroup, StringComparison.OrdinalIgnoreCase)))
+        {
+            normalizedGroup = availableGroups[0];
+        }
+
+        var availableStates = GetAvailableBehaviorVisualStates(normalizedGroup);
+        var normalizedState = SelectedBehaviorTargetVisualStateEditor ?? string.Empty;
+        if (availableStates.Count == 0)
+        {
+            normalizedState = string.Empty;
+        }
+        else if (!availableStates.Any(item => string.Equals(item, normalizedState, StringComparison.OrdinalIgnoreCase)))
+        {
+            normalizedState = availableStates[0];
+        }
+
+        var editorChanged =
+            !string.Equals(SelectedBehaviorTargetVisualStateGroupEditor, normalizedGroup, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(SelectedBehaviorTargetVisualStateEditor, normalizedState, StringComparison.OrdinalIgnoreCase);
+
+        if (editorChanged)
+        {
+            var previousSuppressState = _suppressBehaviorEditor;
+            _suppressBehaviorEditor = true;
+            try
+            {
+                SelectedBehaviorTargetVisualStateGroupEditor = normalizedGroup;
+                SelectedBehaviorTargetVisualStateEditor = normalizedState;
+            }
+            finally
+            {
+                _suppressBehaviorEditor = previousSuppressState;
+            }
+        }
+
+        var modelChanged =
+            !string.Equals(behavior.TargetVisualStateGroup, normalizedGroup, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(behavior.TargetVisualState, normalizedState, StringComparison.OrdinalIgnoreCase);
+
+        if (modelChanged)
+        {
+            behavior.TargetVisualStateGroup = normalizedGroup;
+            behavior.TargetVisualState = normalizedState;
+            SelectedBehavior.RefreshMetadata();
+            OnPropertyChanged(nameof(SelectedBehaviorSummary));
+        }
+
+        if ((modelChanged || forceRecordHistory) && recordHistory)
+        {
+            RecordHistoryIfNeeded();
+            if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                StatusMessage = statusMessage;
+            }
         }
 
         OnPropertyChanged(nameof(AvailableBehaviorVisualStateGroups));
@@ -6597,7 +6672,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPublishValidation();
     }
 
-    private void UpdateSelectedBehavior(Action<InteractionBehaviorModel> update, string statusMessage)
+    private void UpdateSelectedBehavior(Action<InteractionBehaviorModel> update, string statusMessage, bool recordHistory = true)
     {
         if (_suppressBehaviorEditor || !CanEditBehaviors || SelectedBehavior?.Model is not { } behavior)
         {
@@ -6606,7 +6681,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
         update(behavior);
         SelectedBehavior.RefreshMetadata();
-        RecordHistoryIfNeeded();
+        if (recordHistory)
+        {
+            RecordHistoryIfNeeded();
+        }
+
         StatusMessage = statusMessage;
         OnPropertyChanged(nameof(SelectedBehaviorSummary));
     }

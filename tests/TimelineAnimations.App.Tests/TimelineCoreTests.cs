@@ -2996,6 +2996,56 @@ public class TimelineCoreTests
     }
 
     [Fact]
+    public void MainWindowViewModel_AddBehavior_DoesNotAutoFillVisualStateTargets_OrCreateExtraUndoEntries()
+    {
+        var document = CreateInteropDocument();
+        var layer = document.Scenes[0].Layers.First(item => item.Name == "Card");
+        _ = VisualStateEditingService.CaptureState(layer, "CommonStates", "Focused", 0d);
+
+        var viewModel = new MainWindowViewModel();
+        viewModel.LoadDocument(document, "behavior.timeline.json");
+        viewModel.SelectedLayer = viewModel.Layers.First(item => item.Name == "Card");
+
+        viewModel.AddBehaviorCommand.Execute(null);
+
+        Assert.NotNull(viewModel.SelectedBehavior);
+        Assert.Equal(InteractionActionKind.Play, viewModel.SelectedBehaviorActionEditor);
+        Assert.Equal(string.Empty, viewModel.SelectedBehavior!.Model.TargetVisualStateGroup);
+        Assert.Equal(string.Empty, viewModel.SelectedBehavior.Model.TargetVisualState);
+        Assert.True(viewModel.CanUndo);
+
+        viewModel.UndoCommand.Execute(null);
+
+        Assert.Empty(viewModel.SelectedLayer!.Model.Behaviors);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_ApplyVisualStateBehavior_UsesSingleUndoStep()
+    {
+        var document = CreateInteropDocument();
+        var layer = document.Scenes[0].Layers.First(item => item.Name == "Card");
+        _ = VisualStateEditingService.CaptureState(layer, "CommonStates", "Focused", 0d);
+
+        var viewModel = new MainWindowViewModel();
+        viewModel.LoadDocument(document, "behavior.timeline.json");
+        viewModel.SelectedLayer = viewModel.Layers.First(item => item.Name == "Card");
+        viewModel.AddBehaviorCommand.Execute(null);
+
+        viewModel.SelectedBehaviorActionEditor = InteractionActionKind.ApplyVisualState;
+
+        Assert.NotNull(viewModel.SelectedBehavior);
+        Assert.Equal("CommonStates", viewModel.SelectedBehavior!.Model.TargetVisualStateGroup);
+        Assert.Equal("Focused", viewModel.SelectedBehavior.Model.TargetVisualState);
+        Assert.True(viewModel.CanUndo);
+
+        viewModel.UndoCommand.Execute(null);
+
+        Assert.Equal(InteractionActionKind.Play, viewModel.SelectedBehavior!.Model.Action);
+        Assert.Equal(string.Empty, viewModel.SelectedBehavior.Model.TargetVisualStateGroup);
+        Assert.Equal(string.Empty, viewModel.SelectedBehavior.Model.TargetVisualState);
+    }
+
+    [Fact]
     public void MainWindowViewModel_PrototypeBehavior_CanApplyVisualState()
     {
         var viewModel = new MainWindowViewModel();
