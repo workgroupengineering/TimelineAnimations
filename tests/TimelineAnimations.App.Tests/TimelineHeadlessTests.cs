@@ -114,6 +114,53 @@ public sealed class TimelineHeadlessTests
             Assert.False(TitleBarDragHelper.ShouldBeginWindowDrag(actionButton, titleBar));
             Assert.True(TitleBarDragHelper.ShouldToggleWindowState(title, titleBar));
             Assert.False(TitleBarDragHelper.ShouldToggleWindowState(actionButton, titleBar));
+            Assert.Equal(WindowState.Maximized, TitleBarDragHelper.GetNextWindowState(WindowState.Normal, canResize: true));
+            Assert.Equal(WindowState.Normal, TitleBarDragHelper.GetNextWindowState(WindowState.Maximized, canResize: true));
+            Assert.Equal(WindowState.FullScreen, TitleBarDragHelper.GetNextWindowState(WindowState.FullScreen, canResize: true));
+            Assert.Equal(WindowState.Normal, TitleBarDragHelper.GetNextWindowState(WindowState.Normal, canResize: false));
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task MainWindowNativeMenuFactory_CreatesCoreTopLevelMenus()
+    {
+        await AvaloniaHeadlessFixture.Session.Dispatch(() =>
+        {
+            var viewModel = new MainWindowViewModel();
+            var factory = new MainWindowNativeMenuFactory();
+            var menu = factory.Create(
+                viewModel,
+                new MainWindowNativeMenuActions(
+                    () => Task.CompletedTask,
+                    () => Task.CompletedTask,
+                    _ => Task.CompletedTask,
+                    _ => Task.CompletedTask,
+                    () => Task.CompletedTask,
+                    () => Task.CompletedTask,
+                    () => { },
+                    () => Task.CompletedTask,
+                    () => Task.CompletedTask,
+                    () => Task.CompletedTask,
+                    () => Task.CompletedTask,
+                    () => { },
+                    () => { },
+                    () => true,
+                    () => true,
+                    () => true));
+
+            var headers = menu.Items
+                .OfType<NativeMenuItem>()
+                .Select(item => item.Header)
+                .ToArray();
+
+            Assert.Contains("_File", headers);
+            Assert.Contains("_Edit", headers);
+            Assert.Contains("_View", headers);
+            Assert.Contains("_Insert", headers);
+            Assert.Contains("Modify", headers);
+            Assert.Contains("C_ontrol", headers);
+            Assert.Contains("_Window", headers);
+            Assert.Contains("_Help", headers);
         }, CancellationToken.None);
     }
 
