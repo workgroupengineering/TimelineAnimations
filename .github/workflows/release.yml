@@ -1,0 +1,77 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  package:
+    name: package (${{ matrix.runtime }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: windows-latest
+            runtime: win-x64
+          - os: macos-latest
+            runtime: osx-arm64
+          - os: macos-latest
+            runtime: osx-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = if ($tag.StartsWith("v")) { $tag.Substring(1) } else { $tag }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Publish package
+        shell: pwsh
+        run: |
+          ./builds/Publish-App.ps1 -Runtime "${{ matrix.runtime }}" -Configuration Release -Version "${{ steps.version.outputs.value }}" -OutputRoot "./builds/artifacts"
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.runtime }}
+          path: builds/artifacts/dist/*
+
+  publish-release:
+    name: publish-release
+    runs-on: ubuntu-latest
+    needs: package
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: builds/release-assets
+          pattern: package-*
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: builds/release-assets/*

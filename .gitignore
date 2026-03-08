@@ -57,11 +57,16 @@ dlldata.c
 
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
+builds/benchmark-artifacts/*.log
 
 # .NET Core
 project.lock.json
 project.fragment.lock.json
 artifacts/
+builds/artifacts*/
+builds/publish/
+builds/package/
+builds/dist/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

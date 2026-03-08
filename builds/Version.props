@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <TimelineAnimationsProduct>TimelineAnimations Studio</TimelineAnimationsProduct>
+    <TimelineAnimationsAssemblyName>TimelineAnimations.Studio</TimelineAnimationsAssemblyName>
+    <VersionPrefix>0.31.0</VersionPrefix>
+    <Company>Wieslaw Soltes</Company>
+    <Authors>Wieslaw Soltes</Authors>
+    <Product>$(TimelineAnimationsProduct)</Product>
+    <Title>$(TimelineAnimationsProduct)</Title>
+    <Description>Professional WYSIWYG keyframe animation editor for Avalonia, Adobe Animate-style workflows, and Flash XFL/FLA interchange.</Description>
+    <PackageTags>avalonia;animation;timeline;editor;motion-design;flash;xfl;animate</PackageTags>
+    <RepositoryUrl>https://github.com/wieslawsoltes/TimelineAnimations</RepositoryUrl>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright (c) Wieslaw Soltes</Copyright>
+    <NeutralLanguage>en-US</NeutralLanguage>
+  </PropertyGroup>
+</Project>

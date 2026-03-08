@@ -1,0 +1,57 @@
+name: ci-build-test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-test:
+    name: build-test (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux
+          - os: windows-latest
+            label: windows
+          - os: macos-latest
+            label: macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore TimelineAnimations.sln
+
+      - name: Build
+        run: dotnet build TimelineAnimations.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test TimelineAnimations.sln --configuration Release --no-build --settings tests/ci.runsettings --logger "trx;LogFileName=${{ matrix.label }}-tests.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.label }}
+          path: |
+            **/TestResults/*.trx
+            **/*.trx
