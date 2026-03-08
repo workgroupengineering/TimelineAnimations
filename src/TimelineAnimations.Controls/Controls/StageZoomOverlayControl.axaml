@@ -2,6 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:TimelineAnimations.App.Controls"
              x:Class="TimelineAnimations.App.Controls.StageZoomOverlayControl"
+             x:Name="Root"
+             DataContext="{Binding RelativeSource={RelativeSource Self}}"
              x:DataType="controls:StageZoomOverlayControl">
   <Border Classes="canvas-overlay compact">
     <Grid ColumnDefinitions="Auto,118"
@@ -59,7 +61,8 @@
         </Button.Flyout>
       </Button>
 
-      <Slider Grid.Column="1"
+      <Slider x:Name="ZoomSlider"
+              Grid.Column="1"
               Classes="timeline-slider compact stage-zoom-slider"
               Minimum="{Binding Minimum}"
               Maximum="{Binding Maximum}"

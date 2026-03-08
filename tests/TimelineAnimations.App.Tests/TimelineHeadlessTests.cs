@@ -426,6 +426,46 @@ public sealed class TimelineHeadlessTests
     }
 
     [Fact]
+    public async Task StageZoomOverlayControl_Slider_RoundTrips_ZoomProperty()
+    {
+        await AvaloniaHeadlessFixture.Session.Dispatch(() =>
+        {
+            var view = new StageZoomOverlayControl
+            {
+                Zoom = 1d,
+                Minimum = 0.25d,
+                Maximum = 8d,
+                ZoomLabel = "100%"
+            };
+
+            var window = new Window
+            {
+                Width = 360,
+                Height = 160,
+                Content = view
+            };
+
+            window.Show();
+            window.UpdateLayout();
+
+            var slider = view.FindControl<Slider>("ZoomSlider");
+
+            Assert.NotNull(slider);
+            Assert.Equal(1d, slider!.Value, 3);
+
+            slider.Value = 2.5d;
+            window.UpdateLayout();
+
+            Assert.Equal(2.5d, view.Zoom, 3);
+
+            view.Zoom = 0.5d;
+            window.UpdateLayout();
+
+            Assert.Equal(0.5d, slider.Value, 3);
+        }, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task StudioSliderTheme_Uses_Compact_AdobeStyle_ThumbGeometry()
     {
         await AvaloniaHeadlessFixture.Session.Dispatch(() =>
