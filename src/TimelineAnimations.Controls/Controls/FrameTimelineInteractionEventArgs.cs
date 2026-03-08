@@ -1,8 +1,17 @@
 namespace TimelineAnimations.App.Controls;
 
-public sealed class FrameTimelineInteractionStateChangedEventArgs(bool isActive) : EventArgs
+public enum FrameTimelineInteractionKind
+{
+    PlayheadScrub,
+    RangeSelection,
+    RulerAdjustment
+}
+
+public sealed class FrameTimelineInteractionStateChangedEventArgs(bool isActive, FrameTimelineInteractionKind interactionKind) : EventArgs
 {
     public bool IsActive { get; } = isActive;
+
+    public FrameTimelineInteractionKind InteractionKind { get; } = interactionKind;
 }
 
 public enum FrameTimelineRulerInteractionKind

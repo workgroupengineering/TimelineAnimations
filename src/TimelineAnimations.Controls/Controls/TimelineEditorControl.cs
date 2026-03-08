@@ -20,6 +20,7 @@ public sealed class TimelineEditorControl : Control
     private const double GroupHeaderHeight = 30;
     private const double TrackHeight = 46;
     private const double MarkerHalf = 7;
+    private const double PlayheadHitWidth = 10;
 
     private bool _isScrubbing;
     private bool _isDraggingKeyframe;
@@ -27,6 +28,7 @@ public sealed class TimelineEditorControl : Control
     private AnimatedProperty _dragProperty;
     private double _lastScrubTime = double.NaN;
     private double _lastMoveTime = double.NaN;
+    private TimelineEditorInteractionKind _activeInteractionKind = TimelineEditorInteractionKind.Scrub;
 
     public static readonly StyledProperty<IReadOnlyList<TimelineTrackRowViewModel>?> RowsProperty =
         AvaloniaProperty.Register<TimelineEditorControl, IReadOnlyList<TimelineTrackRowViewModel>?>(nameof(Rows));
@@ -180,13 +182,17 @@ public sealed class TimelineEditorControl : Control
         {
             if (ShowHeader && point.Y <= HeaderHeight)
             {
-                _isScrubbing = true;
-                ResetDispatchState();
-                DispatchScrub(TimeFromPoint(point.X));
-                e.Pointer.Capture(this);
+                StartScrubbing(e, point);
                 e.Handled = true;
             }
 
+            return;
+        }
+
+        if (TryHitPlayhead(point))
+        {
+            StartScrubbing(e, point);
+            e.Handled = true;
             return;
         }
 
@@ -224,8 +230,9 @@ public sealed class TimelineEditorControl : Control
             _isDraggingKeyframe = true;
             _dragKeyframeId = keyframe.Id;
             _dragProperty = row.Property.Value;
+            _activeInteractionKind = TimelineEditorInteractionKind.KeyframeDrag;
             ResetDispatchState();
-            KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(true));
+            KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(true, TimelineEditorInteractionKind.KeyframeDrag));
             e.Pointer.Capture(this);
             e.Handled = true;
             return;
@@ -244,10 +251,7 @@ public sealed class TimelineEditorControl : Control
             return;
         }
 
-        _isScrubbing = true;
-        ResetDispatchState();
-        DispatchScrub(TimeFromPoint(point.X));
-        e.Pointer.Capture(this);
+        StartScrubbing(e, point);
         e.Handled = true;
     }
 
@@ -278,17 +282,30 @@ public sealed class TimelineEditorControl : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        var activeInteractionKind = _activeInteractionKind;
         var wasDraggingKeyframe = _isDraggingKeyframe;
+        var wasScrubbing = _isScrubbing;
         _isScrubbing = false;
         _isDraggingKeyframe = false;
         _dragKeyframeId = null;
+        _activeInteractionKind = TimelineEditorInteractionKind.Scrub;
         ResetDispatchState();
-        if (wasDraggingKeyframe)
+        if (wasDraggingKeyframe || wasScrubbing)
         {
-            KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(false));
+            KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(false, activeInteractionKind));
         }
 
         e.Pointer.Capture(null);
+    }
+
+    private void StartScrubbing(PointerPressedEventArgs e, Point point)
+    {
+        _isScrubbing = true;
+        _activeInteractionKind = TimelineEditorInteractionKind.Scrub;
+        ResetDispatchState();
+        KeyframeInteractionStateChanged?.Invoke(this, new TimelineInteractionStateChangedEventArgs(true, TimelineEditorInteractionKind.Scrub));
+        DispatchScrub(TimeFromPoint(point.X));
+        e.Pointer.Capture(this);
     }
 
     private void DispatchScrub(double time)
@@ -317,6 +334,11 @@ public sealed class TimelineEditorControl : Control
     {
         _lastScrubTime = double.NaN;
         _lastMoveTime = double.NaN;
+    }
+
+    private bool TryHitPlayhead(Point point)
+    {
+        return Math.Abs(point.X - (TimelineStartX + (CurrentTime * PixelsPerSecond))) <= PlayheadHitWidth;
     }
 
     private void DrawHeader(DrawingContext context, Rect rect)

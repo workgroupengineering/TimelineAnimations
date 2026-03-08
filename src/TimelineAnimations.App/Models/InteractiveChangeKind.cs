@@ -4,5 +4,6 @@ public enum InteractiveChangeKind
 {
     Generic,
     KeyframeDrag,
-    FrameTimelineDrag
+    FrameTimelineDrag,
+    TimelineNavigation
 }

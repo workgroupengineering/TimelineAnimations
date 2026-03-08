@@ -2,9 +2,17 @@ using TimelineAnimations.Core.Models;
 
 namespace TimelineAnimations.App.Controls;
 
-public sealed class TimelineInteractionStateChangedEventArgs(bool isActive) : EventArgs
+public enum TimelineEditorInteractionKind
+{
+    Scrub,
+    KeyframeDrag
+}
+
+public sealed class TimelineInteractionStateChangedEventArgs(bool isActive, TimelineEditorInteractionKind interactionKind) : EventArgs
 {
     public bool IsActive { get; } = isActive;
+
+    public TimelineEditorInteractionKind InteractionKind { get; } = interactionKind;
 }
 
 public sealed class TimelineScrubRequestedEventArgs(double time) : EventArgs

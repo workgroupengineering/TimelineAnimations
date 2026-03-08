@@ -19,6 +19,7 @@ public partial class DockCurvesToolView : UserControl
     private void HookInteractions()
     {
         TimelineEditorHeader.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorHeader.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
         TimelineEditorBody.ScrubRequested += HandleTimelineScrubRequested;
         TimelineEditorBody.LayerSelectionRequested += HandleTimelineLayerSelectionRequested;
         TimelineEditorBody.TrackSelectionRequested += HandleTrackSelectionRequested;
@@ -73,11 +74,17 @@ public partial class DockCurvesToolView : UserControl
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange(InteractiveChangeKind.KeyframeDrag);
+            var kind = e.InteractionKind == TimelineEditorInteractionKind.Scrub
+                ? InteractiveChangeKind.TimelineNavigation
+                : InteractiveChangeKind.KeyframeDrag;
+            ViewModel.BeginInteractiveChange(kind);
         }
         else
         {
-            ViewModel.CommitInteractiveChange("Keyframe moved");
+            var statusMessage = e.InteractionKind == TimelineEditorInteractionKind.Scrub
+                ? "Timeline scrubbed"
+                : "Keyframe moved";
+            ViewModel.CommitInteractiveChange(statusMessage);
         }
     }
 }

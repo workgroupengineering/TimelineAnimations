@@ -62,11 +62,17 @@ public partial class DockFramesToolView : UserControl
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange(InteractiveChangeKind.FrameTimelineDrag);
+            var kind = e.InteractionKind == FrameTimelineInteractionKind.PlayheadScrub
+                ? InteractiveChangeKind.TimelineNavigation
+                : InteractiveChangeKind.FrameTimelineDrag;
+            ViewModel.BeginInteractiveChange(kind);
         }
         else
         {
-            ViewModel.CommitInteractiveChange("Frame range updated");
+            var statusMessage = e.InteractionKind == FrameTimelineInteractionKind.PlayheadScrub
+                ? "Timeline scrubbed"
+                : "Frame range updated";
+            ViewModel.CommitInteractiveChange(statusMessage);
         }
     }
 }

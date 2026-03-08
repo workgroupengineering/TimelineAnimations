@@ -130,6 +130,7 @@ public partial class MainWindow : Window
         SceneCanvas.PrototypeTriggerRequested += HandleCanvasPrototypeTriggerRequested;
 
         TimelineEditorHeader.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorHeader.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
         TimelineEditorBody.ScrubRequested += HandleTimelineScrubRequested;
         TimelineEditorBody.LayerSelectionRequested += HandleTimelineLayerSelectionRequested;
         TimelineEditorBody.TrackSelectionRequested += HandleTrackSelectionRequested;
@@ -307,11 +308,17 @@ public partial class MainWindow : Window
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange(InteractiveChangeKind.FrameTimelineDrag);
+            var kind = e.InteractionKind == TimelineEditorInteractionKind.Scrub
+                ? InteractiveChangeKind.TimelineNavigation
+                : InteractiveChangeKind.KeyframeDrag;
+            ViewModel.BeginInteractiveChange(kind);
         }
         else
         {
-            ViewModel.CommitInteractiveChange("Keyframe moved");
+            var statusMessage = e.InteractionKind == TimelineEditorInteractionKind.Scrub
+                ? "Timeline scrubbed"
+                : "Keyframe moved";
+            ViewModel.CommitInteractiveChange(statusMessage);
         }
     }
 
@@ -349,11 +356,17 @@ public partial class MainWindow : Window
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange();
+            var kind = e.InteractionKind == FrameTimelineInteractionKind.PlayheadScrub
+                ? InteractiveChangeKind.TimelineNavigation
+                : InteractiveChangeKind.FrameTimelineDrag;
+            ViewModel.BeginInteractiveChange(kind);
         }
         else
         {
-            ViewModel.CommitInteractiveChange("Frame range updated");
+            var statusMessage = e.InteractionKind == FrameTimelineInteractionKind.PlayheadScrub
+                ? "Timeline scrubbed"
+                : "Frame range updated";
+            ViewModel.CommitInteractiveChange(statusMessage);
         }
     }
 

@@ -18,8 +18,10 @@ public sealed class FrameTimelineControl : Control
     private const double RangeLaneHeight = 24;
     private const double FolderRowHeight = 40;
     private const double RowHeight = 44;
+    private const double PlayheadHitWidth = 10;
     private bool _isSelecting;
     private FrameTimelineRulerInteractionKind _activeRulerInteraction = FrameTimelineRulerInteractionKind.Playhead;
+    private FrameTimelineInteractionKind _activeInteractionKind = FrameTimelineInteractionKind.PlayheadScrub;
     private int _selectionAnchorFrame;
     private Guid? _selectionLayerId;
     private int _lastRequestedFrame = -1;
@@ -287,11 +289,14 @@ public sealed class FrameTimelineControl : Control
         if (ShowHeader && point.Y <= HeaderHeight)
         {
             _activeRulerInteraction = ResolveHeaderInteraction(point);
+            _activeInteractionKind = _activeRulerInteraction == FrameTimelineRulerInteractionKind.Playhead
+                ? FrameTimelineInteractionKind.PlayheadScrub
+                : FrameTimelineInteractionKind.RulerAdjustment;
             _isSelecting = true;
             _selectionAnchorFrame = frame;
             _selectionLayerId = null;
             ResetInteractionDispatchState();
-            InteractionStateChanged?.Invoke(this, new FrameTimelineInteractionStateChangedEventArgs(true));
+            InteractionStateChanged?.Invoke(this, new FrameTimelineInteractionStateChangedEventArgs(true, _activeInteractionKind));
             DispatchHeaderInteraction(frame);
             e.Pointer.Capture(this);
             e.Handled = true;
@@ -324,11 +329,27 @@ public sealed class FrameTimelineControl : Control
             return;
         }
 
+        if (TryHitPlayhead(point))
+        {
+            _activeRulerInteraction = FrameTimelineRulerInteractionKind.Playhead;
+            _activeInteractionKind = FrameTimelineInteractionKind.PlayheadScrub;
+            _isSelecting = true;
+            _selectionAnchorFrame = frame;
+            _selectionLayerId = null;
+            ResetInteractionDispatchState();
+            InteractionStateChanged?.Invoke(this, new FrameTimelineInteractionStateChangedEventArgs(true, _activeInteractionKind));
+            DispatchFrameRequest(frame);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
         _isSelecting = true;
         _selectionAnchorFrame = frame;
         _selectionLayerId = row.LayerId;
+        _activeInteractionKind = FrameTimelineInteractionKind.RangeSelection;
         ResetInteractionDispatchState();
-        InteractionStateChanged?.Invoke(this, new FrameTimelineInteractionStateChangedEventArgs(true));
+        InteractionStateChanged?.Invoke(this, new FrameTimelineInteractionStateChangedEventArgs(true, _activeInteractionKind));
         DispatchFrameRequest(frame);
         DispatchRangeSelection(row.LayerId, frame, frame);
         e.Pointer.Capture(this);
@@ -368,13 +389,15 @@ public sealed class FrameTimelineControl : Control
     {
         base.OnPointerReleased(e);
         var wasSelecting = _isSelecting;
+        var activeInteractionKind = _activeInteractionKind;
         _isSelecting = false;
         _selectionLayerId = null;
         _activeRulerInteraction = FrameTimelineRulerInteractionKind.Playhead;
+        _activeInteractionKind = FrameTimelineInteractionKind.PlayheadScrub;
         ResetInteractionDispatchState();
         if (wasSelecting)
         {
-            InteractionStateChanged?.Invoke(this, new FrameTimelineInteractionStateChangedEventArgs(false));
+            InteractionStateChanged?.Invoke(this, new FrameTimelineInteractionStateChangedEventArgs(false, activeInteractionKind));
         }
 
         e.Pointer.Capture(null);
@@ -436,6 +459,11 @@ public sealed class FrameTimelineControl : Control
         _lastRequestedRangeEndFrame = -1;
         _lastRequestedRulerFrame = -1;
         _lastRequestedRulerInteraction = FrameTimelineRulerInteractionKind.Playhead;
+    }
+
+    private bool TryHitPlayhead(Point point)
+    {
+        return Math.Abs(point.X - (TimelineStartX + (CurrentFrame * PixelsPerFrame))) <= PlayheadHitWidth;
     }
 
     private void DrawHeader(DrawingContext context, Rect rect)

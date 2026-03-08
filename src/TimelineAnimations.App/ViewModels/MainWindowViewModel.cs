@@ -42,6 +42,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _suppressAnimateDocumentEditor;
     private bool _suppressSelectedKeyframeEditor;
     private bool _suppressInspector;
+    private bool _suppressDocumentMutation;
+    private bool _suppressHistoryRecording;
     private bool _suppressCustomEasingEditor;
     private bool _suppressFrameRateEditor;
     private bool _suppressSymbolInstanceEditor;
@@ -562,7 +564,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool HasSelectedCustomEasing => HasSelectedKeyframe && SelectedKeyframeEasing == EasingKind.Custom;
 
-    public bool CanMutateDocument => !IsPlaying && !IsPrototypeMode;
+    public bool CanMutateDocument => !IsPlaying && !IsPrototypeMode && !IsTimelineNavigationInteraction && !_suppressDocumentMutation;
 
     public bool CanEditSelection => CanMutateDocument && SelectedLayer is not null && !SelectedLayer.IsLocked && !SelectedLayerIsFolder;
 
@@ -3660,6 +3662,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     return;
 
                 case InteractiveChangeKind.FrameTimelineDrag:
+                    return;
+
+                case InteractiveChangeKind.TimelineNavigation:
                     return;
 
                 default:
@@ -9180,6 +9185,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _isInteractiveChange = true;
         _interactiveChangeKind = kind;
+        OnPropertyChanged(nameof(CanMutateDocument));
     }
 
     public void CommitInteractiveChange(string statusMessage)
@@ -9189,11 +9195,31 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        var interactionKind = _interactiveChangeKind;
         _isInteractiveChange = false;
         _interactiveChangeKind = InteractiveChangeKind.Generic;
-        RefreshEditorStateAfterInteractiveChange();
-        RecordHistoryIfNeeded();
-        StatusMessage = statusMessage;
+        OnPropertyChanged(nameof(CanMutateDocument));
+        var previousSuppressDocumentMutation = _suppressDocumentMutation;
+        var previousSuppressHistoryRecording = _suppressHistoryRecording;
+        _suppressDocumentMutation = true;
+        _suppressHistoryRecording = true;
+        OnPropertyChanged(nameof(CanMutateDocument));
+        try
+        {
+            RefreshEditorStateAfterInteractiveChange();
+        }
+        finally
+        {
+            _suppressDocumentMutation = previousSuppressDocumentMutation;
+            _suppressHistoryRecording = previousSuppressHistoryRecording;
+            OnPropertyChanged(nameof(CanMutateDocument));
+        }
+
+        if (interactionKind != InteractiveChangeKind.TimelineNavigation)
+        {
+            RecordHistoryIfNeeded();
+            StatusMessage = statusMessage;
+        }
     }
 
     public void AddLayerFromPalette(LayerKind kind, Point position, AvaloniaControlKind? avaloniaControlKind = null)
@@ -11010,6 +11036,11 @@ public partial class MainWindowViewModel : ViewModelBase
             return 0d;
         }
 
+        if (!UseWorkAreaPlayback)
+        {
+            return 0d;
+        }
+
         SceneTimelineService.EnsureTimelineMetadata(SelectedScene.Model, TotalFrames);
         var range = SceneTimelineService.GetPlaybackRange(SelectedScene.Model, TotalFrames, UseWorkAreaPlayback);
         return FrameTimelineService.FrameToTime(range.StartFrame, SceneFrameRate);
@@ -11022,6 +11053,11 @@ public partial class MainWindowViewModel : ViewModelBase
             return Duration;
         }
 
+        if (!UseWorkAreaPlayback)
+        {
+            return Math.Max(0.05d, SelectedScene.Model.Duration);
+        }
+
         SceneTimelineService.EnsureTimelineMetadata(SelectedScene.Model, TotalFrames);
         var range = SceneTimelineService.GetPlaybackRange(SelectedScene.Model, TotalFrames, UseWorkAreaPlayback);
         return FrameTimelineService.FrameToTime(range.EndFrame, SceneFrameRate);
@@ -11029,6 +11065,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private static double GetScenePlaybackDuration(SceneModel scene, bool useWorkArea)
     {
+        if (!useWorkArea)
+        {
+            return Math.Max(0.05d, scene.Duration);
+        }
+
         var totalFrames = FrameTimelineService.GetTotalFrames(scene.Duration, scene.FrameRate);
         SceneTimelineService.EnsureTimelineMetadata(scene, totalFrames);
         var range = SceneTimelineService.GetPlaybackRange(scene, totalFrames, useWorkArea);
@@ -11810,8 +11851,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private bool ShouldCreateKeyframe()
     {
-        return !IsPlaying && (AutoKey || CurrentTime > 0.0001d);
+        return !IsPlaying && !IsTimelineNavigationInteraction && (AutoKey || CurrentTime > 0.0001d);
     }
+
+    private bool IsTimelineNavigationInteraction => _isInteractiveChange && _interactiveChangeKind == InteractiveChangeKind.TimelineNavigation;
 
     private double Snap(double time)
     {
@@ -11910,7 +11953,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void RecordHistoryIfNeeded()
     {
-        if (_isApplyingHistory || _isInteractiveChange || _history is null || IsPrototypeMode)
+        if (_isApplyingHistory || _isInteractiveChange || _suppressHistoryRecording || _history is null || IsPrototypeMode)
         {
             return;
         }
@@ -11968,11 +12011,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private void StartPlayback()
     {
         var playbackStart = GetCurrentScenePlaybackStartTime();
-        var playbackEnd = GetCurrentScenePlaybackEndTime();
-        if (CurrentTime < playbackStart || CurrentTime > playbackEnd)
-        {
-            Seek(playbackStart);
-        }
+        Seek(playbackStart);
 
         _playbackOriginTime = CurrentTime;
         _playbackClock.Restart();

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -5297,6 +5298,125 @@ public class TimelineCoreTests
         Assert.Equal(0, viewModel.CurrentFrame);
 
         viewModel.StopPlaybackCommand.Execute(null);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_PlaybackRestartsFromSceneStart_WhenStoppedMidTimeline()
+    {
+        var document = BlankProjectFactory.Create();
+        document.Layers = document.Scenes[0].Layers;
+
+        var viewModel = new MainWindowViewModel();
+        viewModel.LoadDocument(document, "playback-full-length.timeline.json");
+        viewModel.Seek(0.3d);
+
+        viewModel.TogglePlaybackCommand.Execute(null);
+
+        Assert.True(viewModel.IsPlaying);
+        Assert.Equal(0d, viewModel.CurrentTime, 3);
+
+        viewModel.StopPlaybackCommand.Execute(null);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_PlaybackUsesFullSceneDuration_WhenWorkAreaPlaybackIsDisabled()
+    {
+        var document = SampleProjectFactory.Create();
+        var viewModel = new MainWindowViewModel();
+        viewModel.LoadDocument(document, "sample-playback-range.timeline.json");
+        viewModel.UseWorkAreaPlayback = false;
+
+        var method = typeof(MainWindowViewModel).GetMethod("GetCurrentScenePlaybackEndTime", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var playbackEnd = (double)method!.Invoke(viewModel, null)!;
+
+        Assert.Equal(viewModel.Duration, playbackEnd, 3);
+        Assert.True(playbackEnd > 5.9d);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_PlaybackUsesWorkArea_WhenWorkAreaPlaybackIsEnabled()
+    {
+        var document = SampleProjectFactory.Create();
+        var viewModel = new MainWindowViewModel();
+        viewModel.LoadDocument(document, "sample-workarea-playback-range.timeline.json");
+        viewModel.UseWorkAreaPlayback = true;
+
+        var method = typeof(MainWindowViewModel).GetMethod("GetCurrentScenePlaybackEndTime", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var playbackEnd = (double)method!.Invoke(viewModel, null)!;
+
+        Assert.True(playbackEnd < viewModel.Duration);
+        Assert.Equal(FrameTimelineService.FrameToTime(viewModel.CurrentSceneWorkAreaEndFrame, viewModel.SceneFrameRate), playbackEnd, 3);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_TimelineNavigationInteraction_DoesNotInsertKeyframes()
+    {
+        var document = BlankProjectFactory.Create();
+        var layer = TimelineEditingService.CreateLayer(LayerKind.Rectangle, "Card", "#24E5C1", string.Empty, 40d, 60d, 0);
+        TimelineEditingService.SetKeyframe(layer, AnimatedProperty.X, 2d, 220d, document.Duration);
+        document.Scenes[0].Layers.Add(layer);
+        document.Layers = document.Scenes[0].Layers;
+
+        var viewModel = new MainWindowViewModel();
+        viewModel.LoadDocument(document, "timeline-navigation-no-keyframe.timeline.json");
+        viewModel.SelectLayer(layer.Id);
+        viewModel.SelectedProperty = AnimatedProperty.X;
+
+        var track = viewModel.SelectedLayer!.Model.Tracks.First(item => item.Property == AnimatedProperty.X);
+        var beforeCount = track.Keyframes.Count;
+
+        viewModel.BeginInteractiveChange(InteractiveChangeKind.TimelineNavigation);
+        viewModel.AddKeyframeAt(AnimatedProperty.X, 1d);
+        viewModel.CommitInteractiveChange("Timeline scrubbed");
+
+        Assert.Equal(beforeCount, track.Keyframes.Count);
+        Assert.DoesNotContain(track.Keyframes, item => Math.Abs(item.Time - 1d) < 0.0001d);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_TimelineNavigationInteraction_DoesNotCreateUndoEntry()
+    {
+        var viewModel = new MainWindowViewModel();
+        var initialCanUndo = viewModel.CanUndo;
+
+        viewModel.BeginInteractiveChange(InteractiveChangeKind.TimelineNavigation);
+        viewModel.Seek(1d);
+        viewModel.CommitInteractiveChange("Timeline scrubbed");
+
+        Assert.Equal(initialCanUndo, viewModel.CanUndo);
+        Assert.Equal(1d, viewModel.CurrentTime, 3);
+    }
+
+    [Fact]
+    public void MainWindowViewModel_TimelineNavigationCommit_DoesNotInsertKeyframeOnDragEnd()
+    {
+        var document = BlankProjectFactory.Create();
+        var layer = TimelineEditingService.CreateLayer(LayerKind.Rectangle, "Card", "#24E5C1", string.Empty, 40d, 60d, 0);
+        TimelineEditingService.SetKeyframe(layer, AnimatedProperty.X, 2d, 220d, document.Duration);
+        document.Scenes[0].Layers.Add(layer);
+        document.Layers = document.Scenes[0].Layers;
+
+        var viewModel = new MainWindowViewModel
+        {
+            AutoKey = true
+        };
+        viewModel.LoadDocument(document, "timeline-navigation-commit-no-keyframe.timeline.json");
+        viewModel.SelectLayer(layer.Id);
+        viewModel.SelectedProperty = AnimatedProperty.X;
+
+        var track = viewModel.SelectedLayer!.Model.Tracks.First(item => item.Property == AnimatedProperty.X);
+        var beforeCount = track.Keyframes.Count;
+
+        viewModel.BeginInteractiveChange(InteractiveChangeKind.TimelineNavigation);
+        viewModel.Seek(0.3d);
+        viewModel.CommitInteractiveChange("Timeline scrubbed");
+
+        Assert.Equal(beforeCount, track.Keyframes.Count);
+        Assert.DoesNotContain(track.Keyframes, item => Math.Abs(item.Time - 0.3d) < 0.0001d);
     }
 }
 
