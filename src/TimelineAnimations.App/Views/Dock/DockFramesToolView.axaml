@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
              xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
              x:Class="TimelineAnimations.App.Views.Dock.DockFramesToolView"
              x:DataType="vm:DockFramesToolViewModel">
@@ -9,285 +10,400 @@
     <Border Classes="chrome-group"
             Padding="4,3">
       <Grid RowDefinitions="Auto,Auto"
-            RowSpacing="6">
-        <Grid ColumnDefinitions="Auto,*,148"
-              ColumnSpacing="6">
+            RowSpacing="4">
+        <Grid ColumnDefinitions="*,172,220"
+              ColumnSpacing="8">
           <StackPanel Orientation="Horizontal"
-                      Spacing="4">
-            <Button Classes="timeline-action accent"
-                    Content="Play"
-                    Command="{Binding Host.TogglePlaybackCommand}" />
-            <Button Classes="timeline-action"
-                    x:Name="FramesStopButton"
-                    Content="Stop"
-                    Command="{Binding Host.StopPlaybackCommand}"
-                    IsEnabled="{Binding Host.CanStopPlayback}" />
-            <Button Classes="timeline-action"
-                    Content="+ Key"
-                    Command="{Binding Host.AddCurrentKeyframeCommand}"
-                    IsEnabled="{Binding Host.CanEditPropertyTracks}" />
-            <Button Classes="timeline-action warm"
-                    Content="- Key"
-                    Command="{Binding Host.DeleteCurrentKeyframeCommand}"
-                    IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}" />
-            <ToggleButton Classes="timeline-action"
-                          x:Name="FramesAutoToggle"
-                          Content="Auto"
-                          IsChecked="{Binding Host.AutoKey, Mode=TwoWay}" />
-            <CheckBox Content="Loop"
-                      IsChecked="{Binding Host.LoopPlayback, Mode=TwoWay}" />
-            <CheckBox Content="All scenes"
-                      IsChecked="{Binding Host.PlayAllScenes, Mode=TwoWay}" />
-            <CheckBox Content="Snap"
-                      IsChecked="{Binding Host.SnapToGrid, Mode=TwoWay}" />
-            <CheckBox Content="Multi"
-                      IsChecked="{Binding Host.EditMultipleFramesEnabled, Mode=TwoWay}" />
+                      Spacing="6">
+            <Border Classes="timeline-toolbar-cluster">
+              <WrapPanel VerticalAlignment="Center">
+                <Button Classes="timeline-action compact accent"
+                        Command="{Binding Host.TogglePlaybackCommand}"
+                        ToolTip.Tip="Play or pause timeline playback">
+                  <StackPanel Classes="icon-label-content">
+                    <PathIcon Classes="command-icon"
+                              Data="{x:Static helpers:FluentIconData.Play20Regular}" />
+                    <TextBlock Text="Play" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="timeline-action compact"
+                        x:Name="FramesStopButton"
+                        Command="{Binding Host.StopPlaybackCommand}"
+                        IsEnabled="{Binding Host.CanStopPlayback}"
+                        ToolTip.Tip="Stop timeline playback">
+                  <StackPanel Classes="icon-label-content">
+                    <PathIcon Classes="command-icon"
+                              Data="{x:Static helpers:FluentIconData.Stop20Regular}" />
+                    <TextBlock Text="Stop" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="timeline-action compact"
+                        Content="+ Key"
+                        Command="{Binding Host.AddCurrentKeyframeCommand}"
+                        IsEnabled="{Binding Host.CanEditPropertyTracks}"
+                        ToolTip.Tip="Add a keyframe at the current playhead" />
+                <Button Classes="timeline-action compact warm"
+                        Content="- Key"
+                        Command="{Binding Host.DeleteCurrentKeyframeCommand}"
+                        IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}"
+                        ToolTip.Tip="Delete the selected keyframe" />
+                <ToggleButton Classes="timeline-action compact"
+                              x:Name="FramesAutoToggle"
+                              Content="Auto"
+                              IsChecked="{Binding Host.AutoKey, Mode=TwoWay}"
+                              ToolTip.Tip="Automatically key changed properties while editing" />
+              </WrapPanel>
+            </Border>
+
+            <Border Classes="timeline-toolbar-cluster">
+              <WrapPanel VerticalAlignment="Center">
+                <CheckBox Classes="timeline-compact-toggle"
+                          Content="Loop"
+                          IsChecked="{Binding Host.LoopPlayback, Mode=TwoWay}" />
+                <CheckBox Classes="timeline-compact-toggle"
+                          Content="All scenes"
+                          IsChecked="{Binding Host.PlayAllScenes, Mode=TwoWay}" />
+                <CheckBox Classes="timeline-compact-toggle"
+                          Content="Snap"
+                          IsChecked="{Binding Host.SnapToGrid, Mode=TwoWay}" />
+                <CheckBox Classes="timeline-compact-toggle"
+                          Content="Multi"
+                          IsChecked="{Binding Host.EditMultipleFramesEnabled, Mode=TwoWay}"
+                          ToolTip.Tip="Enable Edit Multiple Frames mode" />
+              </WrapPanel>
+            </Border>
+
+            <Border Classes="timeline-toolbar-cluster">
+              <Menu Classes="timeline-toolbar">
+                <MenuItem Classes="timeline-toolbar-item"
+                          Header="Insert">
+                  <MenuItem Header="Add cel"
+                            Command="{Binding Host.AddFrameKeyframeCommand}"
+                            IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+                  <MenuItem Header="Add blank cel"
+                            Command="{Binding Host.AddBlankFrameKeyframeCommand}"
+                            IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+                  <MenuItem Header="Extend hold"
+                            Command="{Binding Host.ExtendFrameHoldCommand}"
+                            IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+                </MenuItem>
+                <MenuItem Classes="timeline-toolbar-item"
+                          Header="Range">
+                  <MenuItem Header="Copy frame range"
+                            Command="{Binding Host.CopyFrameRangeCommand}"
+                            IsEnabled="{Binding Host.CanCopyFrameRange}" />
+                  <MenuItem Header="Paste frame range"
+                            Command="{Binding Host.PasteFrameRangeCommand}"
+                            IsEnabled="{Binding Host.CanPasteFrameRange}" />
+                  <Separator />
+                  <MenuItem Header="Set scene in"
+                            Command="{Binding Host.SetSceneInPointCommand}"
+                            IsEnabled="{Binding Host.CanEditSceneMarkers}" />
+                  <MenuItem Header="Set scene out"
+                            Command="{Binding Host.SetSceneOutPointCommand}"
+                            IsEnabled="{Binding Host.CanEditSceneMarkers}" />
+                  <MenuItem Header="Set work area from selection"
+                            Command="{Binding Host.SetSceneWorkAreaFromSelectionCommand}"
+                            IsEnabled="{Binding Host.CanSetSceneWorkArea}" />
+                  <MenuItem Header="Clear work area"
+                            Command="{Binding Host.ClearSceneWorkAreaCommand}"
+                            IsEnabled="{Binding Host.CanEditSceneMarkers}" />
+                  <MenuItem Header="Use work area for playback"
+                            ToggleType="CheckBox"
+                            IsChecked="{Binding Host.UseWorkAreaPlayback, Mode=TwoWay}" />
+                </MenuItem>
+                <MenuItem Classes="timeline-toolbar-item"
+                          Header="Edit">
+                  <MenuItem Header="Razor split"
+                            Command="{Binding Host.RazorSelectionCommand}"
+                            IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                  <MenuItem Header="Slip earlier"
+                            Command="{Binding Host.ApplyEditorialOperationCommand}"
+                            CommandParameter="slip-back"
+                            IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                  <MenuItem Header="Slip later"
+                            Command="{Binding Host.ApplyEditorialOperationCommand}"
+                            CommandParameter="slip-forward"
+                            IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                  <MenuItem Header="Slide earlier"
+                            Command="{Binding Host.ApplyEditorialOperationCommand}"
+                            CommandParameter="slide-back"
+                            IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                  <MenuItem Header="Slide later"
+                            Command="{Binding Host.ApplyEditorialOperationCommand}"
+                            CommandParameter="slide-forward"
+                            IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                  <MenuItem Header="Ripple shorter"
+                            Command="{Binding Host.ApplyEditorialOperationCommand}"
+                            CommandParameter="ripple-shorter"
+                            IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                  <MenuItem Header="Ripple longer"
+                            Command="{Binding Host.ApplyEditorialOperationCommand}"
+                            CommandParameter="ripple-longer"
+                            IsEnabled="{Binding Host.CanUseEditorialTools}" />
+                </MenuItem>
+                <MenuItem Classes="timeline-toolbar-item"
+                          x:Name="FramesMarkersMenu"
+                          Header="Markers">
+                  <MenuItem Header="Save marker at playhead"
+                            Command="{Binding Host.AddOrUpdateSceneMarkerCommand}"
+                            IsEnabled="{Binding Host.CanEditSceneMarkers}" />
+                  <MenuItem Header="Remove selected marker"
+                            Command="{Binding Host.RemoveSelectedSceneMarkerCommand}"
+                            IsEnabled="{Binding Host.CanRemoveSelectedSceneMarker}" />
+                  <Separator />
+                  <MenuItem Header="Jump to scene in"
+                            Command="{Binding Host.JumpToSceneInPointCommand}"
+                            IsEnabled="{Binding Host.CanEditSceneMarkers}" />
+                  <MenuItem Header="Jump to scene out"
+                            Command="{Binding Host.JumpToSceneOutPointCommand}"
+                            IsEnabled="{Binding Host.CanEditSceneMarkers}" />
+                </MenuItem>
+              </Menu>
+            </Border>
+
+            <Button Classes="timeline-action compact"
+                    Content="Razor"
+                    Command="{Binding Host.RazorSelectionCommand}"
+                    IsEnabled="{Binding Host.CanUseEditorialTools}"
+                    ToolTip.Tip="Split the selected media span at the playhead" />
           </StackPanel>
 
-          <Border Grid.Column="1"
-                  Classes="metric-chip"
-                  Padding="8,4">
-            <Grid ColumnDefinitions="Auto,*"
-                  ColumnSpacing="10">
-              <StackPanel Spacing="1">
-                <TextBlock Classes="eyebrow"
-                           Text="Frame" />
-                <TextBlock Classes="strong-label"
-                           Text="{Binding Host.CurrentFrameLabel}" />
-              </StackPanel>
-              <TextBlock Grid.Column="1"
-                         Classes="micro-label"
-                         VerticalAlignment="Center"
-                         Text="{Binding Host.SelectedFrameRangeSummary}"
-                         TextTrimming="CharacterEllipsis" />
-            </Grid>
-          </Border>
+          <controls:TimelineStatChipControl Grid.Column="1"
+                                            Title="Frame"
+                                            Value="{Binding Host.CurrentFrameLabel}"
+                                            Summary="{Binding Host.SelectedFrameRangeSummary}"
+                                            MinChipWidth="172"
+                                            ToolTip.Tip="{Binding Host.SelectedFrameRangeSummary}" />
 
-          <Slider Grid.Column="2"
-                  Classes="timeline-slider"
-                  Minimum="10"
-                  Maximum="32"
-                  Value="{Binding Host.FrameTimelineZoom, Mode=TwoWay}" />
+          <StackPanel Grid.Column="2"
+                      Spacing="2">
+            <TextBlock Classes="eyebrow"
+                       HorizontalAlignment="Right"
+                       Text="Frame zoom" />
+            <Slider Classes="timeline-slider compact"
+                    Minimum="10"
+                    Maximum="32"
+                    Value="{Binding Host.FrameTimelineZoom, Mode=TwoWay}" />
+          </StackPanel>
         </Grid>
 
         <Grid Grid.Row="1"
-              ColumnDefinitions="Auto,220,*,148"
-              ColumnSpacing="6">
-          <Menu Classes="timeline-toolbar">
-            <MenuItem Classes="timeline-toolbar-item"
-                      Header="Insert">
-              <MenuItem Header="Add cel"
-                        Command="{Binding Host.AddFrameKeyframeCommand}"
-                        IsEnabled="{Binding Host.CanEditPropertyTracks}" />
-              <MenuItem Header="Add blank cel"
-                        Command="{Binding Host.AddBlankFrameKeyframeCommand}"
-                        IsEnabled="{Binding Host.CanEditPropertyTracks}" />
-              <MenuItem Header="Extend hold"
-                        Command="{Binding Host.ExtendFrameHoldCommand}"
-                        IsEnabled="{Binding Host.CanEditPropertyTracks}" />
-            </MenuItem>
-            <MenuItem Classes="timeline-toolbar-item"
-                      Header="Range">
-              <MenuItem Header="Copy frame range"
-                        Command="{Binding Host.CopyFrameRangeCommand}"
-                        IsEnabled="{Binding Host.CanCopyFrameRange}" />
-              <MenuItem Header="Paste frame range"
-                        Command="{Binding Host.PasteFrameRangeCommand}"
-                        IsEnabled="{Binding Host.CanPasteFrameRange}" />
-              <Separator />
-              <MenuItem Header="Set scene in"
-                        Command="{Binding Host.SetSceneInPointCommand}"
-                        IsEnabled="{Binding Host.CanEditSceneMarkers}" />
-              <MenuItem Header="Set scene out"
-                        Command="{Binding Host.SetSceneOutPointCommand}"
-                        IsEnabled="{Binding Host.CanEditSceneMarkers}" />
-              <MenuItem Header="Set work area from selection"
-                        Command="{Binding Host.SetSceneWorkAreaFromSelectionCommand}"
-                        IsEnabled="{Binding Host.CanSetSceneWorkArea}" />
-              <MenuItem Header="Clear work area"
-                        Command="{Binding Host.ClearSceneWorkAreaCommand}"
-                        IsEnabled="{Binding Host.CanEditSceneMarkers}" />
-              <MenuItem Header="Use work area for playback"
-                        ToggleType="CheckBox"
-                        IsChecked="{Binding Host.UseWorkAreaPlayback, Mode=TwoWay}" />
-            </MenuItem>
-            <MenuItem Classes="timeline-toolbar-item"
-                      Header="Edit">
-              <MenuItem Header="Razor split"
-                        Command="{Binding Host.RazorSelectionCommand}"
-                        IsEnabled="{Binding Host.CanUseEditorialTools}" />
-              <MenuItem Header="Slip earlier"
-                        Command="{Binding Host.ApplyEditorialOperationCommand}"
-                        CommandParameter="slip-back"
-                        IsEnabled="{Binding Host.CanUseEditorialTools}" />
-              <MenuItem Header="Slip later"
-                        Command="{Binding Host.ApplyEditorialOperationCommand}"
-                        CommandParameter="slip-forward"
-                        IsEnabled="{Binding Host.CanUseEditorialTools}" />
-              <MenuItem Header="Slide earlier"
-                        Command="{Binding Host.ApplyEditorialOperationCommand}"
-                        CommandParameter="slide-back"
-                        IsEnabled="{Binding Host.CanUseEditorialTools}" />
-              <MenuItem Header="Slide later"
-                        Command="{Binding Host.ApplyEditorialOperationCommand}"
-                        CommandParameter="slide-forward"
-                        IsEnabled="{Binding Host.CanUseEditorialTools}" />
-              <MenuItem Header="Ripple shorter"
-                        Command="{Binding Host.ApplyEditorialOperationCommand}"
-                        CommandParameter="ripple-shorter"
-                        IsEnabled="{Binding Host.CanUseEditorialTools}" />
-              <MenuItem Header="Ripple longer"
-                        Command="{Binding Host.ApplyEditorialOperationCommand}"
-                        CommandParameter="ripple-longer"
-                        IsEnabled="{Binding Host.CanUseEditorialTools}" />
-            </MenuItem>
-            <MenuItem Classes="timeline-toolbar-item"
-                      x:Name="FramesMarkersMenu"
-                      Header="Markers">
-              <MenuItem Header="Save marker at playhead"
-                        Command="{Binding Host.AddOrUpdateSceneMarkerCommand}"
-                        IsEnabled="{Binding Host.CanEditSceneMarkers}" />
-              <MenuItem Header="Remove selected marker"
-                        Command="{Binding Host.RemoveSelectedSceneMarkerCommand}"
-                        IsEnabled="{Binding Host.CanRemoveSelectedSceneMarker}" />
-              <Separator />
-              <MenuItem Header="Jump to scene in"
-                        Command="{Binding Host.JumpToSceneInPointCommand}"
-                        IsEnabled="{Binding Host.CanEditSceneMarkers}" />
-              <MenuItem Header="Jump to scene out"
-                        Command="{Binding Host.JumpToSceneOutPointCommand}"
-                        IsEnabled="{Binding Host.CanEditSceneMarkers}" />
-            </MenuItem>
-            <MenuItem Classes="timeline-toolbar-item"
-                      Header="Onion">
-              <MenuItem Header="Previous frames">
-                <MenuItem Header="0"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="before:0" />
-                <MenuItem Header="1"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="before:1" />
-                <MenuItem Header="2"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="before:2" />
-                <MenuItem Header="3"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="before:3" />
-                <MenuItem Header="4"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="before:4" />
-                <MenuItem Header="5"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="before:5" />
-                <MenuItem Header="6"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="before:6" />
-              </MenuItem>
-              <MenuItem Header="Next frames">
-                <MenuItem Header="0"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="after:0" />
-                <MenuItem Header="1"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="after:1" />
-                <MenuItem Header="2"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="after:2" />
-                <MenuItem Header="3"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="after:3" />
-                <MenuItem Header="4"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="after:4" />
-                <MenuItem Header="5"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="after:5" />
-                <MenuItem Header="6"
-                          Command="{Binding Host.SetOnionSkinCountCommand}"
-                          CommandParameter="after:6" />
-              </MenuItem>
-            </MenuItem>
-          </Menu>
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="8">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <Border Classes="timeline-toolbar-cluster">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="6"
+                          VerticalAlignment="Center">
+                <CheckBox Classes="timeline-compact-toggle"
+                          Content="Onion"
+                          IsChecked="{Binding Host.OnionSkinEnabled, Mode=TwoWay}" />
+                <Button Classes="timeline-action compact"
+                        Content="Settings"
+                        ToolTip.Tip="Adjust onion skin range, opacity, and filtering">
+                  <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedLeft">
+                      <Border Classes="panel-soft"
+                              Padding="10">
+                        <StackPanel Width="296"
+                                    Spacing="8">
+                          <TextBlock Classes="section-title"
+                                     Text="Onion settings" />
+                          <CheckBox Content="Keyframes only"
+                                    IsChecked="{Binding Host.OnionSkinKeyframesOnly, Mode=TwoWay}" />
+                          <Grid ColumnDefinitions="*,*"
+                                ColumnSpacing="8">
+                            <StackPanel Spacing="4">
+                              <TextBlock Classes="micro-label"
+                                         Text="Base opacity" />
+                              <TextBox Classes="timeline-entry compact"
+                                       Text="{Binding Host.OnionSkinBaseOpacity, Mode=TwoWay}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="4">
+                              <TextBlock Classes="micro-label"
+                                         Text="Falloff" />
+                              <TextBox Classes="timeline-entry compact"
+                                       Text="{Binding Host.OnionSkinOpacityFalloff, Mode=TwoWay}" />
+                            </StackPanel>
+                          </Grid>
+                          <Border Classes="metric-chip compact">
+                            <TextBlock Classes="micro-label"
+                                       Text="{Binding Host.OnionSkinSummary}"
+                                       TextWrapping="Wrap" />
+                          </Border>
+                          <Menu Classes="timeline-toolbar">
+                            <MenuItem Classes="timeline-toolbar-item"
+                                      Header="Onion range">
+                              <MenuItem Header="Previous frames">
+                                <MenuItem Header="0"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="before:0" />
+                                <MenuItem Header="1"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="before:1" />
+                                <MenuItem Header="2"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="before:2" />
+                                <MenuItem Header="3"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="before:3" />
+                                <MenuItem Header="4"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="before:4" />
+                                <MenuItem Header="5"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="before:5" />
+                                <MenuItem Header="6"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="before:6" />
+                              </MenuItem>
+                              <MenuItem Header="Next frames">
+                                <MenuItem Header="0"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="after:0" />
+                                <MenuItem Header="1"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="after:1" />
+                                <MenuItem Header="2"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="after:2" />
+                                <MenuItem Header="3"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="after:3" />
+                                <MenuItem Header="4"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="after:4" />
+                                <MenuItem Header="5"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="after:5" />
+                                <MenuItem Header="6"
+                                          Command="{Binding Host.SetOnionSkinCountCommand}"
+                                          CommandParameter="after:6" />
+                              </MenuItem>
+                            </MenuItem>
+                          </Menu>
+                        </StackPanel>
+                      </Border>
+                    </Flyout>
+                  </Button.Flyout>
+                </Button>
+              </StackPanel>
+            </Border>
 
-          <StackPanel Grid.Column="1"
-                      Orientation="Horizontal"
-                      Spacing="4">
-            <CheckBox Content="Onion"
-                      IsChecked="{Binding Host.OnionSkinEnabled, Mode=TwoWay}" />
-            <TextBox Classes="timeline-entry"
-                     Width="132"
-                     Watermark="Frame label"
-                     Text="{Binding Host.FrameLabelEditor, Mode=TwoWay}" />
-            <Button Classes="timeline-action"
-                    Content="Set"
-                    Command="{Binding Host.AddOrUpdateFrameLabelCommand}" />
-            <Button Classes="timeline-action"
-                    Content="Clear"
-                    Command="{Binding Host.RemoveFrameLabelCommand}" />
+            <Border Classes="timeline-toolbar-cluster">
+              <Grid ColumnDefinitions="124,Auto,Auto"
+                    ColumnSpacing="6">
+                <TextBox Classes="timeline-entry compact"
+                         Width="124"
+                         Watermark="Frame label"
+                         Text="{Binding Host.FrameLabelEditor, Mode=TwoWay}" />
+                <Button Grid.Column="1"
+                        Classes="timeline-action compact"
+                        Content="Set"
+                        Command="{Binding Host.AddOrUpdateFrameLabelCommand}" />
+                <Button Grid.Column="2"
+                        Classes="timeline-action compact"
+                        Content="Clear"
+                        Command="{Binding Host.RemoveFrameLabelCommand}" />
+              </Grid>
+            </Border>
           </StackPanel>
 
-          <Border Grid.Column="2"
-                  Classes="metric-chip">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto"
-                  ColumnSpacing="10">
-              <StackPanel Spacing="1">
-                <TextBlock Classes="eyebrow"
-                           Text="In / Out" />
-                <TextBlock Classes="strong-label"
-                           Text="{Binding Host.CurrentSceneInFrameLabel}" />
-              </StackPanel>
-              <StackPanel Grid.Column="1"
-                          Spacing="1">
-                <TextBlock Classes="eyebrow"
-                           Text="Work" />
-                <TextBlock Classes="strong-label"
-                           Text="{Binding Host.CurrentSceneWorkAreaLabel}" />
-              </StackPanel>
-              <StackPanel Grid.Column="2"
-                          Spacing="1">
-                <TextBlock Classes="eyebrow"
-                           Text="Marker" />
-                <TextBlock Classes="strong-label"
-                           Text="{Binding Host.SelectedSceneMarkerSummary}" />
-              </StackPanel>
-              <StackPanel Grid.Column="3"
-                          Spacing="1">
-                <TextBlock Classes="eyebrow"
-                           Text="Power" />
-                <TextBlock Classes="strong-label"
-                           Text="{Binding Host.EditMultipleFramesSummary}" />
-              </StackPanel>
-            </Grid>
+          <Border Grid.Column="1"
+                  Classes="metric-chip compact"
+                  IsVisible="{Binding Host.OnionSkinEnabled}"
+                  ToolTip.Tip="{Binding Host.OnionSkinSummary}">
+            <TextBlock Classes="micro-label"
+                       Text="{Binding Host.OnionSkinSummary}"
+                       TextTrimming="CharacterEllipsis" />
           </Border>
 
-          <Button Grid.Column="3"
-                  Classes="timeline-action"
-                  Content="Razor"
-                  Command="{Binding Host.RazorSelectionCommand}"
-                  IsEnabled="{Binding Host.CanUseEditorialTools}" />
+          <StackPanel Grid.Column="2"
+                      Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="6">
+            <controls:TimelineStatChipControl Title="In / Out"
+                                              Value="{Binding Host.CurrentSceneInFrameLabel}"
+                                              Summary=""
+                                              MinChipWidth="84" />
+            <controls:TimelineStatChipControl Title="Work"
+                                              Value="{Binding Host.CurrentSceneWorkAreaLabel}"
+                                              Summary=""
+                                              MinChipWidth="92" />
+            <controls:TimelineStatChipControl Title="Marker"
+                                              Value="{Binding Host.SelectedSceneMarkerSummary}"
+                                              Summary=""
+                                              MinChipWidth="132"
+                                              ToolTip.Tip="{Binding Host.SelectedSceneMarkerSummary}" />
+            <controls:TimelineStatChipControl Title="Power"
+                                              Value="{Binding Host.EditMultipleFramesSummary}"
+                                              Summary=""
+                                              MinChipWidth="132"
+                                              ToolTip.Tip="{Binding Host.EditMultipleFramesSummary}" />
+          </StackPanel>
         </Grid>
       </Grid>
     </Border>
 
     <ScrollViewer Grid.Row="1"
                   HorizontalScrollBarVisibility="Auto"
-                  VerticalScrollBarVisibility="Auto">
-      <controls:FrameTimelineControl x:Name="FrameTimeline"
-                                     Width="{Binding Host.FrameTimelineSurfaceWidth}"
-                                     Height="{Binding Host.FrameTimelineSurfaceHeight}"
-                                     Rows="{Binding Host.FrameRows}"
-                                     Labels="{Binding Host.SceneFrameLabels}"
-                                     Markers="{Binding Host.SceneMarkers}"
-                                     CurrentFrame="{Binding Host.CurrentFrame}"
-                                     TotalFrames="{Binding Host.TotalFrames}"
-                                     PixelsPerFrame="{Binding Host.FrameTimelineZoom}"
-                                     SelectedLayerId="{Binding Host.SelectedLayerId}"
-                                     SelectionStartFrame="{Binding Host.SelectionStartFrame}"
-                                     SelectionEndFrame="{Binding Host.SelectionEndFrame}"
-                                     InFrame="{Binding Host.CurrentSceneInFrame}"
-                                     OutFrame="{Binding Host.CurrentSceneOutFrame}"
-                                     WorkAreaStartFrame="{Binding Host.CurrentSceneWorkAreaStartFrame}"
-                                     WorkAreaEndFrame="{Binding Host.CurrentSceneWorkAreaEndFrame}" />
+                  VerticalScrollBarVisibility="Disabled">
+      <Grid RowDefinitions="Auto,*">
+        <controls:FrameTimelineControl x:Name="FrameTimelineHeader"
+                                       Width="{Binding Host.FrameTimelineSurfaceWidth}"
+                                       Height="64"
+                                       Rows="{Binding Host.FrameRows}"
+                                       Labels="{Binding Host.SceneFrameLabels}"
+                                       Markers="{Binding Host.SceneMarkers}"
+                                       CurrentFrame="{Binding Host.CurrentFrame}"
+                                       TotalFrames="{Binding Host.TotalFrames}"
+                                       FrameRate="{Binding Host.SceneFrameRate}"
+                                       PixelsPerFrame="{Binding Host.FrameTimelineZoom}"
+                                       SelectedLayerId="{Binding Host.SelectedLayerId}"
+                                       SelectionStartFrame="{Binding Host.SelectionStartFrame}"
+                                       SelectionEndFrame="{Binding Host.SelectionEndFrame}"
+                                       InFrame="{Binding Host.CurrentSceneInFrame}"
+                                       OutFrame="{Binding Host.CurrentSceneOutFrame}"
+                                       WorkAreaStartFrame="{Binding Host.CurrentSceneWorkAreaStartFrame}"
+                                       WorkAreaEndFrame="{Binding Host.CurrentSceneWorkAreaEndFrame}"
+                                       OnionSkinEnabled="{Binding Host.OnionSkinEnabled}"
+                                       OnionSkinBefore="{Binding Host.OnionSkinBefore}"
+                                       OnionSkinAfter="{Binding Host.OnionSkinAfter}"
+                                       EditMultipleFramesEnabled="{Binding Host.EditMultipleFramesEnabled}"
+                                       ShowHeader="True"
+                                       ShowBody="False" />
+
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <controls:FrameTimelineControl x:Name="FrameTimelineBody"
+                                         Width="{Binding Host.FrameTimelineSurfaceWidth}"
+                                         Height="{Binding Host.FrameTimelineSurfaceBodyHeight}"
+                                         Rows="{Binding Host.FrameRows}"
+                                         Labels="{Binding Host.SceneFrameLabels}"
+                                         Markers="{Binding Host.SceneMarkers}"
+                                         CurrentFrame="{Binding Host.CurrentFrame}"
+                                         TotalFrames="{Binding Host.TotalFrames}"
+                                         FrameRate="{Binding Host.SceneFrameRate}"
+                                         PixelsPerFrame="{Binding Host.FrameTimelineZoom}"
+                                         SelectedLayerId="{Binding Host.SelectedLayerId}"
+                                         SelectionStartFrame="{Binding Host.SelectionStartFrame}"
+                                         SelectionEndFrame="{Binding Host.SelectionEndFrame}"
+                                         InFrame="{Binding Host.CurrentSceneInFrame}"
+                                         OutFrame="{Binding Host.CurrentSceneOutFrame}"
+                                         WorkAreaStartFrame="{Binding Host.CurrentSceneWorkAreaStartFrame}"
+                                         WorkAreaEndFrame="{Binding Host.CurrentSceneWorkAreaEndFrame}"
+                                         OnionSkinEnabled="{Binding Host.OnionSkinEnabled}"
+                                         OnionSkinBefore="{Binding Host.OnionSkinBefore}"
+                                         OnionSkinAfter="{Binding Host.OnionSkinAfter}"
+                                         EditMultipleFramesEnabled="{Binding Host.EditMultipleFramesEnabled}"
+                                         ShowHeader="False"
+                                         ShowBody="True" />
+        </ScrollViewer>
+      </Grid>
     </ScrollViewer>
   </Grid>
 </UserControl>

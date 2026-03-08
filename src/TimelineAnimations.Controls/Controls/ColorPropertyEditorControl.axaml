@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="TimelineAnimations.App.Controls.ColorPropertyEditorControl"
+             x:DataType="controls:ColorPropertyEditorControl">
+  <Grid x:Name="EditorRoot"
+        ColumnDefinitions="Auto,*"
+        ColumnSpacing="6">
+    <Button x:Name="SwatchButton"
+            Classes="color-field-swatch"
+            ToolTip.Tip="Open color picker">
+      <Border x:Name="SwatchPreview"
+              Classes="color-field-swatch-preview" />
+    </Button>
+
+    <TextBox x:Name="ValueTextBox"
+             Grid.Column="1"
+             MinHeight="{DynamicResource InspectorFieldMinHeight}" />
+
+    <Popup x:Name="PickerPopup"
+           Placement="BottomEdgeAlignedLeft"
+           IsLightDismissEnabled="True">
+      <Border Classes="panel-soft color-picker-popup">
+        <StackPanel Width="288"
+                    Spacing="10">
+          <Grid ColumnDefinitions="88,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="eyebrow"
+                         Text="Current" />
+              <Border x:Name="CurrentPreviewBorder"
+                      Classes="color-picker-preview" />
+              <TextBlock Classes="eyebrow"
+                         Text="Previous" />
+              <Border x:Name="PreviousPreviewBorder"
+                      Classes="color-picker-preview color-picker-preview-previous" />
+              <Button x:Name="RevertButton"
+                      Classes="color-picker-utility-button"
+                      Content="Revert" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        Spacing="8">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="eyebrow"
+                           Text="Hex" />
+                <TextBox x:Name="HexTextBox" />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="Auto,*,Auto"
+                    ColumnSpacing="8"
+                    RowDefinitions="Auto,Auto,Auto"
+                    RowSpacing="6">
+                <TextBlock VerticalAlignment="Center"
+                           Text="R" />
+                <Slider x:Name="RedSlider"
+                        Grid.Column="1"
+                        Minimum="0"
+                        Maximum="255" />
+                <TextBlock x:Name="RedValueText"
+                           Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Text="0" />
+
+                <TextBlock Grid.Row="1"
+                           VerticalAlignment="Center"
+                           Text="G" />
+                <Slider x:Name="GreenSlider"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Minimum="0"
+                        Maximum="255" />
+                <TextBlock x:Name="GreenValueText"
+                           Grid.Row="1"
+                           Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Text="0" />
+
+                <TextBlock Grid.Row="2"
+                           VerticalAlignment="Center"
+                           Text="B" />
+                <Slider x:Name="BlueSlider"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Minimum="0"
+                        Maximum="255" />
+                <TextBlock x:Name="BlueValueText"
+                           Grid.Row="2"
+                           Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Text="0" />
+              </Grid>
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="eyebrow"
+                       Text="Quick swatches" />
+            <WrapPanel x:Name="PresetPanel"
+                       Orientation="Horizontal" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>

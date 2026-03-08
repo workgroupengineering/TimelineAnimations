@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockSwatchesToolView"
+             x:DataType="vm:DockSwatchesToolViewModel">
+  <ScrollViewer x:Name="HostScroll"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Swatches" />
+          <TextBlock Classes="section-title"
+                     Text="Reusable studio palette" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SwatchesSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <ItemsControl ItemsSource="{Binding ColorSwatches}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="appVm:ColorSwatchViewModel">
+            <Border Classes="panel-soft">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="26,*,Auto"
+                      ColumnSpacing="10">
+                  <Border Width="26"
+                          Height="26"
+                          CornerRadius="13"
+                          Background="{Binding PreviewBrush}" />
+                  <StackPanel Grid.Column="1"
+                              Spacing="2">
+                    <TextBlock Classes="strong-label"
+                               Text="{Binding Name}" />
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding Hex}" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2"
+                             Classes="micro-label"
+                             VerticalAlignment="Center"
+                             Text="Swatch" />
+                </Grid>
+                <WrapPanel Classes="panel-command-row">
+                  <Button Classes="panel-command"
+                          Content="Fill"
+                          Command="{Binding #HostScroll.DataContext.ApplyColorSwatchCommand}"
+                          CommandParameter="{Binding Hex, StringFormat=fill:{0}}" />
+                  <Button Classes="panel-command"
+                          Content="Stroke"
+                          Command="{Binding #HostScroll.DataContext.ApplyColorSwatchCommand}"
+                          CommandParameter="{Binding Hex, StringFormat=stroke:{0}}" />
+                  <Button Classes="panel-command"
+                          Content="Grad A"
+                          Command="{Binding #HostScroll.DataContext.ApplyColorSwatchCommand}"
+                          CommandParameter="{Binding Hex, StringFormat=gradientFrom:{0}}" />
+                  <Button Classes="panel-command"
+                          Content="Grad B"
+                          Command="{Binding #HostScroll.DataContext.ApplyColorSwatchCommand}"
+                          CommandParameter="{Binding Hex, StringFormat=gradientTo:{0}}" />
+                  <Button Classes="panel-command"
+                          Content="Stage"
+                          Command="{Binding #HostScroll.DataContext.ApplyColorSwatchCommand}"
+                          CommandParameter="{Binding Hex, StringFormat=backgroundFrom:{0}}" />
+                  <Button Classes="panel-command"
+                          Content="Paste"
+                          Command="{Binding #HostScroll.DataContext.ApplyColorSwatchCommand}"
+                          CommandParameter="{Binding Hex, StringFormat=backgroundTo:{0}}" />
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

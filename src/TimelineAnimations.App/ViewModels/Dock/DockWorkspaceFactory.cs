@@ -33,25 +33,40 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateAnimateLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("AnimateLeftTools", Alignment.Left, 0.215d, surfaces.Project, surfaces.Project);
-        var rightDock = CreateToolDock("AnimateRightPanels", Alignment.Right, 0.21d, surfaces.Inspector, surfaces.Inspector, surfaces.Output);
-        var monitorDock = CreateToolDock("AnimateMonitorTabs", Alignment.Right, 0.26d, surfaces.Source, surfaces.Source, surfaces.Program);
-        var timelineDock = CreateToolDock("AnimateTimelineTabs", Alignment.Bottom, 0.34d, surfaces.Frames, surfaces.Frames, surfaces.Curves);
-        var stageDock = CreateDocumentDock("AnimateStageDocuments", 0.74d, surfaces.Stage, surfaces.Stage);
-
-        var upperWorkspace = new ProportionalDock
-        {
-            Id = "AnimateUpperWorkspace",
-            Orientation = Orientation.Horizontal,
-            Proportion = 0.66d,
-            VisibleDockables = CreateList<IDockable>(stageDock, CreateSplitter(), monitorDock)
-        };
+        var leftDock = CreateToolDock(
+            "AnimateLeftTools",
+            Alignment.Left,
+            0.19d,
+            surfaces.Project,
+            surfaces.Project,
+            surfaces.Library,
+            surfaces.Components,
+            surfaces.MovieExplorer);
+        var rightDock = CreateToolDock(
+            "AnimateRightPanels",
+            Alignment.Right,
+            0.20d,
+            surfaces.Inspector,
+            surfaces.Inspector,
+            surfaces.Color,
+            surfaces.Swatches,
+            surfaces.Align,
+            surfaces.Transform,
+            surfaces.Info,
+            surfaces.MotionPresets,
+            surfaces.CodeSnippets,
+            surfaces.History,
+            surfaces.Output,
+            surfaces.Source,
+            surfaces.Program);
+        var timelineDock = CreateToolDock("AnimateTimelineTabs", Alignment.Bottom, 0.38d, surfaces.Frames, surfaces.Frames, surfaces.Curves);
+        var stageDock = CreateDocumentDock("AnimateStageDocuments", 1d, surfaces.Stage, surfaces.Stage);
 
         var centerDock = new ProportionalDock
         {
             Id = "AnimateCenterWorkspace",
             Orientation = Orientation.Vertical,
-            VisibleDockables = CreateList<IDockable>(upperWorkspace, CreateSplitter(), timelineDock)
+            VisibleDockables = CreateList<IDockable>(stageDock, CreateSplitter(), timelineDock)
         };
 
         return CreateRoot("AnimateWorkspace", leftDock, centerDock, rightDock);
@@ -60,8 +75,30 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateEditorialLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("EditorialLeftTools", Alignment.Left, 0.20d, surfaces.Project, surfaces.Project);
-        var rightDock = CreateToolDock("EditorialRightPanels", Alignment.Right, 0.20d, surfaces.Inspector, surfaces.Inspector, surfaces.Output);
+        var leftDock = CreateToolDock(
+            "EditorialLeftTools",
+            Alignment.Left,
+            0.22d,
+            surfaces.Project,
+            surfaces.Project,
+            surfaces.Library,
+            surfaces.Components,
+            surfaces.MovieExplorer);
+        var rightDock = CreateToolDock(
+            "EditorialRightPanels",
+            Alignment.Right,
+            0.22d,
+            surfaces.Inspector,
+            surfaces.Inspector,
+            surfaces.MotionPresets,
+            surfaces.CodeSnippets,
+            surfaces.Color,
+            surfaces.Swatches,
+            surfaces.Align,
+            surfaces.Transform,
+            surfaces.Info,
+            surfaces.History,
+            surfaces.Output);
         var stageDock = CreateDocumentDock("EditorialStageDocuments", 0.60d, surfaces.Stage, surfaces.Stage);
         var sourceDock = CreateToolDock("EditorialSourceDock", Alignment.Right, 0.50d, surfaces.Source, surfaces.Source);
         var programDock = CreateToolDock("EditorialProgramDock", Alignment.Right, 0.50d, surfaces.Program, surfaces.Program);
@@ -105,8 +142,30 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateReviewLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("ReviewLeftTools", Alignment.Left, 0.18d, surfaces.Project, surfaces.Project);
-        var rightDock = CreateToolDock("ReviewRightPanels", Alignment.Right, 0.18d, surfaces.Output, surfaces.Output, surfaces.Inspector);
+        var leftDock = CreateToolDock(
+            "ReviewLeftTools",
+            Alignment.Left,
+            0.20d,
+            surfaces.Project,
+            surfaces.Project,
+            surfaces.Library,
+            surfaces.MovieExplorer,
+            surfaces.Components);
+        var rightDock = CreateToolDock(
+            "ReviewRightPanels",
+            Alignment.Right,
+            0.21d,
+            surfaces.Output,
+            surfaces.Output,
+            surfaces.Inspector,
+            surfaces.History,
+            surfaces.Info,
+            surfaces.Color,
+            surfaces.Swatches,
+            surfaces.Align,
+            surfaces.Transform,
+            surfaces.MotionPresets,
+            surfaces.CodeSnippets);
         var sourceDock = CreateToolDock("ReviewSourceDock", Alignment.Left, 0.26d, surfaces.Source, surfaces.Source);
         var programDock = CreateToolDock("ReviewProgramDock", Alignment.Right, 0.48d, surfaces.Program, surfaces.Program);
         var stageDock = CreateDocumentDock("ReviewStageDocuments", 0.26d, surfaces.Stage, surfaces.Stage);
@@ -133,8 +192,30 @@ public sealed class DockWorkspaceFactory : Factory
     private IRootDock CreateStageFocusLayout()
     {
         var surfaces = CreateSurfaces();
-        var leftDock = CreateToolDock("StageFocusLeftTools", Alignment.Left, 0.195d, surfaces.Project, surfaces.Project);
-        var rightDock = CreateToolDock("StageFocusRightPanels", Alignment.Right, 0.19d, surfaces.Inspector, surfaces.Inspector, surfaces.Output);
+        var leftDock = CreateToolDock(
+            "StageFocusLeftTools",
+            Alignment.Left,
+            0.21d,
+            surfaces.Project,
+            surfaces.Project,
+            surfaces.Library,
+            surfaces.Components,
+            surfaces.MovieExplorer);
+        var rightDock = CreateToolDock(
+            "StageFocusRightPanels",
+            Alignment.Right,
+            0.21d,
+            surfaces.Inspector,
+            surfaces.Inspector,
+            surfaces.Color,
+            surfaces.Transform,
+            surfaces.Info,
+            surfaces.MotionPresets,
+            surfaces.Swatches,
+            surfaces.Align,
+            surfaces.CodeSnippets,
+            surfaces.History,
+            surfaces.Output);
         var stageDock = CreateDocumentDock("StageFocusStageDocuments", 0.78d, surfaces.Stage, surfaces.Stage);
         var monitorDock = CreateToolDock("StageFocusMonitorTabs", Alignment.Right, 0.22d, surfaces.Program, surfaces.Program, surfaces.Source);
         var timelineDock = CreateToolDock("StageFocusTimelineTabs", Alignment.Bottom, 0.28d, surfaces.Frames, surfaces.Frames, surfaces.Curves);
@@ -167,10 +248,87 @@ public sealed class DockWorkspaceFactory : Factory
                 Host = _host,
                 CanClose = false
             },
+            new DockLibraryToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.LibraryTool,
+                Title = "Library",
+                Host = _host,
+                CanClose = false
+            },
+            new DockComponentsToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.ComponentsTool,
+                Title = "Components",
+                Host = _host,
+                CanClose = false
+            },
+            new DockMovieExplorerToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.MovieExplorerTool,
+                Title = "Movie Explorer",
+                Host = _host,
+                CanClose = false
+            },
             new DockInspectorToolViewModel
             {
                 Id = DockWorkspaceSurfaceIds.InspectorTool,
                 Title = "Inspector",
+                Host = _host,
+                CanClose = false
+            },
+            new DockColorToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.ColorTool,
+                Title = "Color",
+                Host = _host,
+                CanClose = false
+            },
+            new DockSwatchesToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.SwatchesTool,
+                Title = "Swatches",
+                Host = _host,
+                CanClose = false
+            },
+            new DockAlignToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.AlignTool,
+                Title = "Align",
+                Host = _host,
+                CanClose = false
+            },
+            new DockTransformToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.TransformTool,
+                Title = "Transform",
+                Host = _host,
+                CanClose = false
+            },
+            new DockInfoToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.InfoTool,
+                Title = "Info",
+                Host = _host,
+                CanClose = false
+            },
+            new DockMotionPresetsToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.MotionPresetsTool,
+                Title = "Motion Presets",
+                Host = _host,
+                CanClose = false
+            },
+            new DockCodeSnippetsToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.CodeSnippetsTool,
+                Title = "Code Snippets",
+                Host = _host,
+                CanClose = false
+            },
+            new DockHistoryToolViewModel
+            {
+                Id = DockWorkspaceSurfaceIds.HistoryTool,
+                Title = "History",
                 Host = _host,
                 CanClose = false
             },
@@ -351,7 +509,18 @@ public sealed class DockWorkspaceFactory : Factory
 
     private sealed record SurfaceSet(
         DockProjectToolViewModel Project,
+        DockLibraryToolViewModel Library,
+        DockComponentsToolViewModel Components,
+        DockMovieExplorerToolViewModel MovieExplorer,
         DockInspectorToolViewModel Inspector,
+        DockColorToolViewModel Color,
+        DockSwatchesToolViewModel Swatches,
+        DockAlignToolViewModel Align,
+        DockTransformToolViewModel Transform,
+        DockInfoToolViewModel Info,
+        DockMotionPresetsToolViewModel MotionPresets,
+        DockCodeSnippetsToolViewModel CodeSnippets,
+        DockHistoryToolViewModel History,
         DockOutputToolViewModel Output,
         DockStageDocumentViewModel Stage,
         DockSourceMonitorToolViewModel Source,

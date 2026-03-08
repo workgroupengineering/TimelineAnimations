@@ -16,6 +16,10 @@ public sealed class RenderableLayerSample
 
     public double? MediaTime { get; set; }
 
+    public LayerWarpSettings Warp { get; set; } = new();
+
+    public LayerRigSettings Rig { get; set; } = new();
+
     public LayerCompositeRole Role => Snapshot.Compositing.Role;
 
     public LayerBlendMode BlendMode => Snapshot.Compositing.BlendMode;

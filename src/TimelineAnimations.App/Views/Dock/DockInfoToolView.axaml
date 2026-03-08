@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockInfoToolView"
+             x:DataType="vm:DockInfoToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Info" />
+          <TextBlock Classes="section-title"
+                     Text="Live authoring metrics" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding StatusMessage}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Selection" />
+          <TextBlock Classes="strong-label"
+                     Text="{Binding SelectionHeadline}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedLayerStateLabel}"
+                     TextWrapping="Wrap" />
+          <TextBlock Classes="micro-label"
+                     IsVisible="{Binding CanEditShapeAuthoring}"
+                     Text="{Binding ShapeAuthoringSummary}"
+                     TextWrapping="Wrap" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding CompositingSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Timeline" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="micro-label"
+                         Text="Current frame" />
+              <TextBlock Classes="strong-label"
+                         Text="{Binding CurrentFrameLabel}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="4">
+              <TextBlock Classes="micro-label"
+                         Text="Selection range" />
+              <TextBlock Classes="strong-label"
+                         Text="{Binding SelectedFrameRangeSummary}" />
+            </StackPanel>
+          </Grid>
+          <TextBlock Classes="micro-label"
+                     Text="{Binding CurrentFrameActionSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Scene" />
+          <TextBlock Classes="strong-label"
+                     Text="{Binding SelectedSceneSummary}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding CanvasSceneSummary}"
+                     TextWrapping="Wrap" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding CanvasBackgroundSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Document Target" />
+          <TextBlock Classes="strong-label"
+                     Text="{Binding AnimateDocumentSummary}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding AnimateDocumentCompatibilitySummary}"
+                     TextWrapping="Wrap" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding AnimateDocumentOptionsSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Runtime" />
+          <TextBlock Classes="strong-label"
+                     Text="{Binding PrototypeSummary}" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding CanvasViewportHint}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -33,6 +33,7 @@ public static class LibraryManagementService
             item.SourceAssetPath = NormalizeSourceAssetPath(item.SourceAssetPath);
             NormalizeScale9Grid(item);
             NormalizeRegistrationPoint(item);
+            ComponentParameterService.NormalizeDefinitions(item);
         }
     }
 
@@ -153,7 +154,14 @@ public static class LibraryManagementService
         relinked.Defaults.Y = sourceLayer.Defaults.Y;
         relinked.Defaults.Width = sourceLayer.Defaults.Width;
         relinked.Defaults.Height = sourceLayer.Defaults.Height;
+        relinked.Defaults.ScaleX = sourceLayer.Defaults.ScaleX;
+        relinked.Defaults.ScaleY = sourceLayer.Defaults.ScaleY;
+        relinked.Defaults.SkewX = sourceLayer.Defaults.SkewX;
+        relinked.Defaults.SkewY = sourceLayer.Defaults.SkewY;
         relinked.Defaults.Rotation = sourceLayer.Defaults.Rotation;
+        relinked.Defaults.RotationX = sourceLayer.Defaults.RotationX;
+        relinked.Defaults.RotationY = sourceLayer.Defaults.RotationY;
+        relinked.Defaults.ZDepth = sourceLayer.Defaults.ZDepth;
         relinked.Defaults.Opacity = sourceLayer.Defaults.Opacity;
         relinked.SymbolPlaybackMode = sourceLayer.SymbolPlaybackMode;
         relinked.SymbolPlaybackOffset = sourceLayer.SymbolPlaybackOffset;
@@ -163,10 +171,14 @@ public static class LibraryManagementService
         relinked.GuidedByLayerId = sourceLayer.GuidedByLayerId;
         relinked.OrientToGuidePath = sourceLayer.OrientToGuidePath;
         relinked.SnapToGuidePath = sourceLayer.SnapToGuidePath;
+        relinked.TransformParenting = DocumentSerializer.Clone(sourceLayer.TransformParenting);
+        relinked.Warp = DocumentSerializer.Clone(sourceLayer.Warp);
+        relinked.Rig = DocumentSerializer.Clone(sourceLayer.Rig);
         relinked.ShowAsOutline = sourceLayer.ShowAsOutline;
         relinked.OutlineColor = sourceLayer.OutlineColor;
         relinked.CacheAsBitmap = sourceLayer.CacheAsBitmap;
         relinked.BitmapCacheBackgroundColor = sourceLayer.BitmapCacheBackgroundColor;
+        relinked.ComponentParameterOverrides = DocumentSerializer.Clone(sourceLayer.ComponentParameterOverrides);
         relinked.Behaviors = InteractionBehaviorService.CloneBehaviors(sourceLayer.Behaviors);
         return relinked;
     }

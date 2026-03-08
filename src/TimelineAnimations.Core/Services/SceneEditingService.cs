@@ -7,6 +7,7 @@ public static class SceneEditingService
     public const double MinFrameRate = 1d;
     public const double MinDuration = 0.1d;
     public const double MinCanvasExtent = 64d;
+    public const string DefaultStageBackgroundColor = "#FFFFFF";
 
     public static void EnsureScenes(TimelineDocument document)
     {
@@ -24,10 +25,15 @@ public static class SceneEditingService
             scene.Duration = NormalizeDuration(scene.Duration);
             scene.CanvasWidth = NormalizeCanvasExtent(scene.CanvasWidth);
             scene.CanvasHeight = NormalizeCanvasExtent(scene.CanvasHeight);
+            scene.BackgroundFrom = NormalizeStageBackgroundColor(scene.BackgroundFrom);
+            scene.BackgroundTo = NormalizeLegacyBackgroundAccent(scene.BackgroundTo, scene.BackgroundFrom);
             SceneTimelineService.EnsureTimelineMetadata(
                 scene,
                 FrameTimelineService.GetTotalFrames(scene.Duration, scene.FrameRate));
         }
+
+        document.BackgroundFrom = NormalizeStageBackgroundColor(document.BackgroundFrom);
+        document.BackgroundTo = NormalizeLegacyBackgroundAccent(document.BackgroundTo, document.BackgroundFrom);
 
         var activeScene = document.Scenes.FirstOrDefault(scene => scene.Id == document.ActiveSceneId)
             ?? document.Scenes[0];
@@ -63,6 +69,7 @@ public static class SceneEditingService
             Duration = NormalizeDuration(document.Duration),
             CanvasWidth = NormalizeCanvasExtent(document.CanvasWidth),
             CanvasHeight = NormalizeCanvasExtent(document.CanvasHeight),
+            TransparentStageBackground = document.TransparentStageBackground,
             BackgroundFrom = document.BackgroundFrom,
             BackgroundTo = document.BackgroundTo,
             FrameLabels = [],
@@ -82,6 +89,7 @@ public static class SceneEditingService
             Duration = NormalizeDuration(document.Duration),
             CanvasWidth = NormalizeCanvasExtent(document.CanvasWidth),
             CanvasHeight = NormalizeCanvasExtent(document.CanvasHeight),
+            TransparentStageBackground = document.TransparentStageBackground,
             BackgroundFrom = document.BackgroundFrom,
             BackgroundTo = document.BackgroundTo,
             FrameLabels = [],
@@ -100,6 +108,7 @@ public static class SceneEditingService
             Duration = NormalizeDuration(source.Duration),
             CanvasWidth = NormalizeCanvasExtent(source.CanvasWidth),
             CanvasHeight = NormalizeCanvasExtent(source.CanvasHeight),
+            TransparentStageBackground = source.TransparentStageBackground,
             BackgroundFrom = source.BackgroundFrom,
             BackgroundTo = source.BackgroundTo,
             FrameLabels = DocumentSerializer.Clone(source.FrameLabels),
@@ -115,6 +124,7 @@ public static class SceneEditingService
         scene.Duration = NormalizeDuration(document.Duration);
         scene.CanvasWidth = NormalizeCanvasExtent(document.CanvasWidth);
         scene.CanvasHeight = NormalizeCanvasExtent(document.CanvasHeight);
+        scene.TransparentStageBackground = document.TransparentStageBackground;
         scene.BackgroundFrom = document.BackgroundFrom;
         scene.BackgroundTo = document.BackgroundTo;
         scene.Layers = document.Layers;
@@ -126,10 +136,25 @@ public static class SceneEditingService
         document.Duration = NormalizeDuration(scene.Duration);
         document.CanvasWidth = NormalizeCanvasExtent(scene.CanvasWidth);
         document.CanvasHeight = NormalizeCanvasExtent(scene.CanvasHeight);
+        document.TransparentStageBackground = scene.TransparentStageBackground;
         document.BackgroundFrom = scene.BackgroundFrom;
         document.BackgroundTo = scene.BackgroundTo;
         document.Layers = scene.Layers;
         document.ActiveSceneId = scene.Id;
+    }
+
+    public static string NormalizeStageBackgroundColor(string? color)
+    {
+        return string.IsNullOrWhiteSpace(color)
+            ? DefaultStageBackgroundColor
+            : color.Trim();
+    }
+
+    private static string NormalizeLegacyBackgroundAccent(string? accentColor, string stageColor)
+    {
+        return string.IsNullOrWhiteSpace(accentColor)
+            ? stageColor
+            : accentColor.Trim();
     }
 
     public static void AddScene(TimelineDocument document, SceneModel scene)

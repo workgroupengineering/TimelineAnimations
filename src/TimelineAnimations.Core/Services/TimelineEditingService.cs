@@ -30,6 +30,13 @@ public static class TimelineEditingService
 
         var style = new LayerStyle
         {
+            DrawingMode = ShapeDrawingMode.Merge,
+            PrimitiveShape = kind switch
+            {
+                LayerKind.Rectangle => PrimitiveShapeType.Rectangle,
+                LayerKind.Ellipse => PrimitiveShapeType.Ellipse,
+                _ => PrimitiveShapeType.None
+            },
             HasFill = true,
             Fill = fill,
             HasStroke = true,
@@ -41,10 +48,16 @@ public static class TimelineEditingService
             Text = kind == LayerKind.Text ? text : string.Empty,
             FontSize = kind == LayerKind.Text ? 48 : 42,
             CornerRadius = kind is LayerKind.Rectangle or LayerKind.Video or LayerKind.AvaloniaControl ? 28 : 999,
+            CornerRadiusTopLeft = kind is LayerKind.Rectangle or LayerKind.Video or LayerKind.AvaloniaControl ? 28 : 999,
+            CornerRadiusTopRight = kind is LayerKind.Rectangle or LayerKind.Video or LayerKind.AvaloniaControl ? 28 : 999,
+            CornerRadiusBottomRight = kind is LayerKind.Rectangle or LayerKind.Video or LayerKind.AvaloniaControl ? 28 : 999,
+            CornerRadiusBottomLeft = kind is LayerKind.Rectangle or LayerKind.Video or LayerKind.AvaloniaControl ? 28 : 999,
             GradientKind = LayerGradientKind.Linear,
             GradientAngle = 45d,
             GradientFrom = fill,
             GradientTo = "#FFFFFF",
+            EllipseStartAngle = 0d,
+            EllipseSweepAngle = 360d,
             PathPoints = kind == LayerKind.Path
                 ? [new VectorPointModel { X = 0, Y = 1 }, new VectorPointModel { X = 1, Y = 0 }]
                 : []
@@ -55,8 +68,14 @@ public static class TimelineEditingService
             style.Fill = "#22324C";
             style.Stroke = "#93A6D8";
             style.CornerRadius = 16d;
+            style.CornerRadiusTopLeft = 16d;
+            style.CornerRadiusTopRight = 16d;
+            style.CornerRadiusBottomRight = 16d;
+            style.CornerRadiusBottomLeft = 16d;
             style.FontSize = 22d;
         }
+
+        PrimitiveShapeService.NormalizeStyle(style);
 
         return new TimelineLayer
         {
@@ -144,6 +163,8 @@ public static class TimelineEditingService
         var (defaults, pathPoints) = VectorPathService.CreateLayerGeometry(points);
         var style = new LayerStyle
         {
+            DrawingMode = ShapeDrawingMode.Merge,
+            PrimitiveShape = PrimitiveShapeType.None,
             HasFill = hasFill,
             Fill = fill,
             HasStroke = hasStroke,
@@ -161,8 +182,11 @@ public static class TimelineEditingService
             GradientFrom = string.IsNullOrWhiteSpace(gradientFrom) ? fill : gradientFrom!,
             GradientTo = string.IsNullOrWhiteSpace(gradientTo) ? stroke : gradientTo!,
             IsClosed = isClosed,
+            EllipseStartAngle = 0d,
+            EllipseSweepAngle = 360d,
             PathPoints = pathPoints
         };
+        PrimitiveShapeService.NormalizeStyle(style);
 
         return new TimelineLayer
         {
@@ -173,6 +197,52 @@ public static class TimelineEditingService
             Style = style,
             Tracks = CreateDefaultTracks(defaults)
         };
+    }
+
+    public static TimelineLayer CreatePolyStarLayer(
+        string name,
+        string fill,
+        string stroke,
+        int sides,
+        double innerRadius,
+        bool isStar,
+        int zIndex,
+        double x,
+        double y,
+        double width,
+        double height,
+        double strokeThickness,
+        ShapeDrawingMode drawingMode,
+        bool useGradient = false,
+        string? gradientFrom = null,
+        string? gradientTo = null,
+        LayerGradientKind gradientKind = LayerGradientKind.Linear,
+        double gradientAngle = 45d)
+    {
+        var layer = CreatePathLayer(
+            name,
+            fill,
+            stroke,
+            PrimitiveShapeService.CreatePolyStarPoints(sides, innerRadius, isStar),
+            true,
+            zIndex,
+            strokeThickness,
+            useGradient,
+            gradientFrom,
+            gradientTo,
+            gradientKind,
+            gradientAngle);
+        layer.Defaults.X = x;
+        layer.Defaults.Y = y;
+        layer.Defaults.Width = Math.Max(32d, width);
+        layer.Defaults.Height = Math.Max(32d, height);
+        layer.Style.DrawingMode = drawingMode;
+        layer.Style.PrimitiveShape = PrimitiveShapeType.PolyStar;
+        layer.Style.PolyStarSides = Math.Clamp(sides, 3, 16);
+        layer.Style.PolyStarInnerRadius = TimelineMath.Clamp(innerRadius, 0.08d, 0.95d);
+        layer.Style.PolyStarIsStar = isStar;
+        PrimitiveShapeService.NormalizeStyle(layer.Style);
+        return layer;
     }
 
     public static TimelineLayer CreateCameraLayer(string name, double canvasWidth, double canvasHeight, int zIndex)
@@ -285,6 +355,7 @@ public static class TimelineEditingService
             Duration = GetTimelineDuration(symbolLayers),
             FrameRate = 24,
             Template = template,
+            ComponentParameters = ComponentParameterService.CreateSeedDefinitions(source).ToList(),
             Layers = symbolLayers,
             ButtonStates = symbolKind == SymbolKind.Button
                 ? CreateDefaultButtonStates(symbolLayers)
@@ -322,6 +393,8 @@ public static class TimelineEditingService
         {
             item.Layers = symbolLayers;
         }
+
+        ComponentParameterService.NormalizeDefinitions(item);
     }
 
     public static TimelineLayer CreateLayerFromLibraryItem(LibraryItem item, double x, double y, int zIndex)
@@ -349,6 +422,7 @@ public static class TimelineEditingService
         layer.SymbolPlaybackOffset = 0;
         layer.SymbolLockedFrame = 0;
         layer.SymbolButtonState = ButtonVisualState.Up;
+        ComponentParameterService.EnsureOverrides(layer, item);
         layer.Behaviors = InteractionBehaviorService.CloneBehaviors(item.DefaultBehaviors);
         return layer;
     }
@@ -444,6 +518,13 @@ public static class TimelineEditingService
     public static void AddLayer(TimelineDocument document, TimelineLayer layer)
     {
         document.Layers.Add(layer);
+        NormalizeZOrder(document);
+    }
+
+    public static void InsertLayer(TimelineDocument document, TimelineLayer layer, int index)
+    {
+        var normalizedIndex = Math.Clamp(index, 0, document.Layers.Count);
+        document.Layers.Insert(normalizedIndex, layer);
         NormalizeZOrder(document);
     }
 
@@ -595,6 +676,246 @@ public static class TimelineEditingService
         return VectorPathService.TryMovePoint(layer, snapshot, pointIndex, documentPoint);
     }
 
+    public static bool ApplyPathHandle(
+        TimelineLayer layer,
+        int pointIndex,
+        VectorHandleKind handleKind,
+        VectorPointModel documentPoint,
+        LayerSnapshot snapshot,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathService.TryMoveHandle(target.PathPoints, snapshot with { PathPoints = target.PathPoints }, pointIndex, handleKind, documentPoint);
+        }
+
+        return VectorPathService.TryMoveHandle(layer.Style.PathPoints, snapshot, pointIndex, handleKind, documentPoint);
+    }
+
+    public static bool InsertPathPoint(
+        TimelineLayer layer,
+        int pointIndex,
+        bool isClosed,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.InsertPointAfter(target.PathPoints, pointIndex, isClosed);
+        }
+
+        return VectorPathEditingService.InsertPointAfter(layer.Style.PathPoints, pointIndex, isClosed);
+    }
+
+    public static bool DeletePathPoint(
+        TimelineLayer layer,
+        int pointIndex,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.DeletePoint(target.PathPoints, pointIndex);
+        }
+
+        return VectorPathEditingService.DeletePoint(layer.Style.PathPoints, pointIndex);
+    }
+
+    public static bool SetPathPointHandleMode(
+        TimelineLayer layer,
+        int pointIndex,
+        bool isClosed,
+        VectorHandleMode mode,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.SetPointHandleMode(target.PathPoints, pointIndex, isClosed, mode);
+        }
+
+        return VectorPathEditingService.SetPointHandleMode(layer.Style.PathPoints, pointIndex, isClosed, mode);
+    }
+
+    public static bool SetPathPointStrokeWidthScale(
+        TimelineLayer layer,
+        int pointIndex,
+        double scale,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.SetPointStrokeWidthScale(target.PathPoints, pointIndex, scale);
+        }
+
+        return VectorPathEditingService.SetPointStrokeWidthScale(layer.Style.PathPoints, pointIndex, scale);
+    }
+
+    public static bool SetLocalizedPathPointStrokeWidthScale(
+        TimelineLayer layer,
+        int pointIndex,
+        double scale,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorStrokeProfileService.ApplyLocalizedWidthScale(target.PathPoints, pointIndex, scale);
+        }
+
+        return VectorStrokeProfileService.ApplyLocalizedWidthScale(layer.Style.PathPoints, pointIndex, scale);
+    }
+
+    public static bool ApplyStrokeProfile(
+        TimelineLayer layer,
+        VectorStrokeProfilePreset preset,
+        double strength,
+        bool isClosed,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorStrokeProfileService.ApplyProfile(target.PathPoints, preset, strength, isClosed);
+        }
+
+        return VectorStrokeProfileService.ApplyProfile(layer.Style.PathPoints, preset, strength, isClosed);
+    }
+
+    public static bool ReversePath(
+        TimelineLayer layer,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.ReversePath(target.PathPoints);
+        }
+
+        return VectorPathEditingService.ReversePath(layer.Style.PathPoints);
+    }
+
+    public static bool SmoothPath(
+        TimelineLayer layer,
+        LayerSnapshot snapshot,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.SmoothPathGeometry(target.PathPoints, snapshot with { PathPoints = target.PathPoints });
+        }
+
+        return VectorPathEditingService.SmoothPathGeometry(layer.Style.PathPoints, snapshot);
+    }
+
+    public static bool StraightenPath(
+        TimelineLayer layer,
+        LayerSnapshot snapshot,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.StraightenPath(target.PathPoints, snapshot with { PathPoints = target.PathPoints });
+        }
+
+        return VectorPathEditingService.StraightenPath(layer.Style.PathPoints, snapshot);
+    }
+
+    public static bool OptimizePath(
+        TimelineLayer layer,
+        LayerSnapshot snapshot,
+        double time,
+        bool createKeyframe,
+        double duration)
+    {
+        if (layer.Kind != LayerKind.Path)
+        {
+            return false;
+        }
+
+        if (createKeyframe)
+        {
+            var target = CaptureShapeKeyframe(layer, time, duration);
+            return VectorPathEditingService.OptimizePath(target.PathPoints, snapshot with { PathPoints = target.PathPoints });
+        }
+
+        return VectorPathEditingService.OptimizePath(layer.Style.PathPoints, snapshot);
+    }
+
     public static bool ApplyPathClosed(TimelineLayer layer, bool isClosed, double time, bool createKeyframe, double duration)
     {
         if (layer.Kind != LayerKind.Path)
@@ -660,6 +981,15 @@ public static class TimelineEditingService
                 break;
             case AnimatedProperty.Rotation:
                 layer.Defaults.Rotation = normalizedValue;
+                break;
+            case AnimatedProperty.RotationX:
+                layer.Defaults.RotationX = normalizedValue;
+                break;
+            case AnimatedProperty.RotationY:
+                layer.Defaults.RotationY = normalizedValue;
+                break;
+            case AnimatedProperty.ZDepth:
+                layer.Defaults.ZDepth = normalizedValue;
                 break;
             case AnimatedProperty.Opacity:
                 layer.Defaults.Opacity = normalizedValue;
@@ -803,6 +1133,30 @@ public static class TimelineEditingService
                 Keyframes =
                 [
                     new KeyframeModel { Time = 0, Value = defaults.Rotation }
+                ]
+            },
+            new LayerTrack
+            {
+                Property = AnimatedProperty.RotationX,
+                Keyframes =
+                [
+                    new KeyframeModel { Time = 0, Value = defaults.RotationX }
+                ]
+            },
+            new LayerTrack
+            {
+                Property = AnimatedProperty.RotationY,
+                Keyframes =
+                [
+                    new KeyframeModel { Time = 0, Value = defaults.RotationY }
+                ]
+            },
+            new LayerTrack
+            {
+                Property = AnimatedProperty.ZDepth,
+                Keyframes =
+                [
+                    new KeyframeModel { Time = 0, Value = defaults.ZDepth }
                 ]
             },
             new LayerTrack

@@ -1,0 +1,206 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockComponentsToolView"
+             x:DataType="vm:DockComponentsToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Components" />
+          <TextBlock Classes="section-title"
+                     Text="Interactive building blocks" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedComponentSummary}"
+                     TextWrapping="Wrap" />
+          <WrapPanel Classes="panel-command-row">
+            <Button Classes="panel-command"
+                    Content="Capture"
+                    Command="{Binding CreateComponentFromSelectionCommand}"
+                    IsEnabled="{Binding CanCreateComponentFromSelection}" />
+            <Button Classes="panel-command warm"
+                    Command="{Binding InsertSelectedComponentCommand}"
+                    IsEnabled="{Binding CanInsertSelectedComponent}"
+                    ToolTip.Tip="Place the selected component instance on the stage">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.CursorClick20Regular}" />
+                <TextBlock Text="Place" />
+              </StackPanel>
+            </Button>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
+      <ListBox Classes="dense-list"
+               ItemsSource="{Binding ComponentItems}"
+               SelectedItem="{Binding SelectedComponentItem, Mode=TwoWay}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="appVm:LibraryItemViewModel">
+            <Border Classes="layer-row">
+              <Grid ColumnDefinitions="Auto,*,Auto"
+                    ColumnSpacing="12">
+                <Border Width="14"
+                        Height="14"
+                        CornerRadius="7"
+                        VerticalAlignment="Center"
+                        Background="{Binding PreviewBrush}" />
+                <StackPanel Grid.Column="1"
+                            Spacing="2">
+                  <TextBlock Classes="strong-label"
+                             Text="{Binding Name}" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding Subtitle}" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding TimelineLabel}" />
+                </StackPanel>
+                <TextBlock Grid.Column="2"
+                           Classes="micro-label"
+                           VerticalAlignment="Center"
+                           Text="{Binding ComponentBadge}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <Border Classes="panel-soft"
+              IsEnabled="{Binding CanEditSelectedComponentParameters}">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto,Auto"
+                ColumnSpacing="8">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="eyebrow"
+                         Text="Parameters" />
+              <TextBlock Classes="section-title"
+                         Text="Reusable inputs" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Content="+ Param"
+                    Command="{Binding AddComponentParameterCommand}"
+                    IsEnabled="{Binding CanEditSelectedComponentParameters}" />
+            <Button Grid.Column="2"
+                    Content="Remove"
+                    Classes="warm"
+                    Command="{Binding RemoveSelectedComponentParameterCommand}"
+                    IsEnabled="{Binding CanRemoveSelectedComponentParameter}" />
+          </Grid>
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedComponentParameterSummary}"
+                     TextWrapping="Wrap" />
+          <ListBox Classes="dense-list"
+                   MaxHeight="184"
+                   ItemsSource="{Binding SelectedComponentParameters}"
+                   SelectedItem="{Binding SelectedComponentParameter, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="appVm:ComponentParameterDefinitionViewModel">
+                <Border Classes="layer-row">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="strong-label"
+                               Text="{Binding Name}" />
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding Subtitle}" />
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding DefaultValue}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Name" />
+              <TextBox Text="{Binding ComponentParameterNameEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Kind" />
+              <ComboBox ItemsSource="{Binding AvailableComponentParameterKinds}"
+                        SelectedItem="{Binding ComponentParameterKindEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Target" />
+              <ComboBox ItemsSource="{Binding AvailableComponentParameterBindingTargets}"
+                        SelectedItem="{Binding ComponentParameterBindingTargetEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Target layer" />
+              <TextBox Text="{Binding ComponentParameterTargetLayerNameEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+          <StackPanel Spacing="6">
+            <TextBlock Classes="micro-label"
+                       Text="Default value" />
+            <TextBox Text="{Binding ComponentParameterDefaultValueEditor, Mode=TwoWay}" />
+          </StackPanel>
+          <StackPanel Spacing="6">
+            <TextBlock Classes="micro-label"
+                       Text="Description" />
+            <TextBox AcceptsReturn="True"
+                     Height="68"
+                     TextWrapping="Wrap"
+                     Text="{Binding ComponentParameterDescriptionEditor, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsVisible="{Binding SelectedLayerIsComponentInstance}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Instance Overrides" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedComponentOverrideSummary}"
+                     TextWrapping="Wrap" />
+          <ListBox Classes="dense-list"
+                   ItemsSource="{Binding SelectedComponentOverrideItems}"
+                   SelectedItem="{Binding SelectedComponentOverrideItem, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="appVm:ComponentParameterOverrideViewModel">
+                <Border Classes="layer-row">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="strong-label"
+                               Text="{Binding Name}" />
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding Subtitle}" />
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding Value}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <Grid ColumnDefinitions="*,Auto"
+                ColumnSpacing="10"
+                IsEnabled="{Binding CanEditSelectedComponentOverrides}">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Override value" />
+              <TextBox Text="{Binding ComponentOverrideValueEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Content="Reset"
+                    Command="{Binding ResetSelectedComponentOverrideCommand}"
+                    IsEnabled="{Binding CanResetSelectedComponentOverride}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

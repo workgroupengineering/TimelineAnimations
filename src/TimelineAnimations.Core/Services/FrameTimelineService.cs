@@ -18,7 +18,9 @@ public static class FrameTimelineService
             return 0;
         }
 
-        var frame = (int)Math.Round(Math.Max(0, time) * Math.Max(1, frameRate), MidpointRounding.AwayFromZero);
+        // Frame occupancy must remain stable for the full frame duration.
+        // Advancing on midpoint rounding makes playback and cel sampling run early.
+        var frame = (int)Math.Floor((Math.Max(0, time) * Math.Max(1, frameRate)) + 1e-9d);
         return Math.Clamp(frame, 0, totalFrames - 1);
     }
 

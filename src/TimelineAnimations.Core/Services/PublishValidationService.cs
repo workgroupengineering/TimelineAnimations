@@ -8,6 +8,7 @@ public static class PublishValidationService
     {
         var issues = new List<PublishValidationIssue>();
         SceneEditingService.EnsureScenes(document);
+        AnimateDocumentProfileService.EnsureSettings(document);
 
         if (profile.Width <= 0 || profile.Height <= 0)
         {
@@ -47,6 +48,8 @@ public static class PublishValidationService
                 ValidateLayer(document, scene, layer, issues);
             }
         }
+
+        issues.AddRange(AnimateDocumentProfileService.ValidateCompatibility(document));
 
         return issues;
     }

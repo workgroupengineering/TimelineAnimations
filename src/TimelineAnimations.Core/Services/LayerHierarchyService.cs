@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using TimelineAnimations.Core.Models;
 
 namespace TimelineAnimations.Core.Services;
@@ -12,6 +13,8 @@ public sealed record LayerHierarchyEntry(
 
 public static class LayerHierarchyService
 {
+    private static readonly ConditionalWeakTable<object, RenderableLayerCacheEntry> s_renderableLayerCache = new();
+
     public static void Normalize(IList<TimelineLayer> layers)
     {
         if (layers.Count == 0)
@@ -19,9 +22,15 @@ public static class LayerHierarchyService
             return;
         }
 
-        var ids = layers.Select(item => item.Id).ToHashSet();
-        foreach (var layer in layers)
+        var ids = new HashSet<Guid>(layers.Count);
+        for (var index = 0; index < layers.Count; index++)
         {
+            ids.Add(layers[index].Id);
+        }
+
+        for (var index = 0; index < layers.Count; index++)
+        {
+            var layer = layers[index];
             if (layer.ParentLayerId is not Guid parentId || !ids.Contains(parentId) || parentId == layer.Id)
             {
                 layer.ParentLayerId = null;
@@ -42,9 +51,8 @@ public static class LayerHierarchyService
             return [];
         }
 
-        var normalizedLayers = layers
-            .OrderByDescending(item => item.ZIndex)
-            .ToList();
+        var normalizedLayers = layers as List<TimelineLayer> ?? [.. layers];
+        normalizedLayers.Sort(static (left, right) => right.ZIndex.CompareTo(left.ZIndex));
         Normalize(normalizedLayers);
 
         var byParent = new Dictionary<Guid, List<TimelineLayer>>();
@@ -79,17 +87,23 @@ public static class LayerHierarchyService
 
     public static IReadOnlyList<TimelineLayer> GetRenderableLayers(IReadOnlyList<TimelineLayer> layers)
     {
-        var flattened = Flatten(layers);
-        return
-        [
-            .. flattened
-                .Where(item =>
-                    item.Layer.Kind != LayerKind.Folder &&
-                    item.IsVisibleInTree &&
-                    !item.IsMutedByHierarchy &&
-                    item.IsVisibleBySolo)
-                .Select(item => item.Layer)
-        ];
+        if (layers.Count == 0)
+        {
+            return [];
+        }
+
+        var cacheKey = (object)layers;
+        var signature = ComputeRenderableSignature(layers);
+        if (s_renderableLayerCache.TryGetValue(cacheKey, out var cacheEntry) &&
+            cacheEntry.Signature == signature)
+        {
+            return cacheEntry.RenderableLayers;
+        }
+
+        var renderable = BuildRenderableLayers(layers);
+        s_renderableLayerCache.Remove(cacheKey);
+        s_renderableLayerCache.Add(cacheKey, new RenderableLayerCacheEntry(signature, renderable));
+        return renderable;
     }
 
     public static bool HasSoloLayers(IReadOnlyList<TimelineLayer> layers)
@@ -186,4 +200,110 @@ public static class LayerHierarchyService
             currentId = nextId;
         }
     }
+
+    private static List<TimelineLayer> BuildRenderableLayers(IReadOnlyList<TimelineLayer> layers)
+    {
+        var normalizedLayers = layers as List<TimelineLayer> ?? [.. layers];
+        normalizedLayers.Sort(static (left, right) => right.ZIndex.CompareTo(left.ZIndex));
+        Normalize(normalizedLayers);
+
+        var byParent = new Dictionary<Guid, List<TimelineLayer>>();
+        var roots = new List<TimelineLayer>();
+        var soloActive = false;
+
+        for (var index = 0; index < normalizedLayers.Count; index++)
+        {
+            var layer = normalizedLayers[index];
+            if (layer.IsSolo)
+            {
+                soloActive = true;
+            }
+
+            if (layer.ParentLayerId is not Guid parentId)
+            {
+                roots.Add(layer);
+                continue;
+            }
+
+            if (!byParent.TryGetValue(parentId, out var children))
+            {
+                children = [];
+                byParent[parentId] = children;
+            }
+
+            children.Add(layer);
+        }
+
+        var renderable = new List<TimelineLayer>(normalizedLayers.Count);
+        for (var index = 0; index < roots.Count; index++)
+        {
+            AppendRenderable(renderable, roots[index], true, false, soloActive, false, byParent);
+        }
+
+        renderable.Sort(static (left, right) => left.ZIndex.CompareTo(right.ZIndex));
+        return renderable;
+    }
+
+    private static void AppendRenderable(
+        List<TimelineLayer> renderable,
+        TimelineLayer layer,
+        bool parentExpanded,
+        bool parentMuted,
+        bool soloActive,
+        bool parentSolo,
+        IReadOnlyDictionary<Guid, List<TimelineLayer>> byParent)
+    {
+        var isVisibleInTree = parentExpanded && layer.IsVisible;
+        var isMutedByHierarchy = parentMuted || layer.IsMuted;
+        var isVisibleBySolo = !soloActive || parentSolo || layer.IsSolo;
+        var hasChildren = byParent.TryGetValue(layer.Id, out var children) && children.Count > 0;
+
+        if (layer.Kind != LayerKind.Folder &&
+            isVisibleInTree &&
+            !isMutedByHierarchy &&
+            isVisibleBySolo)
+        {
+            renderable.Add(layer);
+        }
+
+        if (!hasChildren || !layer.IsExpanded)
+        {
+            return;
+        }
+
+        var childLayers = children!;
+        for (var index = 0; index < childLayers.Count; index++)
+        {
+            AppendRenderable(
+                renderable,
+                childLayers[index],
+                isVisibleInTree,
+                isMutedByHierarchy,
+                soloActive,
+                parentSolo || layer.IsSolo,
+                byParent);
+        }
+    }
+
+    private static int ComputeRenderableSignature(IReadOnlyList<TimelineLayer> layers)
+    {
+        var hash = new HashCode();
+        hash.Add(layers.Count);
+        for (var index = 0; index < layers.Count; index++)
+        {
+            var layer = layers[index];
+            hash.Add(layer.Id);
+            hash.Add(layer.ParentLayerId);
+            hash.Add(layer.Kind);
+            hash.Add(layer.ZIndex);
+            hash.Add(layer.IsVisible);
+            hash.Add(layer.IsMuted);
+            hash.Add(layer.IsSolo);
+            hash.Add(layer.IsExpanded);
+        }
+
+        return hash.ToHashCode();
+    }
+
+    private sealed record RenderableLayerCacheEntry(int Signature, IReadOnlyList<TimelineLayer> RenderableLayers);
 }

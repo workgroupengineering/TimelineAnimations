@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>Assets\avalonia-logo.ico</ApplicationIcon>
+    <PackageIcon>avalonia-logo.ico</PackageIcon>
+    <UseAppHost>true</UseAppHost>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,13 +18,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Assets\avalonia-logo.ico" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.12" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />
     <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.3.12" />
-    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
-    <PackageReference Include="AvaloniaEdit.TextMate" Version="11.3.0" />
     <PackageReference Include="Dock.Avalonia" Version="11.3.11.17" />
     <PackageReference Include="Dock.Model.Mvvm" Version="11.3.11.17" />
     <PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="11.3.11.17" />
@@ -35,5 +41,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TimelineAnimations.Core\TimelineAnimations.Core.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Presentation\TimelineAnimations.Presentation.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Interop\TimelineAnimations.Interop.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.AppServices\TimelineAnimations.AppServices.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Controls\TimelineAnimations.Controls.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Rendering\TimelineAnimations.Rendering.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Rendering.Avalonia\TimelineAnimations.Rendering.Avalonia.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Rendering.SkiaSharp\TimelineAnimations.Rendering.SkiaSharp.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             x:Class="TimelineAnimations.App.Controls.StageZoomOverlayControl"
+             x:DataType="controls:StageZoomOverlayControl">
+  <Border Classes="canvas-overlay compact">
+    <Grid ColumnDefinitions="Auto,118"
+          ColumnSpacing="8">
+      <Button Classes="stage-zoom-trigger"
+              ToolTip.Tip="Stage magnification and zoom presets">
+        <StackPanel Classes="icon-label-content">
+          <TextBlock Classes="strong-label"
+                     Text="{Binding ZoomLabel}" />
+          <TextBlock Classes="micro-label"
+                     Text="Zoom" />
+        </StackPanel>
+        <Button.Flyout>
+          <Flyout Placement="TopEdgeAlignedRight">
+            <Border Classes="panel-soft"
+                    Padding="8">
+              <StackPanel Width="138"
+                          Spacing="6">
+                <TextBlock Classes="eyebrow"
+                           Text="Stage zoom" />
+                <Button Classes="toolbar compact"
+                        Content="Fit in window"
+                        Click="HandleFitClick" />
+                <Button Classes="toolbar compact"
+                        Content="Actual size (1:1)"
+                        Click="HandleActualSizeClick" />
+                <Border Height="1"
+                        Background="#202833" />
+                <WrapPanel ItemWidth="60"
+                           Orientation="Horizontal">
+                  <Button Classes="toolbar compact"
+                          Content="25%"
+                          Tag="0.25"
+                          Click="HandlePresetClick" />
+                  <Button Classes="toolbar compact"
+                          Content="50%"
+                          Tag="0.5"
+                          Click="HandlePresetClick" />
+                  <Button Classes="toolbar compact"
+                          Content="100%"
+                          Tag="1"
+                          Click="HandlePresetClick" />
+                  <Button Classes="toolbar compact"
+                          Content="200%"
+                          Tag="2"
+                          Click="HandlePresetClick" />
+                  <Button Classes="toolbar compact"
+                          Content="400%"
+                          Tag="4"
+                          Click="HandlePresetClick" />
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <Slider Grid.Column="1"
+              Classes="timeline-slider compact stage-zoom-slider"
+              Minimum="{Binding Minimum}"
+              Maximum="{Binding Maximum}"
+              Value="{Binding Zoom, Mode=TwoWay}"
+              ToolTip.Tip="Scrub stage zoom" />
+    </Grid>
+  </Border>
+</UserControl>

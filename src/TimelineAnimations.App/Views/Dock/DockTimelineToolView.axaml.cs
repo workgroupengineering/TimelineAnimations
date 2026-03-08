@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using TimelineAnimations.App.Controls;
+using TimelineAnimations.App.Models;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.App.ViewModels.Dock;
 
@@ -17,16 +18,24 @@ public partial class DockTimelineToolView : UserControl
 
     private void HookInteractions()
     {
-        TimelineEditor.ScrubRequested += HandleTimelineScrubRequested;
-        TimelineEditor.TrackSelectionRequested += HandleTrackSelectionRequested;
-        TimelineEditor.KeyframeSelectionRequested += HandleKeyframeSelectionRequested;
-        TimelineEditor.KeyframeMoveRequested += HandleKeyframeMoveRequested;
-        TimelineEditor.KeyframeAddRequested += HandleKeyframeAddRequested;
-        TimelineEditor.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
+        TimelineEditorHeader.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorBody.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorBody.LayerSelectionRequested += HandleTimelineLayerSelectionRequested;
+        TimelineEditorBody.TrackSelectionRequested += HandleTrackSelectionRequested;
+        TimelineEditorBody.HierarchyToggleRequested += HandleTimelineHierarchyToggleRequested;
+        TimelineEditorBody.KeyframeSelectionRequested += HandleKeyframeSelectionRequested;
+        TimelineEditorBody.KeyframeMoveRequested += HandleKeyframeMoveRequested;
+        TimelineEditorBody.KeyframeAddRequested += HandleKeyframeAddRequested;
+        TimelineEditorBody.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
 
-        FrameTimeline.FrameRequested += HandleFrameRequested;
-        FrameTimeline.LayerSelectionRequested += HandleFrameLayerSelectionRequested;
-        FrameTimeline.RangeSelectionRequested += HandleFrameRangeSelectionRequested;
+        FrameTimelineHeader.FrameRequested += HandleFrameRequested;
+        FrameTimelineHeader.RulerInteractionRequested += HandleFrameRulerInteractionRequested;
+        FrameTimelineHeader.InteractionStateChanged += HandleFrameInteractionStateChanged;
+        FrameTimelineBody.FrameRequested += HandleFrameRequested;
+        FrameTimelineBody.LayerSelectionRequested += HandleFrameLayerSelectionRequested;
+        FrameTimelineBody.RangeSelectionRequested += HandleFrameRangeSelectionRequested;
+        FrameTimelineBody.HierarchyToggleRequested += HandleFrameHierarchyToggleRequested;
+        FrameTimelineBody.InteractionStateChanged += HandleFrameInteractionStateChanged;
     }
 
     private void HandleTimelineScrubRequested(object? sender, TimelineScrubRequestedEventArgs e)
@@ -37,6 +46,16 @@ public partial class DockTimelineToolView : UserControl
     private void HandleTrackSelectionRequested(object? sender, TimelineTrackSelectionRequestedEventArgs e)
     {
         ViewModel?.SelectTrack(e.LayerId, e.Property);
+    }
+
+    private void HandleTimelineLayerSelectionRequested(object? sender, TimelineLayerSelectionRequestedEventArgs e)
+    {
+        ViewModel?.SelectLayer(e.LayerId);
+    }
+
+    private void HandleTimelineHierarchyToggleRequested(object? sender, TimelineHierarchyToggleRequestedEventArgs e)
+    {
+        ViewModel?.ToggleTimelineHierarchy(e.LayerId);
     }
 
     private void HandleKeyframeSelectionRequested(object? sender, TimelineKeyframeSelectionRequestedEventArgs e)
@@ -63,7 +82,7 @@ public partial class DockTimelineToolView : UserControl
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange();
+            ViewModel.BeginInteractiveChange(InteractiveChangeKind.KeyframeDrag);
         }
         else
         {
@@ -84,5 +103,32 @@ public partial class DockTimelineToolView : UserControl
     private void HandleFrameRangeSelectionRequested(object? sender, FrameTimelineRangeSelectionRequestedEventArgs e)
     {
         ViewModel?.SelectFrameRange(e.LayerId, e.StartFrame, e.EndFrame);
+    }
+
+    private void HandleFrameHierarchyToggleRequested(object? sender, FrameTimelineHierarchyToggleRequestedEventArgs e)
+    {
+        ViewModel?.ToggleFrameHierarchy(e.LayerId);
+    }
+
+    private void HandleFrameRulerInteractionRequested(object? sender, FrameTimelineRulerInteractionRequestedEventArgs e)
+    {
+        ViewModel?.ApplyFrameRulerInteraction(e.InteractionKind, e.Frame);
+    }
+
+    private void HandleFrameInteractionStateChanged(object? sender, FrameTimelineInteractionStateChangedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        if (e.IsActive)
+        {
+            ViewModel.BeginInteractiveChange(InteractiveChangeKind.FrameTimelineDrag);
+        }
+        else
+        {
+            ViewModel.CommitInteractiveChange("Frame range updated");
+        }
     }
 }

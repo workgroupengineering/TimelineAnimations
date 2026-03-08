@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using TimelineAnimations.App.Controls;
+using TimelineAnimations.App.Models;
 using TimelineAnimations.App.Services;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.Core.Models;
@@ -84,6 +85,10 @@ public partial class MainWindow : Window
             new MainWindowNativeMenuActions(
                 OpenDocumentAsync,
                 SaveDocumentAsync,
+                OpenFlashXflFolderAsync,
+                SaveFlashXflFolderAsync,
+                ConvertFlashFlaToXflFolderAsync,
+                ConvertFlashXflFolderToFlaAsync,
                 ImportAnimationFormatAsync,
                 ExportAnimationFormatAsync,
                 ImportAudioAsync,
@@ -104,25 +109,54 @@ public partial class MainWindow : Window
 
     private void HookInteractions()
     {
+        ClassicStageZoomOverlay.FitRequested += HandleClassicStageZoomFitRequested;
+        ClassicStageZoomOverlay.ActualSizeRequested += HandleClassicStageZoomActualSizeRequested;
         SceneCanvas.LayerSelectionRequested += HandleLayerSelectionRequested;
         SceneCanvas.LayerTransformRequested += HandleLayerTransformRequested;
         SceneCanvas.PaletteDropRequested += HandlePaletteDropRequested;
         SceneCanvas.DrawingRequested += HandleCanvasDrawingRequested;
+        SceneCanvas.LayerStyleSampleRequested += HandleCanvasLayerStyleSampleRequested;
+        SceneCanvas.LayerStyleApplyRequested += HandleCanvasLayerStyleApplyRequested;
         SceneCanvas.PathPointMoveRequested += HandleCanvasPathPointMoveRequested;
+        SceneCanvas.PathPointSelectionRequested += HandleCanvasPathPointSelectionRequested;
+        SceneCanvas.PathHandleMoveRequested += HandleCanvasPathHandleMoveRequested;
+        SceneCanvas.PathPointWidthScaleRequested += HandleCanvasPathPointWidthScaleRequested;
+        SceneCanvas.LassoSelectionRequested += HandleCanvasLassoSelectionRequested;
+        SceneCanvas.WarpPinMoveRequested += HandleCanvasWarpPinMoveRequested;
+        SceneCanvas.RigBoneMoveRequested += HandleCanvasRigBoneMoveRequested;
+        SceneCanvas.LayerEraseRequested += HandleCanvasLayerEraseRequested;
         SceneCanvas.CanvasResizeRequested += HandleCanvasResizeRequested;
         SceneCanvas.TransformInteractionStateChanged += HandleCanvasInteractionStateChanged;
         SceneCanvas.PrototypeTriggerRequested += HandleCanvasPrototypeTriggerRequested;
 
-        TimelineEditor.ScrubRequested += HandleTimelineScrubRequested;
-        TimelineEditor.TrackSelectionRequested += HandleTrackSelectionRequested;
-        TimelineEditor.KeyframeSelectionRequested += HandleKeyframeSelectionRequested;
-        TimelineEditor.KeyframeMoveRequested += HandleKeyframeMoveRequested;
-        TimelineEditor.KeyframeAddRequested += HandleKeyframeAddRequested;
-        TimelineEditor.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
+        TimelineEditorHeader.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorBody.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorBody.LayerSelectionRequested += HandleTimelineLayerSelectionRequested;
+        TimelineEditorBody.TrackSelectionRequested += HandleTrackSelectionRequested;
+        TimelineEditorBody.HierarchyToggleRequested += HandleTimelineHierarchyToggleRequested;
+        TimelineEditorBody.KeyframeSelectionRequested += HandleKeyframeSelectionRequested;
+        TimelineEditorBody.KeyframeMoveRequested += HandleKeyframeMoveRequested;
+        TimelineEditorBody.KeyframeAddRequested += HandleKeyframeAddRequested;
+        TimelineEditorBody.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
 
-        FrameTimeline.FrameRequested += HandleFrameRequested;
-        FrameTimeline.LayerSelectionRequested += HandleFrameLayerSelectionRequested;
-        FrameTimeline.RangeSelectionRequested += HandleFrameRangeSelectionRequested;
+        FrameTimelineHeader.FrameRequested += HandleFrameRequested;
+        FrameTimelineHeader.RulerInteractionRequested += HandleFrameRulerInteractionRequested;
+        FrameTimelineHeader.InteractionStateChanged += HandleFrameInteractionStateChanged;
+        FrameTimelineBody.FrameRequested += HandleFrameRequested;
+        FrameTimelineBody.LayerSelectionRequested += HandleFrameLayerSelectionRequested;
+        FrameTimelineBody.RangeSelectionRequested += HandleFrameRangeSelectionRequested;
+        FrameTimelineBody.HierarchyToggleRequested += HandleFrameHierarchyToggleRequested;
+        FrameTimelineBody.InteractionStateChanged += HandleFrameInteractionStateChanged;
+    }
+
+    private void HandleClassicStageZoomFitRequested(object? sender, EventArgs e)
+    {
+        SceneCanvas.ResetViewport();
+    }
+
+    private void HandleClassicStageZoomActualSizeRequested(object? sender, EventArgs e)
+    {
+        SceneCanvas.ZoomToActualSize();
     }
 
     private void HandleLayerSelectionRequested(object? sender, CanvasLayerSelectionRequestedEventArgs e)
@@ -152,9 +186,54 @@ public partial class MainWindow : Window
         ViewModel?.CreateLayerFromCanvas(e.Tool, e.DocumentBounds, e.DocumentPoints);
     }
 
+    private void HandleCanvasLayerStyleSampleRequested(object? sender, CanvasLayerStyleSampleRequestedEventArgs e)
+    {
+        ViewModel?.SampleLayerStyle(e.LayerId);
+    }
+
+    private void HandleCanvasLayerStyleApplyRequested(object? sender, CanvasLayerStyleApplyRequestedEventArgs e)
+    {
+        ViewModel?.ApplyStageStyle(e.LayerId, e.ApplicationKind);
+    }
+
     private void HandleCanvasPathPointMoveRequested(object? sender, CanvasPathPointMoveRequestedEventArgs e)
     {
         ViewModel?.UpdatePathPoint(e.LayerId, e.PointIndex, e.DocumentPoint);
+    }
+
+    private void HandleCanvasPathPointSelectionRequested(object? sender, CanvasPathPointSelectionRequestedEventArgs e)
+    {
+        ViewModel?.SelectPathPoint(e.LayerId, e.PointIndex);
+    }
+
+    private void HandleCanvasPathHandleMoveRequested(object? sender, CanvasPathHandleMoveRequestedEventArgs e)
+    {
+        ViewModel?.UpdatePathHandle(e.LayerId, e.PointIndex, e.HandleKind, e.DocumentPoint);
+    }
+
+    private void HandleCanvasPathPointWidthScaleRequested(object? sender, CanvasPathPointWidthScaleRequestedEventArgs e)
+    {
+        ViewModel?.UpdatePathPointWidthScale(e.LayerId, e.PointIndex, e.Scale);
+    }
+
+    private void HandleCanvasLassoSelectionRequested(object? sender, CanvasLassoSelectionRequestedEventArgs e)
+    {
+        ViewModel?.ApplyLassoSelection(e.LayerIds);
+    }
+
+    private void HandleCanvasWarpPinMoveRequested(object? sender, CanvasWarpPinMoveRequestedEventArgs e)
+    {
+        ViewModel?.UpdateWarpPin(e.LayerId, e.PinId, e.NormalizedPoint);
+    }
+
+    private void HandleCanvasRigBoneMoveRequested(object? sender, CanvasRigBoneMoveRequestedEventArgs e)
+    {
+        ViewModel?.UpdateRigBoneHandle(e.LayerId, e.BoneId, e.HandleKind, e.NormalizedPoint);
+    }
+
+    private void HandleCanvasLayerEraseRequested(object? sender, CanvasLayerEraseRequestedEventArgs e)
+    {
+        ViewModel?.ApplyCanvasErase(e.LayerId, e.DocumentPoint, e.Radius);
     }
 
     private void HandleCanvasResizeRequested(object? sender, CanvasResizeRequestedEventArgs e)
@@ -171,7 +250,7 @@ public partial class MainWindow : Window
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange();
+            ViewModel.BeginInteractiveChange(InteractiveChangeKind.KeyframeDrag);
         }
         else
         {
@@ -192,6 +271,16 @@ public partial class MainWindow : Window
     private void HandleTrackSelectionRequested(object? sender, TimelineTrackSelectionRequestedEventArgs e)
     {
         ViewModel?.SelectTrack(e.LayerId, e.Property);
+    }
+
+    private void HandleTimelineLayerSelectionRequested(object? sender, TimelineLayerSelectionRequestedEventArgs e)
+    {
+        ViewModel?.SelectLayer(e.LayerId);
+    }
+
+    private void HandleTimelineHierarchyToggleRequested(object? sender, TimelineHierarchyToggleRequestedEventArgs e)
+    {
+        ViewModel?.ToggleTimelineHierarchy(e.LayerId);
     }
 
     private void HandleKeyframeSelectionRequested(object? sender, TimelineKeyframeSelectionRequestedEventArgs e)
@@ -218,7 +307,7 @@ public partial class MainWindow : Window
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange();
+            ViewModel.BeginInteractiveChange(InteractiveChangeKind.FrameTimelineDrag);
         }
         else
         {
@@ -239,6 +328,33 @@ public partial class MainWindow : Window
     private void HandleFrameRangeSelectionRequested(object? sender, FrameTimelineRangeSelectionRequestedEventArgs e)
     {
         ViewModel?.SelectFrameRange(e.LayerId, e.StartFrame, e.EndFrame);
+    }
+
+    private void HandleFrameHierarchyToggleRequested(object? sender, FrameTimelineHierarchyToggleRequestedEventArgs e)
+    {
+        ViewModel?.ToggleFrameHierarchy(e.LayerId);
+    }
+
+    private void HandleFrameRulerInteractionRequested(object? sender, FrameTimelineRulerInteractionRequestedEventArgs e)
+    {
+        ViewModel?.ApplyFrameRulerInteraction(e.InteractionKind, e.Frame);
+    }
+
+    private void HandleFrameInteractionStateChanged(object? sender, FrameTimelineInteractionStateChangedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        if (e.IsActive)
+        {
+            ViewModel.BeginInteractiveChange();
+        }
+        else
+        {
+            ViewModel.CommitInteractiveChange("Frame range updated");
+        }
     }
 
     private void CanvasFitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -373,6 +489,204 @@ public partial class MainWindow : Window
         var result = await TimelineDocumentFileService.SaveAsync(stream, ViewModel.CreateExportDocumentSnapshot(), documentFormat, file.Name);
         ViewModel.SetDocumentLabel(file.Name, result.Format);
         ViewModel.ApplyAnimationExchangeResult($"{result.Summary} → {file.Name}", result.Issues);
+    }
+
+    private async void OpenFlashXflFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await OpenFlashXflFolderAsync();
+    }
+
+    private async Task OpenFlashXflFolderAsync()
+    {
+        if (ViewModel is null || !StorageProvider.CanPickFolder)
+        {
+            return;
+        }
+
+        var result = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Open Flash XFL folder",
+            AllowMultiple = false
+        });
+
+        var folder = result.FirstOrDefault();
+        var folderPath = folder?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            ViewModel.StatusMessage = "Opening Flash XFL folders requires a local folder.";
+            return;
+        }
+
+        try
+        {
+            var loaded = await TimelineDocumentFileService.LoadFlashFolderAsync(folderPath);
+            ViewModel.LoadDocument(loaded.Document, Path.GetFileName(folderPath), loaded.Format);
+            ViewModel.ApplyAnimationExchangeResult($"{loaded.Summary} → {Path.GetFileName(folderPath)}", loaded.Issues);
+            SceneCanvas.ResetViewport();
+        }
+        catch (Exception exception)
+        {
+            ViewModel.StatusMessage = $"Open XFL folder failed: {exception.Message}";
+        }
+    }
+
+    private async void SaveFlashXflFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await SaveFlashXflFolderAsync();
+    }
+
+    private async Task SaveFlashXflFolderAsync()
+    {
+        if (ViewModel is null || !StorageProvider.CanPickFolder)
+        {
+            return;
+        }
+
+        var result = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose parent folder for Flash XFL export",
+            AllowMultiple = false
+        });
+
+        var folder = result.FirstOrDefault();
+        var folderPath = folder?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            ViewModel.StatusMessage = "Saving Flash XFL folders requires a local parent folder.";
+            return;
+        }
+
+        try
+        {
+            var saved = await TimelineDocumentFileService.SaveFlashFolderAsync(folderPath, ViewModel.CreateExportDocumentSnapshot());
+            ViewModel.ApplyAnimationExchangeResult(saved.Summary, saved.Issues);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.StatusMessage = $"Save XFL folder failed: {exception.Message}";
+        }
+    }
+
+    private async void ConvertFlashFlaToXflFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await ConvertFlashFlaToXflFolderAsync();
+    }
+
+    private async Task ConvertFlashFlaToXflFolderAsync()
+    {
+        if (ViewModel is null || !StorageProvider.CanOpen || !StorageProvider.CanPickFolder)
+        {
+            return;
+        }
+
+        var flashType = new FilePickerFileType("Flash Authoring Archive")
+        {
+            Patterns = ["*.fla"],
+            MimeTypes = ["application/octet-stream", "application/zip"]
+        };
+
+        var sourceResult = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Choose Flash FLA archive",
+            AllowMultiple = false,
+            FileTypeFilter = [flashType],
+            SuggestedFileType = flashType
+        });
+
+        var sourceFile = sourceResult.FirstOrDefault();
+        if (sourceFile is null)
+        {
+            return;
+        }
+
+        var folderResult = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose output parent folder for XFL conversion",
+            AllowMultiple = false
+        });
+
+        var parentFolder = folderResult.FirstOrDefault();
+        var parentFolderPath = parentFolder?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(parentFolderPath))
+        {
+            ViewModel.StatusMessage = "Converting to XFL requires a local output folder.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = await sourceFile.OpenReadAsync();
+            var conversion = await TimelineDocumentFileService.ConvertFlashArchiveToFolderAsync(stream, sourceFile.Name, parentFolderPath);
+            ViewModel.ApplyAnimationExchangeResult(conversion.Summary, conversion.Issues);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.StatusMessage = $"Convert FLA to XFL failed: {exception.Message}";
+        }
+    }
+
+    private async void ConvertFlashXflFolderToFlaClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await ConvertFlashXflFolderToFlaAsync();
+    }
+
+    private async Task ConvertFlashXflFolderToFlaAsync()
+    {
+        if (ViewModel is null || !StorageProvider.CanPickFolder || !StorageProvider.CanSave)
+        {
+            return;
+        }
+
+        var folderResult = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose Flash XFL folder",
+            AllowMultiple = false
+        });
+
+        var folder = folderResult.FirstOrDefault();
+        var folderPath = folder?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            ViewModel.StatusMessage = "Converting XFL to FLA requires a local source folder.";
+            return;
+        }
+
+        var flashFileType = new FilePickerFileType("Flash Authoring Archive")
+        {
+            Patterns = ["*.fla"],
+            MimeTypes = ["application/octet-stream", "application/zip"]
+        };
+
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Flash FLA archive",
+            SuggestedFileName = $"{Path.GetFileNameWithoutExtension(folderPath)}.fla",
+            DefaultExtension = "fla",
+            FileTypeChoices = [flashFileType],
+            SuggestedFileType = flashFileType,
+            ShowOverwritePrompt = true
+        });
+
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var stream = await file.OpenWriteAsync();
+            if (stream.CanSeek)
+            {
+                stream.SetLength(0);
+            }
+
+            var conversion = await TimelineDocumentFileService.ConvertFlashFolderToArchiveAsync(folderPath, stream, file.Name);
+            ViewModel.ApplyAnimationExchangeResult($"{conversion.Summary} → {file.Name}", conversion.Issues);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.StatusMessage = $"Convert XFL to FLA failed: {exception.Message}";
+        }
     }
 
     private async void ExportFrameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

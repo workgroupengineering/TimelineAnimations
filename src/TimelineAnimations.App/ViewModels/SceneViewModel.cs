@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -45,13 +44,11 @@ public partial class SceneViewModel : ViewModelBase
 
     private static IBrush BuildPreviewBrush(SceneModel model)
     {
-        return new ImmutableLinearGradientBrush(
-            [
-                new ImmutableGradientStop(0, ColorHelpers.Parse(model.BackgroundFrom, "#09111F")),
-                new ImmutableGradientStop(1, ColorHelpers.Parse(model.BackgroundTo, "#182748"))
-            ],
-            opacity: 1d,
-            startPoint: new RelativePoint(0, 0, RelativeUnit.Relative),
-            endPoint: new RelativePoint(1, 1, RelativeUnit.Relative));
+        if (model.TransparentStageBackground)
+        {
+            return new ImmutableSolidColorBrush(Color.FromArgb(180, 185, 190, 199));
+        }
+
+        return new ImmutableSolidColorBrush(ColorHelpers.Parse(model.BackgroundFrom, "#FFFFFF"));
     }
 }

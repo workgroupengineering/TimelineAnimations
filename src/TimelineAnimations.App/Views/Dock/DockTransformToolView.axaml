@@ -1,0 +1,207 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockTransformToolView"
+             x:DataType="vm:DockTransformToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Transform" />
+          <TextBlock Classes="section-title"
+                     Text="Bounds and positioning" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectionHeadline}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel"
+              IsEnabled="{Binding CanEditSelection}">
+        <StackPanel Spacing="10">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="micro-label"
+                       Text="Name" />
+            <TextBox Text="{Binding LayerNameEditor, Mode=TwoWay}" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10"
+                RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="X" />
+              <TextBox Text="{Binding InspectorX, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Y" />
+              <TextBox Text="{Binding InspectorY, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Width" />
+              <TextBox Text="{Binding InspectorWidth, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1"
+                        Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Height" />
+              <TextBox Text="{Binding InspectorHeight, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="2"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Scale X" />
+              <TextBox Text="{Binding InspectorScaleX, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="2"
+                        Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Scale Y" />
+              <TextBox Text="{Binding InspectorScaleY, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="3"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Skew X" />
+              <TextBox Text="{Binding InspectorSkewX, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="3"
+                        Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Skew Y" />
+              <TextBox Text="{Binding InspectorSkewY, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="4"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Rotation" />
+              <TextBox Text="{Binding InspectorRotation, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="4"
+                        Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Rotation X" />
+              <TextBox Text="{Binding InspectorRotationX, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="5"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Rotation Y" />
+              <TextBox Text="{Binding InspectorRotationY, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="5"
+                        Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Z depth" />
+              <TextBox Text="{Binding InspectorZDepth, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="6"
+                        Grid.Column="1"
+                        Spacing="6"
+                        IsVisible="{Binding SelectedLayerSupportsCornerRadius}">
+              <TextBlock Classes="micro-label"
+                         Text="Corner radius" />
+              <TextBox Text="{Binding InspectorCornerRadius, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="10">
+              <TextBlock Classes="micro-label"
+                         Text="Opacity" />
+              <TextBlock Grid.Column="1"
+                         Classes="micro-label"
+                         Text="{Binding InspectorOpacity, StringFormat='{}{0:0.00}'}" />
+            </Grid>
+            <Slider Minimum="0"
+                    Maximum="1"
+                    Value="{Binding InspectorOpacity, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsVisible="{Binding CanEditTransformParenting}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Transform Parenting" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding TransformParentingSummary}"
+                     TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,Auto"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Parent layer" />
+              <ComboBox ItemsSource="{Binding AvailableTransformParentLayers}"
+                        SelectedItem="{Binding SelectedTransformParentLayer, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="appVm:LayerViewModel">
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+            <Button Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Content="Clear"
+                    Command="{Binding ClearTransformParentCommand}"
+                    IsEnabled="{Binding HasTransformParent}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsVisible="{Binding CanEditWarpRigging}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Warp and Rig" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding WarpRigSummary}"
+                     TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <CheckBox Content="Enable warp"
+                      IsChecked="{Binding WarpEnabledEditor, Mode=TwoWay}" />
+            <CheckBox Grid.Column="1"
+                      Content="Enable rig"
+                      IsChecked="{Binding RigEnabledEditor, Mode=TwoWay}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsEnabled="{Binding CanEditSelection}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Authoring Metadata" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding LayerAuthoringSummary}"
+                     TextWrapping="Wrap" />
+          <CheckBox Content="Show as outline"
+                    IsChecked="{Binding LayerOutlineEditor, Mode=TwoWay}" />
+          <StackPanel Spacing="6">
+            <TextBlock Classes="micro-label"
+                       Text="Outline color" />
+            <controls:ColorPropertyEditorControl Value="{Binding LayerOutlineColorEditor, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

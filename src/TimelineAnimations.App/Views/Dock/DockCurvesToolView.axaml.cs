@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using TimelineAnimations.App.Controls;
+using TimelineAnimations.App.Models;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.App.ViewModels.Dock;
 
@@ -17,12 +18,15 @@ public partial class DockCurvesToolView : UserControl
 
     private void HookInteractions()
     {
-        TimelineEditor.ScrubRequested += HandleTimelineScrubRequested;
-        TimelineEditor.TrackSelectionRequested += HandleTrackSelectionRequested;
-        TimelineEditor.KeyframeSelectionRequested += HandleKeyframeSelectionRequested;
-        TimelineEditor.KeyframeMoveRequested += HandleKeyframeMoveRequested;
-        TimelineEditor.KeyframeAddRequested += HandleKeyframeAddRequested;
-        TimelineEditor.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
+        TimelineEditorHeader.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorBody.ScrubRequested += HandleTimelineScrubRequested;
+        TimelineEditorBody.LayerSelectionRequested += HandleTimelineLayerSelectionRequested;
+        TimelineEditorBody.TrackSelectionRequested += HandleTrackSelectionRequested;
+        TimelineEditorBody.HierarchyToggleRequested += HandleTimelineHierarchyToggleRequested;
+        TimelineEditorBody.KeyframeSelectionRequested += HandleKeyframeSelectionRequested;
+        TimelineEditorBody.KeyframeMoveRequested += HandleKeyframeMoveRequested;
+        TimelineEditorBody.KeyframeAddRequested += HandleKeyframeAddRequested;
+        TimelineEditorBody.KeyframeInteractionStateChanged += HandleTimelineInteractionStateChanged;
     }
 
     private void HandleTimelineScrubRequested(object? sender, TimelineScrubRequestedEventArgs e)
@@ -33,6 +37,16 @@ public partial class DockCurvesToolView : UserControl
     private void HandleTrackSelectionRequested(object? sender, TimelineTrackSelectionRequestedEventArgs e)
     {
         ViewModel?.SelectTrack(e.LayerId, e.Property);
+    }
+
+    private void HandleTimelineLayerSelectionRequested(object? sender, TimelineLayerSelectionRequestedEventArgs e)
+    {
+        ViewModel?.SelectLayer(e.LayerId);
+    }
+
+    private void HandleTimelineHierarchyToggleRequested(object? sender, TimelineHierarchyToggleRequestedEventArgs e)
+    {
+        ViewModel?.ToggleTimelineHierarchy(e.LayerId);
     }
 
     private void HandleKeyframeSelectionRequested(object? sender, TimelineKeyframeSelectionRequestedEventArgs e)
@@ -59,7 +73,7 @@ public partial class DockCurvesToolView : UserControl
 
         if (e.IsActive)
         {
-            ViewModel.BeginInteractiveChange();
+            ViewModel.BeginInteractiveChange(InteractiveChangeKind.KeyframeDrag);
         }
         else
         {

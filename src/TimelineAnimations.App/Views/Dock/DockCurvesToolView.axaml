@@ -1,107 +1,120 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
              xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
              x:Class="TimelineAnimations.App.Views.Dock.DockCurvesToolView"
              x:DataType="vm:DockCurvesToolViewModel">
-  <Grid RowDefinitions="Auto,Auto,*"
+  <Grid RowDefinitions="Auto,*"
         RowSpacing="4">
     <Border Classes="chrome-group"
             Padding="4,3">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,160,*,180"
-            ColumnSpacing="6">
-        <Button Classes="timeline-action accent"
-                Content="Play"
-                Command="{Binding Host.TogglePlaybackCommand}" />
-        <Button Grid.Column="1"
-                Classes="timeline-action"
-                Content="Stop"
-                Command="{Binding Host.StopPlaybackCommand}"
-                IsEnabled="{Binding Host.CanStopPlayback}" />
-        <Button Grid.Column="2"
-                Classes="timeline-action"
-                Content="+ Key"
-                Command="{Binding Host.AddCurrentKeyframeCommand}"
-                IsEnabled="{Binding Host.CanEditPropertyTracks}" />
-        <Button Grid.Column="3"
-                Classes="timeline-action warm"
-                Content="- Key"
-                Command="{Binding Host.DeleteCurrentKeyframeCommand}"
-                IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}" />
-        <ToggleButton Grid.Column="4"
-                      Classes="timeline-action"
-                      Content="Auto"
-                      IsChecked="{Binding Host.AutoKey, Mode=TwoWay}" />
-        <ComboBox Grid.Column="5"
-                  Classes="inspector-field"
-                  ItemsSource="{Binding Host.AvailableEasings}"
-                  SelectedItem="{Binding Host.SelectedKeyframeEasing, Mode=TwoWay}"
-                  IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}" />
-        <StackPanel Grid.Column="6"
-                    Orientation="Horizontal"
-                    Spacing="6">
-          <Border Classes="metric-chip compact">
-            <TextBlock Classes="strong-label"
-                       Text="{Binding Host.SelectedProperty}" />
-          </Border>
-          <Border Classes="metric-chip">
-            <TextBlock Classes="micro-label"
-                       Text="{Binding Host.SelectedKeyframeSummary}"
-                       TextTrimming="CharacterEllipsis" />
-          </Border>
-        </StackPanel>
-        <Slider Grid.Column="7"
-                Classes="timeline-slider"
-                Minimum="10"
-                Maximum="160"
-                Value="{Binding Host.TimelineZoom, Mode=TwoWay}" />
-      </Grid>
-    </Border>
-
-    <Border Grid.Row="1"
-            Classes="panel-soft">
-      <StackPanel Spacing="8">
-        <Grid ColumnDefinitions="*,*,Auto,Auto"
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="*,180"
               ColumnSpacing="8">
-          <Border Classes="metric-chip">
-            <StackPanel Spacing="1">
-              <TextBlock Classes="eyebrow"
-                         Text="Keyframe" />
+          <WrapPanel>
+            <Button Classes="timeline-action accent"
+                    Command="{Binding Host.TogglePlaybackCommand}"
+                    ToolTip.Tip="Play or pause curve playback">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.Play20Regular}" />
+                <TextBlock Text="Play" />
+              </StackPanel>
+            </Button>
+            <Button Classes="timeline-action"
+                    Command="{Binding Host.StopPlaybackCommand}"
+                    IsEnabled="{Binding Host.CanStopPlayback}"
+                    ToolTip.Tip="Stop curve playback">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.Stop20Regular}" />
+                <TextBlock Text="Stop" />
+              </StackPanel>
+            </Button>
+            <Button Classes="timeline-action"
+                    Content="+ Key"
+                    Command="{Binding Host.AddCurrentKeyframeCommand}"
+                    IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+            <Button Classes="timeline-action warm"
+                    Content="- Key"
+                    Command="{Binding Host.DeleteCurrentKeyframeCommand}"
+                    IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}" />
+            <ToggleButton Classes="timeline-action"
+                          Content="Auto"
+                          IsChecked="{Binding Host.AutoKey, Mode=TwoWay}" />
+            <ComboBox Width="172"
+                      Classes="inspector-field"
+                      ItemsSource="{Binding Host.AvailableEasings}"
+                      SelectedItem="{Binding Host.SelectedKeyframeEasing, Mode=TwoWay}"
+                      IsEnabled="{Binding Host.CanDeleteSelectedKeyframe}" />
+            <Border Classes="metric-chip compact">
               <TextBlock Classes="strong-label"
-                         Text="{Binding Host.SelectedKeyframeSummary}" />
-            </StackPanel>
-          </Border>
+                         Text="{Binding Host.SelectedProperty}" />
+            </Border>
+            <Border Classes="metric-chip compact">
+              <TextBlock Classes="micro-label"
+                         Text="{Binding Host.SelectedKeyframeSummary}"
+                         TextTrimming="CharacterEllipsis" />
+            </Border>
+          </WrapPanel>
 
-          <Border Grid.Column="1"
-                  Classes="metric-chip">
-            <StackPanel Spacing="1">
-              <TextBlock Classes="eyebrow"
-                         Text="Shape tween" />
-              <TextBlock Classes="strong-label"
-                         Text="{Binding Host.ShapeTweenSummary}" />
-            </StackPanel>
-          </Border>
+          <StackPanel Grid.Column="1"
+                      Spacing="2">
+            <TextBlock Classes="eyebrow"
+                       HorizontalAlignment="Right"
+                       Text="Curve zoom" />
+            <Slider Classes="timeline-slider"
+                    Minimum="10"
+                    Maximum="160"
+                    Value="{Binding Host.TimelineZoom, Mode=TwoWay}" />
+          </StackPanel>
+        </Grid>
 
-          <Button Grid.Column="2"
-                  Content="Capture Morph"
+        <WrapPanel>
+          <ComboBox Width="220"
+                    ItemsSource="{Binding Host.MotionPresets}"
+                    SelectedItem="{Binding Host.SelectedMotionPreset, Mode=TwoWay}"
+                    IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+          <Button Classes="timeline-action"
+                  Content="Capture"
+                  Command="{Binding Host.CaptureMotionPresetCommand}"
+                  IsEnabled="{Binding Host.CanCaptureMotionPreset}" />
+          <Button Classes="timeline-action"
+                  Content="Apply"
+                  Command="{Binding Host.ApplySelectedMotionPresetCommand}"
+                  IsEnabled="{Binding Host.CanApplySelectedMotionPreset}" />
+          <Button Classes="timeline-action warm"
+                  Content="Delete"
+                  Command="{Binding Host.DeleteSelectedMotionPresetCommand}"
+                  IsEnabled="{Binding Host.CanDeleteSelectedMotionPreset}" />
+          <Button Content="Capture Morph"
                   Command="{Binding Host.CaptureShapeKeyframeCommand}"
                   IsEnabled="{Binding Host.CanCaptureShapeKeyframe}"
                   IsVisible="{Binding Host.SelectedLayerIsPath}" />
-
-          <Button Grid.Column="3"
-                  Content="Delete Morph"
+          <Button Content="Delete Morph"
                   Classes="warm"
                   Command="{Binding Host.DeleteCurrentShapeKeyframeCommand}"
                   IsEnabled="{Binding Host.CanDeleteCurrentShapeKeyframe}"
                   IsVisible="{Binding Host.SelectedLayerIsPath}" />
-        </Grid>
+          <Border Classes="metric-chip compact">
+            <TextBlock Classes="micro-label"
+                       Text="{Binding Host.MotionPresetSummary}"
+                       TextTrimming="CharacterEllipsis" />
+          </Border>
+          <Border Classes="metric-chip compact">
+            <TextBlock Classes="micro-label"
+                       Text="{Binding Host.ShapeTweenSummary}"
+                       TextTrimming="CharacterEllipsis" />
+          </Border>
+        </WrapPanel>
 
         <Border Classes="panel-soft"
                 IsVisible="{Binding Host.HasSelectedCustomEasing}">
-          <StackPanel Spacing="10">
+          <StackPanel Spacing="8">
             <TextBlock Classes="eyebrow"
                        Text="Custom Curve" />
-            <controls:EasingCurveEditorControl Height="200"
+            <controls:EasingCurveEditorControl Height="168"
                                               ControlPoint1X="{Binding Host.CustomEaseControl1X, Mode=TwoWay}"
                                               ControlPoint1Y="{Binding Host.CustomEaseControl1Y, Mode=TwoWay}"
                                               ControlPoint2X="{Binding Host.CustomEaseControl2X, Mode=TwoWay}"
@@ -137,25 +150,43 @@
             </Grid>
           </StackPanel>
         </Border>
-
-        <TextBlock Classes="micro-label"
-                   Text="Canvas edits and inspector changes update the current playhead. Away from zero or with auto-key enabled, the editor writes keyframes automatically."
-                   TextWrapping="Wrap" />
       </StackPanel>
     </Border>
 
-    <ScrollViewer Grid.Row="2"
+    <ScrollViewer Grid.Row="1"
                   HorizontalScrollBarVisibility="Auto"
-                  VerticalScrollBarVisibility="Auto">
-      <controls:TimelineEditorControl x:Name="TimelineEditor"
-                                      Width="{Binding Host.TimelineSurfaceWidth}"
-                                      Height="{Binding Host.TimelineSurfaceHeight}"
-                                      Rows="{Binding Host.TimelineRows}"
-                                      CurrentTime="{Binding Host.CurrentTime}"
-                                      Duration="{Binding Host.Duration}"
-                                      SelectedProperty="{Binding Host.SelectedProperty}"
-                                      SelectedKeyframeId="{Binding Host.SelectedKeyframeId}"
-                                      PixelsPerSecond="{Binding Host.TimelineZoom}" />
+                  VerticalScrollBarVisibility="Disabled">
+      <Grid RowDefinitions="Auto,*">
+        <controls:TimelineEditorControl x:Name="TimelineEditorHeader"
+                                        Width="{Binding Host.TimelineSurfaceWidth}"
+                                        Height="52"
+                                        Rows="{Binding Host.TimelineRows}"
+                                        CurrentTime="{Binding Host.CurrentTime}"
+                                        Duration="{Binding Host.Duration}"
+                                        FrameRate="{Binding Host.SceneFrameRate}"
+                                        SelectedProperty="{Binding Host.SelectedProperty}"
+                                        SelectedKeyframeId="{Binding Host.SelectedKeyframeId}"
+                                        PixelsPerSecond="{Binding Host.TimelineZoom}"
+                                        ShowHeader="True"
+                                        ShowBody="False" />
+
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <controls:TimelineEditorControl x:Name="TimelineEditorBody"
+                                          Width="{Binding Host.TimelineSurfaceWidth}"
+                                          Height="{Binding Host.TimelineSurfaceBodyHeight}"
+                                          Rows="{Binding Host.TimelineRows}"
+                                          CurrentTime="{Binding Host.CurrentTime}"
+                                          Duration="{Binding Host.Duration}"
+                                          FrameRate="{Binding Host.SceneFrameRate}"
+                                          SelectedProperty="{Binding Host.SelectedProperty}"
+                                          SelectedKeyframeId="{Binding Host.SelectedKeyframeId}"
+                                          PixelsPerSecond="{Binding Host.TimelineZoom}"
+                                          ShowHeader="False"
+                                          ShowBody="True" />
+        </ScrollViewer>
+      </Grid>
     </ScrollViewer>
   </Grid>
 </UserControl>

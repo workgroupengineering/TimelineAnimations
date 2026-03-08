@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockMotionPresetsToolView"
+             x:DataType="vm:DockMotionPresetsToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Motion Presets" />
+          <TextBlock Classes="section-title"
+                     Text="Capture and reuse animation moves" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding MotionPresetSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="micro-label"
+                       Text="Preset" />
+            <ComboBox ItemsSource="{Binding MotionPresets}"
+                      SelectedItem="{Binding SelectedMotionPreset, Mode=TwoWay}" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Name" />
+              <TextBox Text="{Binding MotionPresetNameEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Description" />
+              <TextBox Text="{Binding MotionPresetDescriptionEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="*,*,*"
+                ColumnSpacing="10">
+            <Button Content="Capture"
+                    Command="{Binding CaptureMotionPresetCommand}"
+                    IsEnabled="{Binding CanCaptureMotionPreset}" />
+            <Button Grid.Column="1"
+                    Content="Apply"
+                    Command="{Binding ApplySelectedMotionPresetCommand}"
+                    IsEnabled="{Binding CanApplySelectedMotionPreset}" />
+            <Button Grid.Column="2"
+                    Content="Delete"
+                    Classes="warm"
+                    Command="{Binding DeleteSelectedMotionPresetCommand}"
+                    IsEnabled="{Binding CanDeleteSelectedMotionPreset}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Keyframe Easing" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedKeyframeSummary}"
+                     TextWrapping="Wrap" />
+          <ComboBox ItemsSource="{Binding AvailableEasings}"
+                    SelectedItem="{Binding SelectedKeyframeEasing, Mode=TwoWay}"
+                    IsEnabled="{Binding CanDeleteSelectedKeyframe}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

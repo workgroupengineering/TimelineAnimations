@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             x:Class="TimelineAnimations.App.Controls.TimelineStatChipControl"
+             x:DataType="controls:TimelineStatChipControl">
+  <Border Classes="metric-chip compact timeline-stat-chip"
+          MinWidth="{Binding MinChipWidth}">
+    <StackPanel Spacing="1">
+      <TextBlock Classes="eyebrow"
+                 Text="{Binding Title}" />
+      <Grid ColumnDefinitions="Auto,*"
+            ColumnSpacing="6">
+        <TextBlock Classes="strong-label"
+                   Text="{Binding Value}" />
+        <TextBlock Grid.Column="1"
+                   Classes="micro-label"
+                   VerticalAlignment="Center"
+                   Text="{Binding Summary}"
+                   TextTrimming="CharacterEllipsis" />
+      </Grid>
+    </StackPanel>
+  </Border>
+</UserControl>

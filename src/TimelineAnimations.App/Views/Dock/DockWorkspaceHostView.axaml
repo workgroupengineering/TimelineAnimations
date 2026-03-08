@@ -1,81 +1,230 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:dockControls="using:Dock.Avalonia.Controls"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
              xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
              x:Class="TimelineAnimations.App.Views.Dock.DockWorkspaceHostView"
              x:DataType="vm:DockWorkspaceHostViewModel">
-  <Grid ColumnDefinitions="64,*"
+  <Grid ColumnDefinitions="58,*"
         ColumnSpacing="4">
     <Border Classes="panel tool-rail-shell">
-        <Grid RowDefinitions="Auto,*,Auto"
+        <Grid RowDefinitions="*,Auto"
               RowSpacing="6">
-          <StackPanel Spacing="4">
-            <ToggleButton x:Name="DockSelectToolButton"
-                          Classes="tool-rail-button"
-                          Content="Sel"
-                          IsChecked="{Binding Host.IsSelectToolActive, Mode=OneWay}"
-                          Command="{Binding Host.SelectDrawingToolCommand}"
-                          CommandParameter="Select"
-                          ToolTip.Tip="Selection tool" />
-            <ToggleButton Classes="tool-rail-button"
-                          Content="Rect"
-                          IsChecked="{Binding Host.IsRectangleToolActive, Mode=OneWay}"
-                          Command="{Binding Host.SelectDrawingToolCommand}"
-                          CommandParameter="Rectangle"
-                          ToolTip.Tip="Rectangle tool" />
-            <ToggleButton Classes="tool-rail-button"
-                          Content="Oval"
-                          IsChecked="{Binding Host.IsEllipseToolActive, Mode=OneWay}"
-                          Command="{Binding Host.SelectDrawingToolCommand}"
-                          CommandParameter="Ellipse"
-                          ToolTip.Tip="Ellipse tool" />
-            <ToggleButton Classes="tool-rail-button"
-                          Content="Text"
-                          IsChecked="{Binding Host.IsTextToolActive, Mode=OneWay}"
-                          Command="{Binding Host.SelectDrawingToolCommand}"
-                          CommandParameter="Text"
-                          ToolTip.Tip="Text tool" />
-            <ToggleButton Classes="tool-rail-button"
-                          Content="Line"
-                          IsChecked="{Binding Host.IsLineToolActive, Mode=OneWay}"
-                          Command="{Binding Host.SelectDrawingToolCommand}"
-                          CommandParameter="Line"
-                          ToolTip.Tip="Line tool" />
-            <ToggleButton Classes="tool-rail-button"
-                          Content="Pen"
-                          IsChecked="{Binding Host.IsPenToolActive, Mode=OneWay}"
-                          Command="{Binding Host.SelectDrawingToolCommand}"
-                          CommandParameter="Pen"
-                          ToolTip.Tip="Pen tool" />
-            <ToggleButton Classes="tool-rail-button"
-                          Content="Brush"
-                          IsChecked="{Binding Host.IsBrushToolActive, Mode=OneWay}"
-                          Command="{Binding Host.SelectDrawingToolCommand}"
-                          CommandParameter="Brush"
-                          ToolTip.Tip="Brush tool" />
-          </StackPanel>
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="6">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="tool-rail-section"
+                           Text="Select" />
+                <ToggleButton x:Name="DockSelectToolButton"
+                              Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsSelectToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Select"
+                              ToolTip.Tip="Selection tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Cursor20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsSubselectToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Subselect"
+                              ToolTip.Tip="Subselection tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.CursorClick20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsLassoToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Lasso"
+                              ToolTip.Tip="Lasso tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Lasso20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsHandToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Hand"
+                              ToolTip.Tip="Hand tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.HandLeft20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsZoomToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Zoom"
+                              ToolTip.Tip="Zoom tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.ZoomIn20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsRotateViewToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="RotateView"
+                              ToolTip.Tip="Rotate view tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.ArrowClockwise20Regular}" />
+                </ToggleButton>
+              </StackPanel>
 
-          <Border Grid.Row="1"
-                  Classes="workspace-summary-chip compact"
-                  Margin="0,4,0,4">
-            <StackPanel Spacing="2">
-              <TextBlock Classes="eyebrow"
-                         Text="Mode" />
-              <TextBlock Classes="micro-label"
-                         Text="{Binding Host.ToolModeLabel}"
-                         TextWrapping="Wrap" />
+              <Border Classes="tool-rail-divider" />
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="tool-rail-section"
+                           Text="Draw" />
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsRectangleToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Rectangle"
+                              ToolTip.Tip="Rectangle tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.RectangleLandscape20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsEllipseToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Ellipse"
+                              ToolTip.Tip="Ellipse tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Circle20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsPolyStarToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="PolyStar"
+                              ToolTip.Tip="PolyStar tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Star20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsTextToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Text"
+                              ToolTip.Tip="Text tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.TextT20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsLineToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Line"
+                              ToolTip.Tip="Line tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Line20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsPenToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Pen"
+                              ToolTip.Tip="Pen tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Edit20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsBrushToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Brush"
+                              ToolTip.Tip="Brush tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.PaintBrush20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsPencilToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Pencil"
+                              ToolTip.Tip="Pencil tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Edit20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsEraserToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Eraser"
+                              ToolTip.Tip="Eraser tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Eraser20Regular}" />
+                </ToggleButton>
+              </StackPanel>
+
+              <Border Classes="tool-rail-divider" />
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="tool-rail-section"
+                           Text="Paint" />
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsEyedropperToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Eyedropper"
+                              ToolTip.Tip="Eyedropper tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Eyedropper20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsPaintBucketToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="PaintBucket"
+                              ToolTip.Tip="Paint bucket tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.PaintBucket20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsInkBottleToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="InkBottle"
+                              ToolTip.Tip="Ink bottle tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Edit20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsWidthToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Width"
+                              ToolTip.Tip="Width tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Resize20Regular}" />
+                </ToggleButton>
+              </StackPanel>
+
+              <Border Classes="tool-rail-divider" />
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="tool-rail-section"
+                           Text="Rig" />
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsWarpToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Warp"
+                              ToolTip.Tip="Warp tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.Resize20Regular}" />
+                </ToggleButton>
+                <ToggleButton Classes="tool-rail-button"
+                              IsChecked="{Binding Host.IsRigToolActive, Mode=OneWay}"
+                              Command="{Binding Host.SelectDrawingToolCommand}"
+                              CommandParameter="Rig"
+                              ToolTip.Tip="Rig tool">
+                  <PathIcon Classes="tool-rail-icon"
+                            Data="{x:Static helpers:FluentIconData.BranchFork20Regular}" />
+                </ToggleButton>
+              </StackPanel>
             </StackPanel>
-          </Border>
+          </ScrollViewer>
 
-          <StackPanel Grid.Row="2"
+          <StackPanel Grid.Row="1"
                       Spacing="4">
             <Button Classes="tool-rail-button"
-                    Content="Play"
-                    Command="{Binding Host.TogglePlaybackCommand}" />
+                    Command="{Binding Host.TogglePlaybackCommand}"
+                    ToolTip.Tip="Play or pause playback">
+              <PathIcon Classes="tool-rail-icon"
+                        Data="{x:Static helpers:FluentIconData.Play20Regular}" />
+            </Button>
             <Button Classes="tool-rail-button"
-                    Content="Stop"
                     Command="{Binding Host.StopPlaybackCommand}"
-                    IsEnabled="{Binding Host.CanStopPlayback}" />
+                    IsEnabled="{Binding Host.CanStopPlayback}"
+                    ToolTip.Tip="Stop playback">
+              <PathIcon Classes="tool-rail-icon"
+                        Data="{x:Static helpers:FluentIconData.Stop20Regular}" />
+            </Button>
           </StackPanel>
         </Grid>
       </Border>

@@ -13,27 +13,52 @@ public static class SymbolRenderService
         double duration,
         double frameRate)
     {
-        var libraryLookup = document.LibraryItems.ToDictionary(item => item.Id);
-        var mediaLookup = document.MediaAssets.ToDictionary(item => item.Id);
-        var samples = new List<RenderableLayerSample>();
         var totalFrames = FrameTimelineService.GetTotalFrames(duration, frameRate);
-        var renderableLayers = LayerHierarchyService.GetRenderableLayers(layers);
+        var libraryLookup = BuildLibraryLookup(document.LibraryItems);
+        var mediaLookup = BuildMediaLookup(document.MediaAssets);
+        return BuildRenderSamples(
+            layers,
+            libraryLookup,
+            mediaLookup,
+            time,
+            frameRate,
+            totalFrames,
+            out _);
+    }
 
-        foreach (var layer in renderableLayers.OrderBy(item => item.ZIndex))
+    public static IReadOnlyList<RenderableLayerSample> BuildRenderSamples(
+        IReadOnlyList<TimelineLayer> layers,
+        IReadOnlyDictionary<Guid, LibraryItem> libraryLookup,
+        IReadOnlyDictionary<Guid, MediaAsset> mediaLookup,
+        double time,
+        double frameRate,
+        int totalFrames,
+        out LayerSnapshot? activeCamera)
+    {
+        var renderableLayers = LayerHierarchyService.GetRenderableLayers(layers);
+        var parentedSnapshots = LayerParentingService.BuildWorldSnapshots(layers, time, frameRate, totalFrames);
+        var samples = new List<RenderableLayerSample>(renderableLayers.Count);
+        var activePath = new HashSet<Guid>();
+
+        for (var index = 0; index < renderableLayers.Count; index++)
         {
             AppendLayerSamples(
                 samples,
-                layer,
+                renderableLayers[index],
                 libraryLookup,
                 mediaLookup,
                 time,
                 frameRate,
                 totalFrames,
+                parentedSnapshots,
                 parentTransform: null,
+                componentBindings: null,
                 depth: 0,
-                activePath: []);
+                activePath);
         }
 
+        samples.Sort(static (left, right) => left.ZIndex.CompareTo(right.ZIndex));
+        activeCamera = ResolveActiveCameraSample(samples);
         return samples;
     }
 
@@ -45,7 +70,9 @@ public static class SymbolRenderService
         double time,
         double frameRate,
         int totalFrames,
+        IReadOnlyDictionary<Guid, LayerSnapshot?> worldSnapshots,
         SymbolTransformContext? parentTransform,
+        IReadOnlyList<ComponentParameterBinding>? componentBindings,
         int depth,
         HashSet<Guid> activePath)
     {
@@ -59,7 +86,11 @@ public static class SymbolRenderService
             return;
         }
 
-        var snapshot = FrameTimelineService.SampleLayer(layer, time, frameRate, totalFrames);
+        if (!worldSnapshots.TryGetValue(layer.Id, out var snapshot) || snapshot is null)
+        {
+            snapshot = FrameTimelineService.SampleLayer(layer, time, frameRate, totalFrames);
+        }
+
         if (snapshot is null)
         {
             return;
@@ -68,6 +99,10 @@ public static class SymbolRenderService
         var transformed = parentTransform is null
             ? snapshot.Value
             : ApplyParentTransform(snapshot.Value, parentTransform.Value);
+        if (componentBindings is not null)
+        {
+            transformed = ComponentParameterService.ApplyToSnapshot(layer.Name, transformed, componentBindings);
+        }
         var sourceMediaAssetId = layer.Media.SourceMediaAssetId;
         double? mediaTime = null;
 
@@ -92,7 +127,9 @@ public static class SymbolRenderService
                 Kind = layer.Kind,
                 ZIndex = layer.ZIndex,
                 Snapshot = transformed,
-                MediaTime = mediaTime
+                MediaTime = mediaTime,
+                Warp = layer.Warp,
+                Rig = layer.Rig
             });
             return;
         }
@@ -108,11 +145,18 @@ public static class SymbolRenderService
             var nestedTime = ResolveNestedTime(layer, libraryItem, time);
             var nestedFrameRate = Math.Max(1, libraryItem.FrameRate);
             var nestedTotalFrames = FrameTimelineService.GetTotalFrames(libraryItem.Duration, nestedFrameRate);
+            var nestedSnapshots = LayerParentingService.BuildWorldSnapshots(nestedLayers, nestedTime, nestedFrameRate, nestedTotalFrames);
             var templateSnapshot = FrameTimelineService.SampleLayer(
-                libraryItem.Template,
-                nestedTime,
-                nestedFrameRate,
-                nestedTotalFrames) ?? TimelineInterpolationService.SampleLayer(libraryItem.Template, nestedTime);
+                                   libraryItem.Template,
+                                   nestedTime,
+                                   nestedFrameRate,
+                                   nestedTotalFrames) ??
+                               TimelineInterpolationService.SampleLayer(libraryItem.Template, nestedTime);
+            var nextComponentBindings = componentBindings;
+            if (libraryItem.IsComponent)
+            {
+                nextComponentBindings = ComponentParameterService.BuildBindings(layer, libraryItem);
+            }
 
             var transform = new SymbolTransformContext(
                 transformed.X,
@@ -124,19 +168,26 @@ public static class SymbolRenderService
                 Math.Max(1, templateSnapshot.Width),
                 Math.Max(1, templateSnapshot.Height),
                 transformed.Opacity,
-                transformed.Rotation);
+                transformed.Rotation,
+                transformed.RotationX,
+                transformed.RotationY,
+                transformed.ZDepth);
 
-            foreach (var nestedLayer in nestedLayers.OrderBy(item => item.ZIndex))
+            var orderedNestedLayers = nestedLayers as List<TimelineLayer> ?? [.. nestedLayers];
+            orderedNestedLayers.Sort(static (left, right) => left.ZIndex.CompareTo(right.ZIndex));
+            for (var index = 0; index < orderedNestedLayers.Count; index++)
             {
                 AppendLayerSamples(
                     samples,
-                    nestedLayer,
+                    orderedNestedLayers[index],
                     libraryLookup,
                     mediaLookup,
                     nestedTime,
                     nestedFrameRate,
                     nestedTotalFrames,
+                    nestedSnapshots,
                     transform,
+                    nextComponentBindings,
                     depth + 1,
                     activePath);
             }
@@ -145,6 +196,19 @@ public static class SymbolRenderService
         {
             activePath.Remove(libraryItemId);
         }
+    }
+
+    private static LayerSnapshot? ResolveActiveCameraSample(IReadOnlyList<RenderableLayerSample> samples)
+    {
+        for (var index = samples.Count - 1; index >= 0; index--)
+        {
+            if (samples[index].Role == LayerCompositeRole.Camera)
+            {
+                return samples[index].Snapshot;
+            }
+        }
+
+        return null;
     }
 
     private static double ResolveNestedTime(TimelineLayer layer, LibraryItem libraryItem, double parentTime)
@@ -174,6 +238,9 @@ public static class SymbolRenderService
             Width = snapshot.Width * scaleX,
             Height = snapshot.Height * scaleY,
             Rotation = snapshot.Rotation + parent.Rotation,
+            RotationX = snapshot.RotationX + parent.RotationX,
+            RotationY = snapshot.RotationY + parent.RotationY,
+            ZDepth = snapshot.ZDepth + parent.ZDepth,
             Opacity = snapshot.Opacity * parent.Opacity
         };
     }
@@ -182,6 +249,40 @@ public static class SymbolRenderService
     {
         var remainder = value % divisor;
         return remainder < 0 ? remainder + divisor : remainder;
+    }
+
+    private static Dictionary<Guid, LibraryItem> BuildLibraryLookup(IReadOnlyList<LibraryItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return [];
+        }
+
+        var lookup = new Dictionary<Guid, LibraryItem>(items.Count);
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            lookup[item.Id] = item;
+        }
+
+        return lookup;
+    }
+
+    private static Dictionary<Guid, MediaAsset> BuildMediaLookup(IReadOnlyList<MediaAsset> items)
+    {
+        if (items.Count == 0)
+        {
+            return [];
+        }
+
+        var lookup = new Dictionary<Guid, MediaAsset>(items.Count);
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            lookup[item.Id] = item;
+        }
+
+        return lookup;
     }
 
     private readonly record struct SymbolTransformContext(
@@ -194,5 +295,8 @@ public static class SymbolRenderService
         double TemplateWidth,
         double TemplateHeight,
         double Opacity,
-        double Rotation);
+        double Rotation,
+        double RotationX,
+        double RotationY,
+        double ZDepth);
 }

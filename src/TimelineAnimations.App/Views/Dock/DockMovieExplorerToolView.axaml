@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockMovieExplorerToolView"
+             x:DataType="vm:DockMovieExplorerToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Movie Explorer" />
+          <TextBlock Classes="section-title"
+                     Text="Document hierarchy and cues" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding MovieExplorerSummary}"
+                     TextWrapping="Wrap" />
+          <TextBox Watermark="Search scenes, layers, markers, symbols, media..."
+                   Text="{Binding MovieExplorerSearchText, Mode=TwoWay}" />
+          <Grid ColumnDefinitions="*,Auto"
+                ColumnSpacing="10">
+            <TextBlock Classes="micro-label"
+                       VerticalAlignment="Center"
+                       Text="{Binding SelectedMovieExplorerSummary}"
+                       TextWrapping="Wrap" />
+            <Button Grid.Column="1"
+                    Command="{Binding FocusMovieExplorerNodeCommand}"
+                    IsEnabled="{Binding CanFocusSelectedMovieExplorerNode}"
+                    ToolTip.Tip="Focus the selected movie explorer item in the editor">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.Target20Regular}" />
+                <TextBlock Text="Focus" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <TreeView x:Name="MovieExplorerTree"
+                ItemsSource="{Binding MovieExplorerNodes}"
+                SelectedItem="{Binding SelectedMovieExplorerNode, Mode=TwoWay}">
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate x:DataType="appVm:MovieExplorerNodeViewModel"
+                            ItemsSource="{Binding Children}">
+            <Border Classes="layer-row">
+              <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
+                  <TextBlock Classes="strong-label"
+                             Text="{Binding Title}" />
+                  <TextBlock Grid.Column="1"
+                             Classes="micro-label"
+                             Text="{Binding KindLabel}" />
+                </Grid>
+                <TextBlock Classes="micro-label"
+                           Text="{Binding Subtitle}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

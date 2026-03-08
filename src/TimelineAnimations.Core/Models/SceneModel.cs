@@ -14,6 +14,8 @@ public sealed class SceneModel
 
     public double CanvasHeight { get; set; } = 720;
 
+    public bool TransparentStageBackground { get; set; }
+
     public string BackgroundFrom { get; set; } = "#0D1220";
 
     public string BackgroundTo { get; set; } = "#171F3D";

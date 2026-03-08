@@ -44,6 +44,24 @@ public sealed class CanvasDrawingRequestedEventArgs(
     public IReadOnlyList<Point> DocumentPoints { get; } = documentPoints;
 }
 
+public enum CanvasStyleApplicationKind
+{
+    Fill,
+    Stroke
+}
+
+public sealed class CanvasLayerStyleSampleRequestedEventArgs(Guid layerId) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+}
+
+public sealed class CanvasLayerStyleApplyRequestedEventArgs(Guid layerId, CanvasStyleApplicationKind applicationKind) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+
+    public CanvasStyleApplicationKind ApplicationKind { get; } = applicationKind;
+}
+
 public sealed class CanvasPathPointMoveRequestedEventArgs(Guid layerId, int pointIndex, Point documentPoint) : EventArgs
 {
     public Guid LayerId { get; } = layerId;
@@ -51,6 +69,67 @@ public sealed class CanvasPathPointMoveRequestedEventArgs(Guid layerId, int poin
     public int PointIndex { get; } = pointIndex;
 
     public Point DocumentPoint { get; } = documentPoint;
+}
+
+public sealed class CanvasPathPointSelectionRequestedEventArgs(Guid layerId, int pointIndex) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+
+    public int PointIndex { get; } = pointIndex;
+}
+
+public sealed class CanvasPathHandleMoveRequestedEventArgs(Guid layerId, int pointIndex, VectorHandleKind handleKind, Point documentPoint) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+
+    public int PointIndex { get; } = pointIndex;
+
+    public VectorHandleKind HandleKind { get; } = handleKind;
+
+    public Point DocumentPoint { get; } = documentPoint;
+}
+
+public sealed class CanvasPathPointWidthScaleRequestedEventArgs(Guid layerId, int pointIndex, double scale) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+
+    public int PointIndex { get; } = pointIndex;
+
+    public double Scale { get; } = scale;
+}
+
+public sealed class CanvasLassoSelectionRequestedEventArgs(IReadOnlyList<Guid> layerIds) : EventArgs
+{
+    public IReadOnlyList<Guid> LayerIds { get; } = layerIds;
+}
+
+public sealed class CanvasWarpPinMoveRequestedEventArgs(Guid layerId, Guid pinId, Point normalizedPoint) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+
+    public Guid PinId { get; } = pinId;
+
+    public Point NormalizedPoint { get; } = normalizedPoint;
+}
+
+public sealed class CanvasRigBoneMoveRequestedEventArgs(Guid layerId, Guid boneId, RigBoneHandleKind handleKind, Point normalizedPoint) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+
+    public Guid BoneId { get; } = boneId;
+
+    public RigBoneHandleKind HandleKind { get; } = handleKind;
+
+    public Point NormalizedPoint { get; } = normalizedPoint;
+}
+
+public sealed class CanvasLayerEraseRequestedEventArgs(Guid layerId, Point documentPoint, double radius) : EventArgs
+{
+    public Guid LayerId { get; } = layerId;
+
+    public Point DocumentPoint { get; } = documentPoint;
+
+    public double Radius { get; } = radius;
 }
 
 public sealed class CanvasResizeRequestedEventArgs(double width, double height) : EventArgs

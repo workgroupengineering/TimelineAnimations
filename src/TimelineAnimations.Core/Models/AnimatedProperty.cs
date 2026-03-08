@@ -11,5 +11,8 @@ public enum AnimatedProperty
     SkewX,
     SkewY,
     Rotation,
+    RotationX,
+    RotationY,
+    ZDepth,
     Opacity
 }

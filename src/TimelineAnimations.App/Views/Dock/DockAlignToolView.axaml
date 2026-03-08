@@ -1,0 +1,84 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockAlignToolView"
+             x:DataType="vm:DockAlignToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Align" />
+          <TextBlock Classes="section-title"
+                     Text="Stage alignment and stacking" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectionHeadline}"
+                     TextWrapping="Wrap" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedLayerStateLabel}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsEnabled="{Binding CanAlignSelection}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Align to Stage" />
+          <Grid ColumnDefinitions="*,*,*"
+                ColumnSpacing="8"
+                RowDefinitions="Auto,Auto">
+            <Button Content="Left"
+                    Command="{Binding AlignLeftCommand}" />
+            <Button Grid.Column="1"
+                    Content="Center"
+                    Command="{Binding AlignCenterCommand}" />
+            <Button Grid.Column="2"
+                    Content="Right"
+                    Command="{Binding AlignRightCommand}" />
+            <Button Grid.Row="1"
+                    Content="Top"
+                    Command="{Binding AlignTopCommand}" />
+            <Button Grid.Row="1"
+                    Grid.Column="1"
+                    Content="Middle"
+                    Command="{Binding AlignMiddleCommand}" />
+            <Button Grid.Row="1"
+                    Grid.Column="2"
+                    Content="Bottom"
+                    Command="{Binding AlignBottomCommand}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsEnabled="{Binding CanUseSelectionActions}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Arrange" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <Button Content="Bring Forward"
+                    Command="{Binding BringForwardCommand}" />
+            <Button Grid.Column="1"
+                    Content="Send Backward"
+                    Command="{Binding SendBackwardCommand}" />
+          </Grid>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <Button Content="Duplicate"
+                    Command="{Binding DuplicateSelectionCommand}" />
+            <Button Grid.Column="1"
+                    Content="Delete"
+                    Classes="warm"
+                    Command="{Binding DeleteSelectionCommand}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

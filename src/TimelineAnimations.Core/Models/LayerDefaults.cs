@@ -20,5 +20,11 @@ public sealed class LayerDefaults
 
     public double Rotation { get; set; }
 
+    public double RotationX { get; set; }
+
+    public double RotationY { get; set; }
+
+    public double ZDepth { get; set; }
+
     public double Opacity { get; set; } = 1;
 }

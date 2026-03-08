@@ -125,6 +125,18 @@ public static class SceneTimelineService
         scene.WorkAreaEndFrame = normalizedEnd;
     }
 
+    public static void SetWorkAreaStart(SceneModel scene, int frame, int totalFrames)
+    {
+        EnsureTimelineMetadata(scene, totalFrames);
+        scene.WorkAreaStartFrame = Math.Clamp(frame, scene.InFrame, scene.WorkAreaEndFrame);
+    }
+
+    public static void SetWorkAreaEnd(SceneModel scene, int frame, int totalFrames)
+    {
+        EnsureTimelineMetadata(scene, totalFrames);
+        scene.WorkAreaEndFrame = Math.Clamp(frame, scene.WorkAreaStartFrame, scene.OutFrame);
+    }
+
     public static void ClearWorkArea(SceneModel scene, int totalFrames)
     {
         EnsureTimelineMetadata(scene, totalFrames);

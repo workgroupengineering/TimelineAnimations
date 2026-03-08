@@ -12,8 +12,9 @@ public static class BlankProjectFactory
             Duration = 6d,
             CanvasWidth = 1280d,
             CanvasHeight = 720d,
-            BackgroundFrom = "#0D1220",
-            BackgroundTo = "#171F3D",
+            TransparentStageBackground = false,
+            BackgroundFrom = "#FFFFFF",
+            BackgroundTo = "#FFFFFF",
             Layers = [],
             Scenes = [],
             LibraryItems = [],
@@ -21,6 +22,7 @@ public static class BlankProjectFactory
             PublishProfiles = []
         };
 
+        AnimateDocumentProfileService.ApplyTargetDefaults(document, AnimateDocumentType.Html5Canvas);
         SceneEditingService.EnsureScenes(document);
         PublishProfileService.EnsureProfiles(document);
         return document;

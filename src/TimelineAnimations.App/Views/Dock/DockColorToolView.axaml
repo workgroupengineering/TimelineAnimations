@@ -1,0 +1,171 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockColorToolView"
+             x:DataType="vm:DockColorToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Color" />
+          <TextBlock Classes="section-title"
+                     Text="Fill, stroke, gradients, and stage surface" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectionHeadline}"
+                     TextWrapping="Wrap" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding CanvasBackgroundSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsEnabled="{Binding CanEditCanvasProperties}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Stage" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Stage color" />
+              <controls:ColorPropertyEditorControl Value="{Binding BackgroundFrom, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Pasteboard" />
+              <controls:ColorPropertyEditorControl Value="{Binding PasteboardColor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <CheckBox Content="No color"
+                      IsChecked="{Binding TransparentStageBackground, Mode=TwoWay}" />
+            <CheckBox Grid.Column="1"
+                      Content="Match pasteboard to stage"
+                      IsChecked="{Binding MatchPasteboardToStageColor, Mode=TwoWay}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel"
+              IsEnabled="{Binding CanEditStyleSurface}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Selection Colors" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Fill" />
+              <controls:ColorPropertyEditorControl Value="{Binding FillHexEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Stroke" />
+              <controls:ColorPropertyEditorControl Value="{Binding StrokeHexEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <CheckBox Content="Fill"
+                      IsChecked="{Binding FillEnabledEditor, Mode=TwoWay}" />
+            <CheckBox Grid.Column="1"
+                      Content="Stroke"
+                      IsChecked="{Binding StrokeEnabledEditor, Mode=TwoWay}" />
+          </Grid>
+          <StackPanel Spacing="6">
+            <TextBlock Classes="micro-label"
+                       Text="Stroke width" />
+            <TextBox Text="{Binding StrokeThicknessEditor, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsVisible="{Binding FillEnabledEditor}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Gradient" />
+          <CheckBox Content="Use gradient"
+                    IsChecked="{Binding UseGradientEditor, Mode=TwoWay}" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10"
+                IsVisible="{Binding UseGradientEditor}">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Kind" />
+              <ComboBox ItemsSource="{Binding AvailableGradientKinds}"
+                        SelectedItem="{Binding GradientKindEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Angle" />
+              <TextBox Text="{Binding GradientAngleEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10"
+                IsVisible="{Binding UseGradientEditor}">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="From" />
+              <controls:ColorPropertyEditorControl Value="{Binding GradientFromEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="To" />
+              <controls:ColorPropertyEditorControl Value="{Binding GradientToEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsVisible="{Binding CanEditSelection}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Effect Accent Colors" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Tint" />
+              <controls:ColorPropertyEditorControl Value="{Binding LayerTintColorEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Glow" />
+              <controls:ColorPropertyEditorControl Value="{Binding LayerGlowColorEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Shadow" />
+              <controls:ColorPropertyEditorControl Value="{Binding LayerShadowColorEditor, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="6">
+              <TextBlock Classes="micro-label"
+                         Text="Flash tint" />
+              <controls:ColorPropertyEditorControl Value="{Binding LayerFlashTintColorEditor, Mode=TwoWay}" />
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

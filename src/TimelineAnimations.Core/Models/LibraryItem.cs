@@ -36,6 +36,8 @@ public sealed class LibraryItem
 
     public string ComponentDescription { get; set; } = string.Empty;
 
+    public List<ComponentParameterDefinition> ComponentParameters { get; set; } = [];
+
     public bool UseScale9Grid { get; set; }
 
     public double Scale9Left { get; set; } = 16d;

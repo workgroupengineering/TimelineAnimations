@@ -30,6 +30,12 @@ public sealed class TimelineLayer
 
     public bool SnapToGuidePath { get; set; }
 
+    public TransformParentingSettings TransformParenting { get; set; } = new();
+
+    public LayerWarpSettings Warp { get; set; } = new();
+
+    public LayerRigSettings Rig { get; set; } = new();
+
     public bool ShowAsOutline { get; set; }
 
     public string OutlineColor { get; set; } = "#57C9FF";
@@ -55,6 +61,8 @@ public sealed class TimelineLayer
     public LayerCompositeSettings Compositing { get; set; } = new();
 
     public LayerMediaSettings Media { get; set; } = new();
+
+    public List<ComponentParameterOverride> ComponentParameterOverrides { get; set; } = [];
 
     public List<InteractionBehaviorModel> Behaviors { get; set; } = [];
 

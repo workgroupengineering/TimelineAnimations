@@ -158,6 +158,7 @@
                                                                 PreviewText="{Binding AnimationExchangePreviewCode}"
                                                                 PreviewDocument="{Binding AnimationExchangePreviewDocument}"
                                                                 PreviewTime="{Binding CurrentTime}"
+                                                                RenderingEngine="{Binding SelectedRenderingEngine}"
                                                                 PreviewSummary="{Binding AnimationExchangePreviewVisualSummary}" />
               </StackPanel>
             </Border>

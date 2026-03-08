@@ -10,6 +10,8 @@ public sealed class MediaAsset
 
     public string SourceLabel { get; set; } = string.Empty;
 
+    public string PackageRelativePath { get; set; } = string.Empty;
+
     public double Duration { get; set; } = 1d;
 
     public double FrameRate { get; set; } = 12d;

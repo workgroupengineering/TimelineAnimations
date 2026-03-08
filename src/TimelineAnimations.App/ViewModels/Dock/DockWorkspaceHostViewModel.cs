@@ -52,10 +52,10 @@ public partial class DockWorkspaceHostViewModel : ViewModelBase
     private string currentPresetLabel = string.Empty;
 
     public string WorkspaceOrganizerSummary =>
-        $"{CurrentPresetLabel} layout active. Drag any surface tab to split inline, stack tabs, or float monitors and timelines.";
+        $"{CurrentPresetLabel} layout active. The Animate preset keeps stage and timeline dominant; drag any surface tab to split inline, stack tabs, or float secondary panels.";
 
     public string WorkspaceDragHint =>
-        "Stage, source, program, frames, and curves are first-class dockables. Overlay uses Dock auto-hide.";
+        "Stage and timeline are primary authoring surfaces. Source, program, and utility panels remain first-class dockables through tabs, splits, and Dock auto-hide.";
 
     public bool CanRevealAllSurfaces => DockWorkspaceSurfaceIds.All.Any(IsHiddenOrPinned);
 
@@ -71,7 +71,29 @@ public partial class DockWorkspaceHostViewModel : ViewModelBase
 
     public string ProjectSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.ProjectTool);
 
+    public string LibrarySurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.LibraryTool);
+
+    public string ComponentsSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.ComponentsTool);
+
+    public string MovieExplorerSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.MovieExplorerTool);
+
     public string InspectorSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.InspectorTool);
+
+    public string ColorSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.ColorTool);
+
+    public string SwatchesSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.SwatchesTool);
+
+    public string AlignSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.AlignTool);
+
+    public string TransformSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.TransformTool);
+
+    public string InfoSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.InfoTool);
+
+    public string MotionPresetsSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.MotionPresetsTool);
+
+    public string CodeSnippetsSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.CodeSnippetsTool);
+
+    public string HistorySurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.HistoryTool);
 
     public string OutputSurfaceMenuLabel => BuildSurfaceMenuLabel(DockWorkspaceSurfaceIds.OutputTool);
 
@@ -311,9 +333,64 @@ public partial class DockWorkspaceHostViewModel : ViewModelBase
         return IsHidden(dockable) || (Layout is not null && _factory.IsDockablePinned(dockable, Layout));
     }
 
+    public bool IsSurfaceActivelyVisible(string surfaceId)
+    {
+        if (Layout is null)
+        {
+            return false;
+        }
+
+        var dockable = FindSurface(surfaceId);
+        if (dockable is null || IsHidden(dockable) || _factory.IsDockablePinned(dockable, Layout))
+        {
+            return false;
+        }
+
+        IDockable current = dockable;
+        while (current.Owner is IDock ownerDock)
+        {
+            if (ownerDock.ActiveDockable is { } activeDockable &&
+                !ReferenceEquals(activeDockable, current) &&
+                !ContainsDockable(activeDockable, current))
+            {
+                return false;
+            }
+
+            if (ownerDock is not IDockable ownerDockable)
+            {
+                break;
+            }
+
+            current = ownerDockable;
+        }
+
+        return true;
+    }
+
     private bool IsHidden(IDockable dockable)
     {
         return Layout?.HiddenDockables?.Contains(dockable) == true;
+    }
+
+    private static bool ContainsDockable(IDockable candidate, IDockable target)
+    {
+        if (ReferenceEquals(candidate, target))
+        {
+            return true;
+        }
+
+        if (candidate is IDock dock && dock.VisibleDockables is { Count: > 0 } visibleDockables)
+        {
+            foreach (var child in visibleDockables)
+            {
+                if (ContainsDockable(child, target))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private string BuildSurfaceMenuLabel(string surfaceId)
@@ -444,7 +521,18 @@ public partial class DockWorkspaceHostViewModel : ViewModelBase
         OnPropertyChanged(nameof(FramesSurfaceMenuLabel));
         OnPropertyChanged(nameof(CurvesSurfaceMenuLabel));
         OnPropertyChanged(nameof(ProjectSurfaceMenuLabel));
+        OnPropertyChanged(nameof(LibrarySurfaceMenuLabel));
+        OnPropertyChanged(nameof(ComponentsSurfaceMenuLabel));
+        OnPropertyChanged(nameof(MovieExplorerSurfaceMenuLabel));
         OnPropertyChanged(nameof(InspectorSurfaceMenuLabel));
+        OnPropertyChanged(nameof(ColorSurfaceMenuLabel));
+        OnPropertyChanged(nameof(SwatchesSurfaceMenuLabel));
+        OnPropertyChanged(nameof(AlignSurfaceMenuLabel));
+        OnPropertyChanged(nameof(TransformSurfaceMenuLabel));
+        OnPropertyChanged(nameof(InfoSurfaceMenuLabel));
+        OnPropertyChanged(nameof(MotionPresetsSurfaceMenuLabel));
+        OnPropertyChanged(nameof(CodeSnippetsSurfaceMenuLabel));
+        OnPropertyChanged(nameof(HistorySurfaceMenuLabel));
         OnPropertyChanged(nameof(OutputSurfaceMenuLabel));
     }
 }

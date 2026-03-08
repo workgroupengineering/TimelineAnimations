@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockHistoryToolView"
+             x:DataType="vm:DockHistoryToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="History" />
+          <TextBlock Classes="section-title"
+                     Text="Recent editing operations" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding HistoryPanelSummary}"
+                     TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,*,*"
+                ColumnSpacing="10">
+            <Button Content="Undo"
+                    Command="{Binding UndoCommand}"
+                    IsEnabled="{Binding CanUndo}"
+                    ToolTip.Tip="Undo the last authoring action">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.Undo20Regular}" />
+                <TextBlock Text="Undo" />
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="1"
+                    Command="{Binding RedoCommand}"
+                    IsEnabled="{Binding CanRedo}"
+                    ToolTip.Tip="Redo the last undone authoring action">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.Redo20Regular}" />
+                <TextBlock Text="Redo" />
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="2"
+                    Content="Clear"
+                    Classes="warm"
+                    Command="{Binding ClearHistoryEntriesCommand}"
+                    ToolTip.Tip="Clear the visible history list" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <ListBox Classes="dense-list"
+               ItemsSource="{Binding HistoryEntries}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="appVm:HistoryEntryViewModel">
+            <Border Classes="layer-row">
+              <Grid ColumnDefinitions="Auto,*"
+                    ColumnSpacing="10">
+                <TextBlock Classes="eyebrow"
+                           VerticalAlignment="Top"
+                           Text="{Binding TimeLabel}" />
+                <TextBlock Grid.Column="1"
+                           Classes="micro-label"
+                           Text="{Binding Message}"
+                           TextWrapping="Wrap" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

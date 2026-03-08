@@ -17,8 +17,15 @@ public static class TimelineInterpolationService
             SkewX: SampleProperty(layer, AnimatedProperty.SkewX, time),
             SkewY: SampleProperty(layer, AnimatedProperty.SkewY, time),
             Rotation: SampleProperty(layer, AnimatedProperty.Rotation, time),
+            RotationX: SampleProperty(layer, AnimatedProperty.RotationX, time),
+            RotationY: SampleProperty(layer, AnimatedProperty.RotationY, time),
+            ZDepth: SampleProperty(layer, AnimatedProperty.ZDepth, time),
             Opacity: SampleProperty(layer, AnimatedProperty.Opacity, time),
             CornerRadius: layer.Style.CornerRadius,
+            CornerRadiusTopLeft: layer.Style.CornerRadiusTopLeft,
+            CornerRadiusTopRight: layer.Style.CornerRadiusTopRight,
+            CornerRadiusBottomRight: layer.Style.CornerRadiusBottomRight,
+            CornerRadiusBottomLeft: layer.Style.CornerRadiusBottomLeft,
             Fill: layer.Style.Fill,
             Stroke: layer.Style.Stroke,
             Text: layer.Style.Text,
@@ -27,10 +34,17 @@ public static class TimelineInterpolationService
             UseGradient: layer.Style.UseGradient,
             GradientFrom: layer.Style.GradientFrom,
             GradientTo: layer.Style.GradientTo,
+            DrawingMode: layer.Style.DrawingMode,
+            PrimitiveShape: layer.Style.PrimitiveShape,
             IsClosed: shapeGeometry.IsClosed,
+            EllipseStartAngle: layer.Style.EllipseStartAngle,
+            EllipseSweepAngle: layer.Style.EllipseSweepAngle,
             ShowAsOutline: layer.ShowAsOutline,
             OutlineColor: layer.OutlineColor,
             PathPoints: shapeGeometry.PathPoints,
+            PolyStarSides: layer.Style.PolyStarSides,
+            PolyStarInnerRadius: layer.Style.PolyStarInnerRadius,
+            PolyStarIsStar: layer.Style.PolyStarIsStar,
             AvaloniaControl: layer.Style.AvaloniaControl.Clone(),
             Compositing: layer.Compositing.Clone(),
             TextSettings: layer.Style.TextSettings.Clone())
@@ -39,6 +53,10 @@ public static class TimelineInterpolationService
             HasStroke = layer.Style.HasStroke,
             GradientKind = layer.Style.GradientKind,
             GradientAngle = layer.Style.GradientAngle,
+            GradientCenterX = layer.Style.GradientCenterX,
+            GradientCenterY = layer.Style.GradientCenterY,
+            GradientScaleX = layer.Style.GradientScaleX,
+            GradientScaleY = layer.Style.GradientScaleY,
             StrokeCapStyle = layer.Style.StrokeCapStyle,
             StrokeJoinStyle = layer.Style.StrokeJoinStyle,
             StrokeMiterLimit = layer.Style.StrokeMiterLimit
@@ -171,6 +189,9 @@ public static class TimelineInterpolationService
             AnimatedProperty.SkewX => layer.Defaults.SkewX,
             AnimatedProperty.SkewY => layer.Defaults.SkewY,
             AnimatedProperty.Rotation => layer.Defaults.Rotation,
+            AnimatedProperty.RotationX => layer.Defaults.RotationX,
+            AnimatedProperty.RotationY => layer.Defaults.RotationY,
+            AnimatedProperty.ZDepth => layer.Defaults.ZDepth,
             AnimatedProperty.Opacity => layer.Defaults.Opacity,
             _ => throw new ArgumentOutOfRangeException(nameof(property), property, null)
         };
@@ -190,7 +211,13 @@ public static class TimelineInterpolationService
             points.Add(new VectorPointModel
             {
                 X = previous[index].X + ((next[index].X - previous[index].X) * eased),
-                Y = previous[index].Y + ((next[index].Y - previous[index].Y) * eased)
+                Y = previous[index].Y + ((next[index].Y - previous[index].Y) * eased),
+                InHandleX = InterpolateNullable(previous[index].InHandleX, next[index].InHandleX, eased),
+                InHandleY = InterpolateNullable(previous[index].InHandleY, next[index].InHandleY, eased),
+                OutHandleX = InterpolateNullable(previous[index].OutHandleX, next[index].OutHandleX, eased),
+                OutHandleY = InterpolateNullable(previous[index].OutHandleY, next[index].OutHandleY, eased),
+                HandleMode = eased >= 0.5d ? next[index].HandleMode : previous[index].HandleMode,
+                StrokeWidthScale = previous[index].StrokeWidthScale + ((next[index].StrokeWidthScale - previous[index].StrokeWidthScale) * eased)
             });
         }
 
@@ -205,5 +232,25 @@ public static class TimelineInterpolationService
         }
 
         return progress > 0.5d ? next : previous;
+    }
+
+    private static double? InterpolateNullable(double? previous, double? next, double progress)
+    {
+        if (!previous.HasValue && !next.HasValue)
+        {
+            return null;
+        }
+
+        if (!previous.HasValue)
+        {
+            return progress >= 0.5d ? next : null;
+        }
+
+        if (!next.HasValue)
+        {
+            return progress >= 0.5d ? null : previous;
+        }
+
+        return previous.Value + ((next.Value - previous.Value) * progress);
     }
 }

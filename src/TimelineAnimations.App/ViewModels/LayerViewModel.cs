@@ -104,6 +104,30 @@ public partial class LayerViewModel : ViewModelBase
 
     public bool HasLibraryLink => !string.IsNullOrWhiteSpace(LibraryLinkLabel);
 
+    public bool HasShapeAuthoringSummary => !string.IsNullOrWhiteSpace(ShapeAuthoringSummary);
+
+    public string ShapeAuthoringSummary
+    {
+        get
+        {
+            if (CompositeRole != LayerCompositeRole.Normal)
+            {
+                return string.Empty;
+            }
+
+            var style = Model.Style;
+            return style.PrimitiveShape switch
+            {
+                PrimitiveShapeType.Rectangle => $"{style.DrawingMode} rectangle • {style.CornerRadiusTopLeft:0}/{style.CornerRadiusTopRight:0}/{style.CornerRadiusBottomRight:0}/{style.CornerRadiusBottomLeft:0}",
+                PrimitiveShapeType.Ellipse => $"{style.DrawingMode} ellipse • {style.EllipseStartAngle:0}° → {style.EllipseSweepAngle:0}°",
+                PrimitiveShapeType.PolyStar => $"{style.DrawingMode} {(style.PolyStarIsStar ? "star" : "polygon")} • {style.PolyStarSides} sides • inner {style.PolyStarInnerRadius:0.##}",
+                _ when Kind == LayerKind.Path => $"{style.DrawingMode} path",
+                _ when Kind is LayerKind.Rectangle or LayerKind.Ellipse => $"{style.DrawingMode} primitive",
+                _ => string.Empty
+            };
+        }
+    }
+
     public bool IsRenderable => IsStageRenderable && IsVisible && IsFrameVisible;
 
     public bool IsStageRenderable => MediaTimelineService.IsStageRenderable(Model);
@@ -238,6 +262,15 @@ public partial class LayerViewModel : ViewModelBase
     private double rotation;
 
     [ObservableProperty]
+    private double rotationX;
+
+    [ObservableProperty]
+    private double rotationY;
+
+    [ObservableProperty]
+    private double zDepth;
+
+    [ObservableProperty]
     private double opacity;
 
     [ObservableProperty]
@@ -277,6 +310,8 @@ public partial class LayerViewModel : ViewModelBase
         OnPropertyChanged(nameof(RoleLabel));
         OnPropertyChanged(nameof(BlendModeLabel));
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(ShapeAuthoringSummary));
+        OnPropertyChanged(nameof(HasShapeAuthoringSummary));
         OnPropertyChanged(nameof(StateBadge));
         OnPropertyChanged(nameof(HasLibraryLink));
         OnPropertyChanged(nameof(IsStageRenderable));
@@ -296,6 +331,11 @@ public partial class LayerViewModel : ViewModelBase
     public void UpdatePreview(double time)
     {
         var snapshot = TimelineInterpolationService.SampleLayer(Model, time);
+        ApplyPreviewSnapshot(snapshot, true);
+    }
+
+    public void ApplyPreviewSnapshot(LayerSnapshot snapshot, bool isFrameVisible)
+    {
         X = snapshot.X;
         Y = snapshot.Y;
         Width = snapshot.Width;
@@ -305,12 +345,17 @@ public partial class LayerViewModel : ViewModelBase
         SkewX = snapshot.SkewX;
         SkewY = snapshot.SkewY;
         Rotation = snapshot.Rotation;
+        RotationX = snapshot.RotationX;
+        RotationY = snapshot.RotationY;
+        ZDepth = snapshot.ZDepth;
         Opacity = snapshot.Opacity;
         CornerRadius = snapshot.CornerRadius;
         TextContent = snapshot.Text;
         FontSize = snapshot.FontSize;
-        IsFrameVisible = true;
+        IsFrameVisible = isFrameVisible;
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(ShapeAuthoringSummary));
+        OnPropertyChanged(nameof(HasShapeAuthoringSummary));
         OnPropertyChanged(nameof(StateBadge));
         OnPropertyChanged(nameof(HasLibraryLink));
         OnPropertyChanged(nameof(IsRenderable));
@@ -322,43 +367,11 @@ public partial class LayerViewModel : ViewModelBase
         if (snapshot is null)
         {
             var fallback = TimelineInterpolationService.SampleLayer(Model, time);
-            X = fallback.X;
-            Y = fallback.Y;
-            Width = fallback.Width;
-            Height = fallback.Height;
-            ScaleX = fallback.ScaleX;
-            ScaleY = fallback.ScaleY;
-            SkewX = fallback.SkewX;
-            SkewY = fallback.SkewY;
-            Rotation = fallback.Rotation;
-            Opacity = fallback.Opacity;
-            CornerRadius = fallback.CornerRadius;
-            TextContent = fallback.Text;
-            FontSize = fallback.FontSize;
-            IsFrameVisible = false;
-            OnPropertyChanged(nameof(Subtitle));
-            OnPropertyChanged(nameof(IsRenderable));
+            ApplyPreviewSnapshot(fallback, false);
             return;
         }
 
-        X = snapshot.Value.X;
-        Y = snapshot.Value.Y;
-        Width = snapshot.Value.Width;
-        Height = snapshot.Value.Height;
-        ScaleX = snapshot.Value.ScaleX;
-        ScaleY = snapshot.Value.ScaleY;
-        SkewX = snapshot.Value.SkewX;
-        SkewY = snapshot.Value.SkewY;
-        Rotation = snapshot.Value.Rotation;
-        Opacity = snapshot.Value.Opacity;
-        CornerRadius = snapshot.Value.CornerRadius;
-        TextContent = snapshot.Value.Text;
-        FontSize = snapshot.Value.FontSize;
-        IsFrameVisible = true;
-        OnPropertyChanged(nameof(Subtitle));
-        OnPropertyChanged(nameof(StateBadge));
-        OnPropertyChanged(nameof(HasLibraryLink));
-        OnPropertyChanged(nameof(IsRenderable));
+        ApplyPreviewSnapshot(snapshot.Value, true);
     }
 
     public void SetLibraryLink(string? symbolName, SymbolKind? symbolKind)

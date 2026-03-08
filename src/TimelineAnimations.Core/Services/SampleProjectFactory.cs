@@ -24,8 +24,9 @@ public static class SampleProjectFactory
             Duration = 6,
             CanvasWidth = 1280,
             CanvasHeight = 720,
-            BackgroundFrom = "#09111F",
-            BackgroundTo = "#182748",
+            TransparentStageBackground = false,
+            BackgroundFrom = "#12203A",
+            BackgroundTo = "#12203A",
             Layers =
             [
                 heroCard,
@@ -42,6 +43,8 @@ public static class SampleProjectFactory
                 ambientTrack
             ]
         };
+
+        AnimateDocumentProfileService.ApplyTargetDefaults(document, AnimateDocumentType.Html5Canvas);
 
         SeedLibrarySymbol(document, heroCard, "Hero Card Symbol", SymbolKind.Graphic);
         SeedLibrarySymbol(document, orb, "Solar Orb Clip", SymbolKind.MovieClip);
@@ -100,8 +103,8 @@ public static class SampleProjectFactory
         ];
 
         var featureScene = SceneEditingService.DuplicateScene(introScene, "Feature Focus");
-        featureScene.BackgroundFrom = "#120C20";
-        featureScene.BackgroundTo = "#26174A";
+        featureScene.BackgroundFrom = "#1A1532";
+        featureScene.BackgroundTo = "#1A1532";
         featureScene.FrameLabels =
         [
             new FrameLabelModel

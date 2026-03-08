@@ -8,11 +8,13 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TimelineAnimations.App.Controls;
 using TimelineAnimations.App.Services;
 using TimelineAnimations.App.Models;
 using TimelineAnimations.App.ViewModels.Dock;
 using TimelineAnimations.Core.Models;
 using TimelineAnimations.Core.Services;
+using TimelineAnimations.Rendering.Models;
 
 namespace TimelineAnimations.App.ViewModels;
 
@@ -22,15 +24,22 @@ public partial class MainWindowViewModel : ViewModelBase
     private const double MaxCanvasZoomFactor = 8d;
     private const double MinTimelineDockHeight = 300d;
     private const double MaxTimelineDockHeight = 960d;
+    private const int ProgramMonitorPlaybackRefreshIntervalMilliseconds = 125;
+    private const int PlaybackInspectorRefreshIntervalMilliseconds = 66;
+    private const int PlaybackTimelinePreviewRefreshIntervalMilliseconds = 125;
+    private const int PlaybackAudioMeterRefreshIntervalMilliseconds = 100;
     private readonly DispatcherTimer _playbackTimer;
     private readonly Stopwatch _playbackClock = new();
     private TimelineDocument _document = SampleProjectFactory.Create();
     private UndoRedoStack<EditorStateSnapshot>? _history;
     private bool _isApplyingHistory;
     private bool _isInteractiveChange;
+    private InteractiveChangeKind _interactiveChangeKind = InteractiveChangeKind.Generic;
     private bool _suppressSceneSelection;
     private bool _suppressSceneEditor;
     private bool _suppressSceneSurfaceEditor;
+    private bool _suppressFrameSelectionRefresh;
+    private bool _suppressAnimateDocumentEditor;
     private bool _suppressSelectedKeyframeEditor;
     private bool _suppressInspector;
     private bool _suppressCustomEasingEditor;
@@ -41,6 +50,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _suppressPublishProfileEditor;
     private bool _suppressFrameActionScriptEditor;
     private bool _suppressLibraryItemEditor;
+    private bool _suppressComponentParameterEditor;
+    private bool _suppressComponentOverrideEditor;
     private bool _suppressLibraryFilterSelection;
     private bool _suppressWorkspacePreset;
     private bool _isApplyingWorkspaceLayout;
@@ -52,10 +63,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private Guid? _editingSceneLayerId;
     private EditorStateSnapshot? _prototypeSnapshot;
     private readonly Dictionary<string, string> _prototypeVariables = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<Guid> _collapsedTimelineLayers = [];
     private WorkspacePanelMode _leftRestoreMode = WorkspacePanelMode.Docked;
     private WorkspacePanelMode _rightRestoreMode = WorkspacePanelMode.Docked;
     private WorkspacePanelMode _timelineRestoreMode = WorkspacePanelMode.Docked;
     private bool _isNativeMenuExported;
+    private bool _capturePanelHistory;
+    private long _lastProgramMonitorRefreshTick = -1;
+    private long _lastPlaybackInspectorRefreshTick = -1;
+    private long _lastPlaybackTimelinePreviewRefreshTick = -1;
+    private long _lastPlaybackAudioRefreshTick = -1;
 
     public MainWindowViewModel()
     {
@@ -108,12 +125,18 @@ public partial class MainWindowViewModel : ViewModelBase
             CreateAvaloniaPaletteItem(AvaloniaControlKind.Image, "Image", "Image placeholder visual", "#3B445A", "#FFD58C"),
             CreateAvaloniaPaletteItem(AvaloniaControlKind.Panel, "Panel", "Layout surface / visual host", "#1E2D44", "#A8C4FF")
         };
+        SeedColorSwatches();
+        var rendererPreferences = RendererPreferencesPersistenceService.Load();
+        selectedRenderingEngine = rendererPreferences.SelectedEngine;
+        RenderingEngineHostService.SelectedEngine = rendererPreferences.SelectedEngine;
 
         _playbackTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Background, HandlePlaybackTick);
         LoadDocument(SampleProjectFactory.Create(), "Sample Composition");
         RestoreWorkspaceLayout();
         _workspaceLayoutLoaded = true;
         DockWorkspace = new DockWorkspaceHostViewModel(this);
+        _capturePanelHistory = true;
+        AppendHistoryEntry(StatusMessage);
     }
 
     private static PaletteItemViewModel CreateAvaloniaPaletteItem(
@@ -145,13 +168,25 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<LibraryItemViewModel> ComponentItems { get; } = [];
 
+    public ObservableCollection<ComponentParameterDefinitionViewModel> SelectedComponentParameters { get; } = [];
+
+    public ObservableCollection<ComponentParameterOverrideViewModel> SelectedComponentOverrideItems { get; } = [];
+
     public ObservableCollection<MediaAssetViewModel> MediaAssets { get; } = [];
 
     public ObservableCollection<InteractionBehaviorViewModel> Behaviors { get; } = [];
 
+    public ObservableCollection<ActionScriptSnippetViewModel> ActionScriptSnippets { get; } = [];
+
+    public ObservableCollection<MotionPresetViewModel> MotionPresets { get; } = [];
+
+    public ObservableCollection<RigPoseViewModel> RigPoses { get; } = [];
+
     public ObservableCollection<PublishProfileViewModel> PublishProfiles { get; } = [];
 
     public ObservableCollection<PublishValidationIssue> PublishValidationIssues { get; } = [];
+
+    public ObservableCollection<PublishValidationIssue> AnimateDocumentCompatibilityIssues { get; } = [];
 
     public ObservableCollection<PropertyTrackViewModel> Tracks { get; } = [];
 
@@ -175,6 +210,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<AnimationExchangeIssue> AnimationExchangePreviewIssues { get; } = [];
 
+    public ObservableCollection<ColorSwatchViewModel> ColorSwatches { get; } = [];
+
+    public ObservableCollection<HistoryEntryViewModel> HistoryEntries { get; } = [];
+
+    public ObservableCollection<MovieExplorerNodeViewModel> MovieExplorerNodes { get; } = [];
+
     public DockWorkspaceHostViewModel DockWorkspace { get; }
 
     public IReadOnlyList<EasingKind> AvailableEasings { get; } = Enum.GetValues<EasingKind>();
@@ -195,13 +236,27 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public IReadOnlyList<PublishOutputKind> AvailablePublishOutputs { get; } = Enum.GetValues<PublishOutputKind>();
 
+    public IReadOnlyList<AnimateDocumentType> AvailableAnimateDocumentTypes { get; } = Enum.GetValues<AnimateDocumentType>();
+
+    public IReadOnlyList<AnimateDocumentUnits> AvailableAnimateDocumentUnits { get; } = Enum.GetValues<AnimateDocumentUnits>();
+
+    public IReadOnlyList<ComponentParameterKind> AvailableComponentParameterKinds { get; } = Enum.GetValues<ComponentParameterKind>();
+
+    public IReadOnlyList<ComponentParameterBindingTarget> AvailableComponentParameterBindingTargets { get; } = Enum.GetValues<ComponentParameterBindingTarget>();
+
     public IReadOnlyList<LayerCompositeRole> AvailableCompositeRoles { get; } = Enum.GetValues<LayerCompositeRole>();
 
     public IReadOnlyList<LayerBlendMode> AvailableBlendModes { get; } = Enum.GetValues<LayerBlendMode>();
 
     public IReadOnlyList<FlashColorEffectMode> AvailableFlashColorEffectModes { get; } = Enum.GetValues<FlashColorEffectMode>();
 
+    public IReadOnlyList<LayerBevelType> AvailableBevelTypes { get; } = Enum.GetValues<LayerBevelType>();
+
     public IReadOnlyList<LayerGradientKind> AvailableGradientKinds { get; } = Enum.GetValues<LayerGradientKind>();
+
+    public IReadOnlyList<ShapeDrawingMode> AvailableShapeDrawingModes { get; } = Enum.GetValues<ShapeDrawingMode>();
+
+    public IReadOnlyList<VectorHandleMode> AvailableVectorHandleModes { get; } = Enum.GetValues<VectorHandleMode>();
 
     public IReadOnlyList<LayerStrokeCapStyle> AvailableStrokeCapStyles { get; } = Enum.GetValues<LayerStrokeCapStyle>();
 
@@ -227,6 +282,20 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public IReadOnlyList<AnimationExchangePreviewMode> AvailableAnimationExchangePreviewModes { get; } = Enum.GetValues<AnimationExchangePreviewMode>();
 
+    public IReadOnlyList<RenderingEngineKind> AvailableRenderingEngines { get; } = RenderingEngineHostService.AvailableEngines;
+
+    public IReadOnlyList<ZoomToolMode> AvailableZoomToolModes { get; } = Enum.GetValues<ZoomToolMode>();
+
+    public IReadOnlyList<LassoToolMode> AvailableLassoToolModes { get; } = Enum.GetValues<LassoToolMode>();
+
+    public IReadOnlyList<PencilToolMode> AvailablePencilToolModes { get; } = Enum.GetValues<PencilToolMode>();
+
+    public IReadOnlyList<EraserToolMode> AvailableEraserToolModes { get; } = Enum.GetValues<EraserToolMode>();
+
+    public IReadOnlyList<VectorStrokeProfilePreset> AvailableVectorStrokeProfiles { get; } = Enum.GetValues<VectorStrokeProfilePreset>();
+
+    public IReadOnlyList<PaintBucketGapSize> AvailablePaintBucketGapSizes { get; } = Enum.GetValues<PaintBucketGapSize>();
+
     public TimelineDocument Document => _document;
 
     public bool IsEditingSymbol => _editingLibraryItemId is not null;
@@ -245,7 +314,24 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string CanvasZoomLabel => $"{CanvasZoom * 100:0}%";
 
-    public string CanvasViewportHint => "Wheel pans, Ctrl/Cmd+wheel zooms, middle-drag pans, and Fit restores the stage.";
+    public string CanvasViewRotationLabel => $"{CanvasViewRotation:0}°";
+
+    public string RenderingEngineSummary => SelectedRenderingEngine switch
+    {
+        RenderingEngineKind.SkiaSharp => "SkiaSharp renderer active for stage, preview, and export output.",
+        _ => "Avalonia renderer active for stage, preview, and export output."
+    };
+
+    public string CanvasViewportHint => SelectedDrawingTool switch
+    {
+        DrawingTool.Hand => "Drag to pan the viewport. Middle-drag and Space-drag still pan as a temporary hand tool.",
+        DrawingTool.Zoom => ZoomToolModeEditor == ZoomToolMode.Out
+            ? "Click to zoom out or drag a marquee to zoom to a region."
+            : "Click to zoom in or drag a marquee to zoom to a region.",
+        DrawingTool.RotateView => "Drag across the stage to rotate the view. Reset returns to 0°.",
+        DrawingTool.Width => "Drag selected vector width points horizontally to taper or widen the stroke.",
+        _ => "Wheel pans, Ctrl/Cmd+wheel zooms, middle-drag pans, and Fit restores the stage."
+    };
 
     public string ApplicationTitle => "TimelineAnimations Studio";
 
@@ -312,11 +398,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public double TimelineSurfaceWidth => Math.Max(920, (Duration * TimelineZoom) + 200);
 
-    public double TimelineSurfaceHeight => Math.Max(402, 38 + (TimelineRows.Count * 58) + 12);
+    public double TimelineSurfaceHeight => Math.Max(416, 52 + TimelineRows.Sum(static row => row.RowHeight) + 12);
+
+    public double TimelineSurfaceBodyHeight => Math.Max(364, TimelineSurfaceHeight - 52);
 
     public double FrameTimelineSurfaceWidth => Math.Max(920, 206 + (TotalFrames * FrameTimelineZoom) + 32);
 
-    public double FrameTimelineSurfaceHeight => Math.Max(162, 42 + (FrameRows.Count * 44) + 12);
+    public double FrameTimelineSurfaceHeight => Math.Max(184, 64 + FrameRows.Sum(static row => row.RowHeight) + 12);
+
+    public double FrameTimelineSurfaceBodyHeight => Math.Max(120, FrameTimelineSurfaceHeight - 64);
 
     public GridLength LeftPanelColumnWidth => LeftPanelMode == WorkspacePanelMode.Docked ? LeftDockWidth : new GridLength(0);
 
@@ -438,6 +528,22 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool SelectedLayerSupportsCornerRadius => SelectedLayer?.Kind is LayerKind.Rectangle or LayerKind.AvaloniaControl or LayerKind.Video;
 
+    public bool SelectedLayerSupportsPrimitiveCornerRadii => SelectedLayer?.Kind == LayerKind.Rectangle;
+
+    public bool SelectedLayerSupportsPrimitiveEllipse => SelectedLayer?.Kind == LayerKind.Ellipse;
+
+    public bool SelectedLayerSupportsPolyStar => SelectedLayer?.Kind == LayerKind.Path && SelectedLayer.Model.Style.PrimitiveShape == PrimitiveShapeType.PolyStar;
+
+    public bool CanEditShapeAuthoring => CanEditSelection && (SelectedLayer?.Kind is LayerKind.Rectangle or LayerKind.Ellipse or LayerKind.Path);
+
+    public bool CanUseShapeQuickControls => CanEditShapeAuthoring || SelectedDrawingTool is DrawingTool.Rectangle or DrawingTool.Ellipse or DrawingTool.PolyStar;
+
+    public bool ShapeAuthoringShowsRectangleOptions => SelectedLayerSupportsPrimitiveCornerRadii || (SelectedLayer is null && SelectedDrawingTool == DrawingTool.Rectangle);
+
+    public bool ShapeAuthoringShowsEllipseOptions => SelectedLayerSupportsPrimitiveEllipse || (SelectedLayer is null && SelectedDrawingTool == DrawingTool.Ellipse);
+
+    public bool ShapeAuthoringShowsPolyStarOptions => SelectedLayerSupportsPolyStar || (SelectedLayer is null && SelectedDrawingTool == DrawingTool.PolyStar);
+
     public bool SelectedLayerIsMask => SelectedLayer?.Model.Compositing.Role == LayerCompositeRole.Mask;
 
     public bool SelectedLayerIsGuide => SelectedLayer?.Model.Compositing.Role == LayerCompositeRole.Guide;
@@ -456,19 +562,98 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool HasSelectedCustomEasing => HasSelectedKeyframe && SelectedKeyframeEasing == EasingKind.Custom;
 
-    public bool CanEditSelection => !IsPrototypeMode && SelectedLayer is not null && !SelectedLayer.IsLocked && !SelectedLayerIsFolder;
+    public bool CanMutateDocument => !IsPlaying && !IsPrototypeMode;
+
+    public bool CanEditSelection => CanMutateDocument && SelectedLayer is not null && !SelectedLayer.IsLocked && !SelectedLayerIsFolder;
 
     public bool CanEditPropertyTracks => CanEditSelection && !SelectedLayerIsAudio;
 
-    public bool CanEditStyleSurface => !IsPrototypeMode && (CanEditSelection || SelectedDrawingTool != DrawingTool.Select);
+    public bool CanEditStyleSurface => CanMutateDocument && (CanEditSelection || SelectedDrawingTool is
+        DrawingTool.Eyedropper or
+        DrawingTool.PaintBucket or
+        DrawingTool.InkBottle or
+        DrawingTool.Width or
+        DrawingTool.Warp or
+        DrawingTool.Rig or
+        DrawingTool.Rectangle or
+        DrawingTool.Ellipse or
+        DrawingTool.PolyStar or
+        DrawingTool.Text or
+        DrawingTool.Line or
+        DrawingTool.Pen or
+        DrawingTool.Brush or
+        DrawingTool.Pencil or
+        DrawingTool.Eraser);
 
-    public bool CanAddCameraLayer => !IsEditingSymbol && !IsPrototypeMode;
+    public bool CanEditToolOptions => !IsPrototypeMode;
 
-    public bool CanInsertSelectedMediaAsset => SelectedMediaAsset is not null && !IsEditingSymbol && !IsPrototypeMode;
+    public bool ShowZoomToolOptions => SelectedDrawingTool == DrawingTool.Zoom;
 
-    public bool CanInsertSelectedComponent => SelectedComponentItem is not null && !IsEditingSymbol && !IsPrototypeMode;
+    public bool ShowRotateViewToolOptions => SelectedDrawingTool == DrawingTool.RotateView || Math.Abs(CanvasViewRotation) > 0.001d;
+
+    public bool ShowLassoToolOptions => SelectedDrawingTool == DrawingTool.Lasso;
+
+    public bool ShowPencilToolOptions => SelectedDrawingTool == DrawingTool.Pencil;
+
+    public bool ShowEraserToolOptions => SelectedDrawingTool == DrawingTool.Eraser;
+
+    public bool ShowSubselectToolOptions => SelectedDrawingTool == DrawingTool.Subselect;
+
+    public bool ShowPaintBucketToolOptions => SelectedDrawingTool == DrawingTool.PaintBucket;
+
+    public bool ShowWidthToolOptions => SelectedDrawingTool == DrawingTool.Width;
+
+    public bool ShowStrokeProfileToolOptions => SelectedDrawingTool is DrawingTool.Line or DrawingTool.Pen or DrawingTool.Brush or DrawingTool.Pencil or DrawingTool.Width;
+
+    public string ToolOptionsSummary => SelectedDrawingTool switch
+    {
+        DrawingTool.Subselect => "Direct vector point editing with transform handles suppressed.",
+        DrawingTool.Lasso => $"{LassoToolModeEditor} lasso • {(LassoContactSensitiveSelection ? "contact-sensitive" : "enclosed selection")}",
+        DrawingTool.Hand => "Viewport navigation tool",
+        DrawingTool.Zoom => $"Zoom {ZoomToolModeEditor}",
+        DrawingTool.RotateView => $"View rotation {CanvasViewRotationLabel}",
+        DrawingTool.PaintBucket => $"Paint Bucket • {PaintBucketGapSizeEditor} gaps • {(PaintBucketLockFillEditor ? "lock fill" : "replace fill transform")}",
+        DrawingTool.Width => $"Width tool • {VectorStrokeProfilePresetEditor} • strength {VectorStrokeProfileStrengthEditor:0.##}",
+        DrawingTool.Pencil => $"Pencil {PencilToolModeEditor} • {VectorStrokeProfilePresetEditor} • stroke {StrokeThicknessEditor:0.#}",
+        DrawingTool.Eraser => $"{EraserToolModeEditor} erase • radius {EraserSizeEditor:0.#}",
+        DrawingTool.Brush => $"Brush {VectorStrokeProfilePresetEditor} • stroke {StrokeThicknessEditor:0.#}",
+        DrawingTool.Pen => $"Pen {VectorStrokeProfilePresetEditor} • stroke {StrokeThicknessEditor:0.#}",
+        DrawingTool.Line => $"Line {VectorStrokeProfilePresetEditor} • stroke {StrokeThicknessEditor:0.#}",
+        _ => ToolModeLabel
+    };
+
+    public string SelectedPathPointSummary => !HasSelectedPathPoint || SelectedLayer is null
+        ? "No vector point selected."
+        : $"Point {SelectedPathPointIndexEditor + 1}/{SelectedLayer.Model.Style.PathPoints.Count} • {SelectedPathPointHandleModeEditor} • width {SelectedPathPointWidthScaleEditor:0.##}x";
+
+    public bool CanAddCameraLayer => !IsEditingSymbol && CanMutateDocument;
+
+    public bool CanInsertSelectedMediaAsset => SelectedMediaAsset is not null && !IsEditingSymbol && CanMutateDocument;
+
+    public bool CanInsertSelectedComponent => SelectedComponentItem is not null && !IsEditingSymbol && CanMutateDocument;
+
+    public bool CanEditSelectedComponentParameters => SelectedComponentItem is not null && CanMutateDocument;
+
+    public bool CanRemoveSelectedComponentParameter => CanEditSelectedComponentParameters && SelectedComponentParameter is not null;
 
     public bool CanEditPathPoints => CanEditSelection && SelectedLayerIsPath && SelectedLayer?.Model.SourceLibraryItemId is null;
+
+    public bool HasSelectedPathPoint => CanEditPathPoints &&
+                                        SelectedPathPointIndexEditor >= 0 &&
+                                        SelectedLayer is not null &&
+                                        SelectedPathPointIndexEditor < SelectedLayer.Model.Style.PathPoints.Count;
+
+    public bool CanInsertPathPointAfterSelected => HasSelectedPathPoint && SelectedLayer is not null && SelectedLayer.Model.Style.PathPoints.Count >= 2;
+
+    public bool CanDeleteSelectedPathPoint => HasSelectedPathPoint && SelectedLayer is not null && SelectedLayer.Model.Style.PathPoints.Count > 2;
+
+    public bool CanReverseSelectedPath => CanEditPathPoints && SelectedLayer is not null && SelectedLayer.Model.Style.PathPoints.Count > 1;
+
+    public bool CanApplySelectedStrokeProfile => CanEditPathPoints && SelectedLayer is not null && SelectedLayer.Model.Style.PathPoints.Count > 1;
+
+    public bool CanOptimizeSelectedPath => CanEditPathPoints && SelectedLayer is not null && SelectedLayer.Model.Style.PathPoints.Count > 2;
+
+    public bool CanEditGradientTransform => CanEditSelection && SelectedLayer is not null && SelectedLayer.Model.Style.UseGradient;
 
     public bool CanAlignSelection => CanEditSelection && !SelectedLayerIsAudio;
 
@@ -480,36 +665,42 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool CanEditCustomEasingCurve => HasSelectedCustomEasing && CanEditPropertyTracks;
 
-    public bool CanToggleLayerState => !IsPrototypeMode && SelectedLayer is not null;
+    public bool CanToggleLayerState => CanMutateDocument && SelectedLayer is not null;
 
-    public bool CanCreateFolder => !IsPrototypeMode;
+    public bool CanCreateFolder => CanMutateDocument;
 
-    public bool CanGroupSelectionIntoFolder => !IsPrototypeMode && SelectedLayer is not null && !SelectedLayerIsFolder;
+    public bool CanGroupSelectionIntoFolder => CanMutateDocument && SelectedLayer is not null && !SelectedLayerIsFolder;
 
-    public bool CanRemoveSelectionFromFolder => !IsPrototypeMode && SelectedLayer?.Model.ParentLayerId is not null;
+    public bool CanRemoveSelectionFromFolder => CanMutateDocument && SelectedLayer?.Model.ParentLayerId is not null;
 
-    public bool CanToggleSelectedFolderExpanded => !IsPrototypeMode && SelectedLayerIsFolder;
+    public bool CanToggleSelectedFolderExpanded => CanMutateDocument && SelectedLayerIsFolder;
 
     public bool CanUseEditorialTools => CanEditSelection && SelectedLayerIsMedia;
 
     public bool CanDeleteSelectedKeyframe => CanEditPropertyTracks && SelectedKeyframeId is not null;
 
+    public bool CanCaptureMotionPreset => CanEditPropertyTracks && SelectedLayer is not null;
+
+    public bool CanApplySelectedMotionPreset => CanEditPropertyTracks && SelectedMotionPreset is not null && SelectedLayer is not null;
+
+    public bool CanDeleteSelectedMotionPreset => SelectedMotionPreset is not null;
+
     public bool CanCopyFrameRange => CanEditSelection && SelectedLayer is not null && SelectionStartFrame >= 0 && SelectionEndFrame >= 0;
 
     public bool CanPasteFrameRange => CanEditSelection && _frameClipboard is not null;
 
-    public bool CanInsertFromLibrary => SelectedLibraryItem is not null && !IsPrototypeMode;
+    public bool CanInsertFromLibrary => SelectedLibraryItem is not null && CanMutateDocument;
 
-    public bool CanEditSelectedLibraryItem => SelectedLibraryItem is not null && !IsPrototypeMode;
+    public bool CanEditSelectedLibraryItem => SelectedLibraryItem is not null && CanMutateDocument;
 
-    public bool CanCreateSymbolFromSelection => SelectedLayer is not null && !IsPrototypeMode;
+    public bool CanCreateSymbolFromSelection => SelectedLayer is not null && CanMutateDocument;
 
-    public bool CanCreateComponentFromSelection => SelectedLayer is not null && !IsEditingSymbol && !IsPrototypeMode;
+    public bool CanCreateComponentFromSelection => SelectedLayer is not null && !IsEditingSymbol && CanMutateDocument;
 
-    public bool CanUpdateLinkedSymbol => SelectedLayer?.Model.SourceLibraryItemId is not null && !IsPrototypeMode;
+    public bool CanUpdateLinkedSymbol => SelectedLayer?.Model.SourceLibraryItemId is not null && CanMutateDocument;
 
     public bool CanRelinkSelectionToSelectedLibraryItem =>
-        !IsPrototypeMode &&
+        CanMutateDocument &&
         !IsEditingSymbol &&
         SelectedLayer?.Model.SourceLibraryItemId is not null &&
         SelectedLibraryItem is not null &&
@@ -519,29 +710,29 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool CanExitSymbolEdit => IsEditingSymbol;
 
-    public bool CanDeleteScene => !IsPrototypeMode && Scenes.Count > 1 && SelectedScene is not null;
+    public bool CanDeleteScene => CanMutateDocument && Scenes.Count > 1 && SelectedScene is not null;
 
-    public bool CanMoveSceneBackward => !IsPrototypeMode && SelectedScene is not null && Scenes.IndexOf(SelectedScene) > 0;
+    public bool CanMoveSceneBackward => CanMutateDocument && SelectedScene is not null && Scenes.IndexOf(SelectedScene) > 0;
 
-    public bool CanMoveSceneForward => !IsPrototypeMode && SelectedScene is not null && SelectedScene != Scenes.LastOrDefault();
+    public bool CanMoveSceneForward => CanMutateDocument && SelectedScene is not null && SelectedScene != Scenes.LastOrDefault();
 
-    public bool CanEditScenes => !IsEditingSymbol && !IsPrototypeMode;
+    public bool CanEditScenes => !IsEditingSymbol && CanMutateDocument;
 
-    public bool CanEditCanvasProperties => !IsEditingSymbol && !IsPrototypeMode && SelectedScene is not null;
+    public bool CanEditCanvasProperties => !IsEditingSymbol && CanMutateDocument && SelectedScene is not null;
 
-    public bool CanInsertStageItems => !IsPrototypeMode;
+    public bool CanInsertStageItems => CanMutateDocument;
 
-    public bool CanUseSelectionActions => !IsPrototypeMode && SelectedLayer is not null;
+    public bool CanUseSelectionActions => CanMutateDocument && SelectedLayer is not null;
 
-    public bool CanEditTextMenu => !IsPrototypeMode && SelectedLayer is not null && (SelectedLayerIsText || SelectedLayerIsAvaloniaControl);
+    public bool CanEditTextMenu => CanMutateDocument && SelectedLayer is not null && (SelectedLayerIsText || SelectedLayerIsAvaloniaControl);
 
-    public bool CanManageFrameLabels => !IsEditingSymbol && !IsPrototypeMode && SelectedScene is not null;
+    public bool CanManageFrameLabels => !IsEditingSymbol && CanMutateDocument && SelectedScene is not null;
 
     public bool CanTogglePrototypeModeMenu => !IsEditingSymbol;
 
     public bool CanStopPlayback => IsPlaying;
 
-    public bool CanEditPublishProfiles => !IsEditingSymbol;
+    public bool CanEditPublishProfiles => !IsEditingSymbol && !IsPlaying;
 
     public bool CanDeletePublishProfile => CanEditPublishProfiles && SelectedPublishProfile is not null && PublishProfiles.Count > 1;
 
@@ -562,6 +753,22 @@ public partial class MainWindowViewModel : ViewModelBase
         !SelectedLayerIsAudio &&
         SelectedLayer.Model.Compositing.Role != LayerCompositeRole.Camera;
 
+    public bool CanEditTransformParenting => CanEditSelection &&
+        SelectedLayer is not null &&
+        !SelectedLayerIsFolder &&
+        !SelectedLayerIsAudio &&
+        SelectedLayer.Model.Compositing.Role != LayerCompositeRole.Camera;
+
+    public IReadOnlyList<LayerViewModel> AvailableTransformParentLayers =>
+    [
+        .. Layers.Where(item =>
+            item.Id != SelectedLayerId &&
+            !item.IsFolder &&
+            item.Kind != LayerKind.Audio &&
+            item.Model.Compositing.Role != LayerCompositeRole.Camera &&
+            (SelectedLayer is null || LayerParentingService.CanSetParent(_document.Layers, SelectedLayer.Id, item.Id)))
+    ];
+
     public IReadOnlyList<LayerViewModel> AvailableGuideLayers =>
     [
         .. Layers.Where(item => item.Id != SelectedLayerId && item.CompositeRole == LayerCompositeRole.Guide)
@@ -571,8 +778,29 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool HasGuideBinding => SelectedLayer?.Model.GuidedByLayerId is not null;
 
+    public bool HasTransformParent => SelectedLayer?.Model.TransformParenting.ParentLayerId is not null;
+
+    public bool CanEditWarpRigging => CanEditSelection &&
+        SelectedLayer is not null &&
+        SelectedLayer.Kind == LayerKind.Path &&
+        !SelectedLayerIsSymbolInstance;
+
+    public bool HasWarpPins => SelectedLayer?.Model.Warp.Pins.Count > 0;
+
+    public bool HasRigBones => SelectedLayer?.Model.Rig.Bones.Count > 0;
+
+    public bool HasRigPoses => RigPoses.Count > 0;
+
+    public bool CanApplySelectedRigPose => CanEditWarpRigging && SelectedRigPose is not null;
+
+    public bool CanDeleteSelectedRigPose => CanApplySelectedRigPose;
+
     public bool SelectedLayerIsComponentInstance => SelectedLayerIsSymbolInstance &&
         _document.LibraryItems.FirstOrDefault(item => item.Id == SelectedLayer!.Model.SourceLibraryItemId)?.IsComponent == true;
+
+    public bool CanEditSelectedComponentOverrides => SelectedLayerIsComponentInstance && SelectedLayer is not null && !SelectedLayer.IsLocked && CanMutateDocument;
+
+    public bool CanResetSelectedComponentOverride => CanEditSelectedComponentOverrides && SelectedComponentOverrideItem is not null;
 
     public bool EditingSymbolIsButton => EditingLibraryItem?.SymbolKind == SymbolKind.Button;
 
@@ -643,7 +871,19 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string SelectedComponentSummary => SelectedComponentItem is null
         ? "No component selected"
-        : $"{SelectedComponentItem.Name} • {SelectedComponentItem.ComponentBadge} • {SelectedComponentItem.Subtitle}";
+        : $"{SelectedComponentItem.Name} • {SelectedComponentItem.ComponentBadge} • {SelectedComponentItem.Subtitle} • {SelectedComponentParameters.Count} params";
+
+    public string SelectedComponentParameterSummary => SelectedComponentItem is null
+        ? "Select a component to define reusable parameters."
+        : SelectedComponentParameters.Count == 0
+            ? "No component parameters yet."
+            : $"{SelectedComponentParameters.Count} parameters • {SelectedComponentParameters.FirstOrDefault()?.Subtitle}";
+
+    public string SelectedComponentOverrideSummary => !SelectedLayerIsComponentInstance
+        ? "Select a component instance to override parameter values."
+        : SelectedComponentOverrideItems.Count == 0
+            ? "This component exposes no instance parameters."
+            : $"{SelectedComponentOverrideItems.Count} overrides available";
 
     public string SelectedMediaSummary => SelectedMediaAsset is null
         ? "No media clip selected"
@@ -656,7 +896,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public string SelectedAnimationExchangeSummary => SelectedAnimationExchangeFormat switch
     {
         AnimationExchangeFormat.AvaloniaXaml => "Avalonia keyframe export with selector-based XAML animations and control-aware fallback import.",
-        AnimationExchangeFormat.FlashXfl => "Flash XFL authoring export with scenes, symbols, exact motion tracks, scale/skew transform parity, linkage-sharing metadata, Scale-9 grids, registration points, guide bindings, outline layers, instance cache metadata, advanced text-field metadata, layer effects, and media sync round-trip.",
+        AnimationExchangeFormat.FlashXfl => "Flash XFL authoring export with scenes, symbols, exact motion tracks, scale/skew transform parity, linkage-sharing metadata, Scale-9 grids, registration points, guide bindings, outline layers, instance cache metadata, advanced text-field metadata, media payload packaging, publish settings, supplemental package retention, layer effects, and media sync round-trip.",
         AnimationExchangeFormat.SvgSmil => "SVG/SMIL export with baked transform motion and shape-aware fallback import.",
         AnimationExchangeFormat.HtmlCss => "HTML/CSS export with absolute-positioned stage layers, @keyframes motion, and XHTML fallback import.",
         _ => "Animation interchange"
@@ -664,7 +904,34 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string CurrentDocumentFileFormatLabel => TimelineDocumentFileService.GetDisplayName(CurrentDocumentFileFormat);
 
-    public string DocumentFileSummary => $"{FileLabel} • {CurrentDocumentFileFormatLabel}";
+    public string DocumentFileSummary => $"{FileLabel} • {CurrentDocumentFileFormatLabel} • {AnimateDocumentTypeLabel}";
+
+    public string AnimateDocumentTypeLabel => AnimateDocumentProfileService.GetDisplayName(AnimateDocumentTypeEditor);
+
+    public string AnimateDocumentSummary => AnimateDocumentProfileService.GetSummary(Document.Animate);
+
+    public string AnimateDocumentCompatibilitySummary
+    {
+        get
+        {
+            if (AnimateDocumentCompatibilityIssues.Count == 0)
+            {
+                return $"{AnimateDocumentTypeLabel} target is compatible with the current authoring features.";
+            }
+
+            return AnimateDocumentCompatibilityIssues.Count == 1
+                ? AnimateDocumentCompatibilityIssues[0].Message
+                : $"{AnimateDocumentCompatibilityIssues.Count} target-compatibility warnings for {AnimateDocumentTypeLabel}.";
+        }
+    }
+
+    public bool HasAnimateDocumentCompatibilityIssues => AnimateDocumentCompatibilityIssues.Count > 0;
+
+    public string AnimateDocumentConversionSummary => HasAnimateDocumentCompatibilityIssues
+        ? $"Converting to {AnimateDocumentTypeLabel} keeps the current content, but {AnimateDocumentCompatibilityIssues.Count} compatibility item(s) may need manual adjustment."
+        : $"Converting to {AnimateDocumentTypeLabel} reapplies Animate-style target defaults and keeps the current authoring content compatible.";
+
+    public string AnimateDocumentConvertButtonLabel => $"Convert To {AnimateDocumentTypeLabel}";
 
     public string LastAnimationExchangeSummaryDisplay => string.IsNullOrWhiteSpace(LastAnimationExchangeSummary)
         ? "No animation interop activity yet."
@@ -716,7 +983,61 @@ public partial class MainWindowViewModel : ViewModelBase
         ? "No scene selected"
         : $"{SelectedScene.Name} • {CanvasSizeLabel} • {DurationLabel} • {FrameRateLabel}";
 
-    public string CanvasBackgroundSummary => $"{BackgroundFrom} → {BackgroundTo}";
+    public string CanvasBackgroundSummary
+    {
+        get
+        {
+            var stageLabel = TransparentStageBackground
+                ? "Stage transparent"
+                : $"Stage {BackgroundFrom}";
+            var pasteboardLabel = MatchPasteboardToStageColor
+                ? "pasteboard matched"
+                : $"pasteboard {PasteboardColor}";
+            return $"{stageLabel} • {pasteboardLabel}";
+        }
+    }
+
+    public string AnimateDocumentOptionsSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (AnimateDocumentResponsiveEditor)
+            {
+                parts.Add("responsive");
+            }
+
+            if (AnimateDocumentExternalScriptEditor)
+            {
+                parts.Add("external script");
+            }
+
+            if (AnimateDocumentWebFontsEditor)
+            {
+                parts.Add("web fonts");
+            }
+
+            if (AnimateDocumentAdvancedLayersEditor)
+            {
+                parts.Add("advanced layers");
+            }
+
+            if (AnimateDocumentEnable3DEditor)
+            {
+                parts.Add($"3D {AnimateDocumentPerspectiveAngleEditor:0.#}deg");
+            }
+
+            return parts.Count == 0 ? "No extra target options enabled." : string.Join(" • ", parts);
+        }
+    }
+
+    public string SelectedActionScriptSnippetSummary => SelectedActionScriptSnippet is null
+        ? $"No snippet selected • {AnimateDocumentTypeLabel}"
+        : $"{SelectedActionScriptSnippet.CategoryLabel} • {SelectedActionScriptSnippet.Summary}";
+
+    public bool CanInsertActionScriptSnippetIntoFrame => CanEditCurrentFrameActionScript && SelectedActionScriptSnippet is not null;
+
+    public bool CanInsertActionScriptSnippetIntoBehavior => CanEditSelectedBehaviorScript && SelectedActionScriptSnippet is not null;
 
     public string ModifyMenuHeader => SelectedLayer is null ? "Modify" : $"Modify {SelectedLayer.Name}";
 
@@ -813,9 +1134,33 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool IsSelectToolActive => SelectedDrawingTool == DrawingTool.Select;
 
+    public bool IsSubselectToolActive => SelectedDrawingTool == DrawingTool.Subselect;
+
+    public bool IsLassoToolActive => SelectedDrawingTool == DrawingTool.Lasso;
+
+    public bool IsHandToolActive => SelectedDrawingTool == DrawingTool.Hand;
+
+    public bool IsZoomToolActive => SelectedDrawingTool == DrawingTool.Zoom;
+
+    public bool IsRotateViewToolActive => SelectedDrawingTool == DrawingTool.RotateView;
+
+    public bool IsEyedropperToolActive => SelectedDrawingTool == DrawingTool.Eyedropper;
+
+    public bool IsPaintBucketToolActive => SelectedDrawingTool == DrawingTool.PaintBucket;
+
+    public bool IsInkBottleToolActive => SelectedDrawingTool == DrawingTool.InkBottle;
+
+    public bool IsWidthToolActive => SelectedDrawingTool == DrawingTool.Width;
+
+    public bool IsWarpToolActive => SelectedDrawingTool == DrawingTool.Warp;
+
+    public bool IsRigToolActive => SelectedDrawingTool == DrawingTool.Rig;
+
     public bool IsRectangleToolActive => SelectedDrawingTool == DrawingTool.Rectangle;
 
     public bool IsEllipseToolActive => SelectedDrawingTool == DrawingTool.Ellipse;
+
+    public bool IsPolyStarToolActive => SelectedDrawingTool == DrawingTool.PolyStar;
 
     public bool IsTextToolActive => SelectedDrawingTool == DrawingTool.Text;
 
@@ -824,6 +1169,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsPenToolActive => SelectedDrawingTool == DrawingTool.Pen;
 
     public bool IsBrushToolActive => SelectedDrawingTool == DrawingTool.Brush;
+
+    public bool IsPencilToolActive => SelectedDrawingTool == DrawingTool.Pencil;
+
+    public bool IsEraserToolActive => SelectedDrawingTool == DrawingTool.Eraser;
 
     public bool IsAvaloniaXamlExchangeSelected => SelectedAnimationExchangeFormat == AnimationExchangeFormat.AvaloniaXaml;
 
@@ -846,14 +1195,66 @@ public partial class MainWindowViewModel : ViewModelBase
     public string ToolModeLabel => SelectedDrawingTool switch
     {
         DrawingTool.Select => "Select and transform",
+        DrawingTool.Subselect => "Direct point editing",
+        DrawingTool.Lasso => "Freeform selection",
+        DrawingTool.Hand => "Pan the stage view",
+        DrawingTool.Zoom => "Zoom the stage view",
+        DrawingTool.RotateView => "Rotate the stage view",
+        DrawingTool.Eyedropper => "Sample style from the stage",
+        DrawingTool.PaintBucket => "Apply fill and gradient",
+        DrawingTool.InkBottle => "Apply stroke styling",
+        DrawingTool.Width => "Edit vector stroke width",
+        DrawingTool.Warp => "Warp vector assets",
+        DrawingTool.Rig => "Rig vector assets",
         DrawingTool.Rectangle => "Draw rectangles",
         DrawingTool.Ellipse => "Draw ellipses",
+        DrawingTool.PolyStar => "Draw stars and polygons",
         DrawingTool.Text => "Draw text plates",
         DrawingTool.Line => "Draw vector lines",
         DrawingTool.Pen => "Sketch polyline paths",
         DrawingTool.Brush => "Paint freehand strokes",
+        DrawingTool.Pencil => "Draw pencil strokes",
+        DrawingTool.Eraser => "Erase stage content",
         _ => SelectedDrawingTool.ToString()
     };
+
+    public string ShapeAuthoringSummary
+    {
+        get
+        {
+            if (SelectedLayer is null)
+            {
+                return $"Tool mode • {ShapeDrawingModeEditor}";
+            }
+
+            var style = SelectedLayer.Model.Style;
+            return style.PrimitiveShape switch
+            {
+                PrimitiveShapeType.Rectangle => $"{style.DrawingMode} rectangle • {style.CornerRadiusTopLeft:0}/{style.CornerRadiusTopRight:0}/{style.CornerRadiusBottomRight:0}/{style.CornerRadiusBottomLeft:0}",
+                PrimitiveShapeType.Ellipse => $"{style.DrawingMode} ellipse • {style.EllipseStartAngle:0}° → {style.EllipseSweepAngle:0}°",
+                PrimitiveShapeType.PolyStar => $"{style.DrawingMode} {(style.PolyStarIsStar ? "star" : "polygon")} • {style.PolyStarSides} sides",
+                _ => $"{style.DrawingMode} shape"
+            };
+        }
+    }
+
+    public string MotionPresetSummary => SelectedMotionPreset is null
+        ? $"{MotionPresets.Count} motion preset(s)"
+        : $"{SelectedMotionPreset.Name} • {SelectedMotionPreset.Description}";
+
+    public string OnionSkinSummary
+    {
+        get
+        {
+            if (!OnionSkinEnabled)
+            {
+                return "Onion skin disabled";
+            }
+
+            var mode = OnionSkinKeyframesOnly ? "keyframes only" : "all sampled frames";
+            return $"{OnionSkinBefore}/{OnionSkinAfter} • {mode} • base {OnionSkinBaseOpacity:0.00} • falloff {OnionSkinOpacityFalloff:0.00}";
+        }
+    }
 
     public string SelectedFrameRangeSummary
     {
@@ -1043,7 +1444,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 : null;
             return asset is null
                 ? "Media source missing"
-                : $"{asset.Name} • {SelectedLayer.Model.Media.PlaybackMode} • starts {SelectedLayer.Model.Media.StartTime:0.00}s • duration {Math.Max(0.05d, SelectedLayer.Model.Media.ClipDuration):0.00}s • {MediaAudioSummary}";
+                : $"{asset.Name} • {SelectedLayer.Model.Media.PlaybackMode} • starts {SelectedLayer.Model.Media.StartTime:0.00}s • duration {Math.Max(0.05d, SelectedLayer.Model.Media.ClipDuration):0.00}s • {MediaRepeatSummary} • {MediaAudioSummary}";
         }
     }
 
@@ -1086,6 +1487,56 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public string TransformParentingSummary
+    {
+        get
+        {
+            if (SelectedLayer is null)
+            {
+                return "Select a layer to bind it to a transform parent.";
+            }
+
+            if (!CanEditTransformParenting)
+            {
+                return "Transform parenting is not available for the current layer type.";
+            }
+
+            if (SelectedLayer.Model.TransformParenting.ParentLayerId is not Guid parentLayerId)
+            {
+                return AvailableTransformParentLayers.Count > 0
+                    ? "No transform parent assigned."
+                    : "No eligible parent layers are available in the current scene.";
+            }
+
+            var parent = Layers.FirstOrDefault(item => item.Id == parentLayerId);
+            return $"{parent?.Name ?? "Parent"} • bound at {SelectedLayer.Model.TransformParenting.BindParentX:0.#}, {SelectedLayer.Model.TransformParenting.BindParentY:0.#}";
+        }
+    }
+
+    public string WarpRigSummary
+    {
+        get
+        {
+            if (SelectedLayer is null)
+            {
+                return "Select a vector path to edit warp pins and modern rig data.";
+            }
+
+            if (!CanEditWarpRigging)
+            {
+                return "Warp and rig editing is currently available on editable vector paths.";
+            }
+
+            var warp = SelectedLayer.Model.Warp;
+            var rig = SelectedLayer.Model.Rig;
+            return $"{warp.Pins.Count} warp pins • mesh {warp.MeshColumns}x{warp.MeshRows} • {rig.Bones.Count} bones • {rig.Poses.Count} poses";
+        }
+    }
+
+    public string SelectedRigPoseSummary => SelectedRigPose is null
+        ? "No pose selected."
+        : $"{SelectedRigPose.Name} • {SelectedRigPose.Time:0.00}s";
+
     public string LayerAuthoringSummary
     {
         get
@@ -1120,6 +1571,16 @@ public partial class MainWindowViewModel : ViewModelBase
         ? "No media mix"
         : $"vol {MediaVolumeEditor:0.00} • gain {MediaGainDbEditor:+0.0;-0.0;0.0} dB • pan {MediaPanEditor:+0.00;-0.00;0.00}";
 
+    public string MediaRepeatSummary => SelectedLayer is null || !SelectedLayerIsMedia
+        ? "single pass"
+        : MediaPlaybackModeEditor == MediaPlaybackMode.Stop
+            ? "stop sync"
+            : MediaRepeatForeverEditor || MediaLoopEditor
+                ? "repeat forever"
+                : MediaRepeatCountEditor <= 1
+                    ? "single pass"
+                    : $"repeat x{MediaRepeatCountEditor}";
+
     public string AudioMeterSummary => !SelectedLayerIsAudio
         ? "No audio meter"
         : AudioMeterIsAudible
@@ -1127,7 +1588,7 @@ public partial class MainWindowViewModel : ViewModelBase
             : "Silent";
 
     public bool CanEditBehaviors => !IsEditingSymbol &&
-        !IsPrototypeMode &&
+        CanMutateDocument &&
         SelectedLayer is not null &&
         !SelectedLayer.IsLocked &&
         SelectedLayer.Kind is not (LayerKind.Audio or LayerKind.Folder) &&
@@ -1161,7 +1622,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public IReadOnlyList<string> AvailableBehaviorVisualStates => GetAvailableBehaviorVisualStates(SelectedBehaviorTargetVisualStateGroupEditor);
 
-    public bool CanEditCurrentFrameActionScript => !IsEditingSymbol && !IsPrototypeMode && FindCurrentFrameLabelModel() is not null;
+    public bool CanEditCurrentFrameActionScript => !IsEditingSymbol && CanMutateDocument && FindCurrentFrameLabelModel() is not null;
 
     public bool CanEditSelectedBehaviorScript => CanEditBehaviors && SelectedBehavior is not null;
 
@@ -1191,6 +1652,20 @@ public partial class MainWindowViewModel : ViewModelBase
     public string PrototypeSummary => IsPrototypeMode
         ? $"{PrototypeStatusMessage} • {PrototypeVariableSummary}"
         : "Prototype mode lets you test buttons, cues, and lightweight behaviors without dirtying the document.";
+
+    public string SwatchesSummary => $"{ColorSwatches.Count} saved swatches ready for fill, stroke, gradients, and scene backgrounds.";
+
+    public string HistoryPanelSummary => HistoryEntries.Count == 0
+        ? "No recorded editing operations yet."
+        : $"{HistoryEntries.Count} recent operation(s) • undo {(CanUndo ? "available" : "unavailable")} • redo {(CanRedo ? "available" : "unavailable")}";
+
+    public string MovieExplorerSummary => MovieExplorerNodes.Count == 0
+        ? "No document tree items available."
+        : $"{MovieExplorerNodes.Count} top-level branch(es) • filter by name, kind, label, marker, media, or symbol.";
+
+    public bool CanFocusSelectedMovieExplorerNode => SelectedMovieExplorerNode?.CanFocus == true;
+
+    public string SelectedMovieExplorerSummary => SelectedMovieExplorerNode?.Summary ?? "Select a node to focus the corresponding scene, layer, symbol, cue, or preset.";
 
     public bool HasPublishErrors => PublishValidationIssues.Any(issue => string.Equals(issue.Severity, "Error", StringComparison.OrdinalIgnoreCase));
 
@@ -1225,6 +1700,15 @@ public partial class MainWindowViewModel : ViewModelBase
     private string backgroundTo = "#182748";
 
     [ObservableProperty]
+    private bool transparentStageBackground;
+
+    [ObservableProperty]
+    private string pasteboardColor = "#B9BEC7";
+
+    [ObservableProperty]
+    private bool matchPasteboardToStageColor;
+
+    [ObservableProperty]
     private LayerViewModel? selectedLayer;
 
     [ObservableProperty]
@@ -1237,10 +1721,22 @@ public partial class MainWindowViewModel : ViewModelBase
     private string librarySearchText = string.Empty;
 
     [ObservableProperty]
+    private string movieExplorerSearchText = string.Empty;
+
+    [ObservableProperty]
     private string selectedLibraryFolderFilter = "All folders";
 
     [ObservableProperty]
     private LibraryItemViewModel? selectedComponentItem;
+
+    [ObservableProperty]
+    private ComponentParameterDefinitionViewModel? selectedComponentParameter;
+
+    [ObservableProperty]
+    private ComponentParameterOverrideViewModel? selectedComponentOverrideItem;
+
+    [ObservableProperty]
+    private MovieExplorerNodeViewModel? selectedMovieExplorerNode;
 
     [ObservableProperty]
     private MediaAssetViewModel? selectedMediaAsset;
@@ -1300,6 +1796,27 @@ public partial class MainWindowViewModel : ViewModelBase
     private string librarySourceAssetPathEditor = string.Empty;
 
     [ObservableProperty]
+    private string componentParameterNameEditor = string.Empty;
+
+    [ObservableProperty]
+    private ComponentParameterKind componentParameterKindEditor = ComponentParameterKind.String;
+
+    [ObservableProperty]
+    private ComponentParameterBindingTarget componentParameterBindingTargetEditor = ComponentParameterBindingTarget.Text;
+
+    [ObservableProperty]
+    private string componentParameterTargetLayerNameEditor = string.Empty;
+
+    [ObservableProperty]
+    private string componentParameterDefaultValueEditor = string.Empty;
+
+    [ObservableProperty]
+    private string componentParameterDescriptionEditor = string.Empty;
+
+    [ObservableProperty]
+    private string componentOverrideValueEditor = string.Empty;
+
+    [ObservableProperty]
     private double libraryRegistrationPointXEditor;
 
     [ObservableProperty]
@@ -1357,6 +1874,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool useDockWorkspace = true;
 
     [ObservableProperty]
+    private RenderingEngineKind selectedRenderingEngine = RenderingEngineKind.Avalonia;
+
+    [ObservableProperty]
     private AnimationExchangeFormat selectedAnimationExchangeFormat = AnimationExchangeFormat.AvaloniaXaml;
 
     [ObservableProperty]
@@ -1384,6 +1904,54 @@ public partial class MainWindowViewModel : ViewModelBase
     private DrawingTool selectedDrawingTool = DrawingTool.Select;
 
     [ObservableProperty]
+    private ZoomToolMode zoomToolModeEditor = ZoomToolMode.In;
+
+    [ObservableProperty]
+    private LassoToolMode lassoToolModeEditor = LassoToolMode.Freeform;
+
+    [ObservableProperty]
+    private bool lassoContactSensitiveSelection = true;
+
+    [ObservableProperty]
+    private PencilToolMode pencilToolModeEditor = PencilToolMode.Smooth;
+
+    [ObservableProperty]
+    private EraserToolMode eraserToolModeEditor = EraserToolMode.Object;
+
+    [ObservableProperty]
+    private VectorStrokeProfilePreset vectorStrokeProfilePresetEditor = VectorStrokeProfilePreset.Uniform;
+
+    [ObservableProperty]
+    private double vectorStrokeProfileStrengthEditor = 0.78d;
+
+    [ObservableProperty]
+    private PaintBucketGapSize paintBucketGapSizeEditor = PaintBucketGapSize.Small;
+
+    [ObservableProperty]
+    private bool paintBucketLockFillEditor = true;
+
+    [ObservableProperty]
+    private double eraserSizeEditor = 42d;
+
+    [ObservableProperty]
+    private bool syncBrushAndEraserSize = true;
+
+    [ObservableProperty]
+    private double canvasViewRotation;
+
+    [ObservableProperty]
+    private ShapeDrawingMode shapeDrawingModeEditor = ShapeDrawingMode.Merge;
+
+    [ObservableProperty]
+    private int polyStarSidesEditor = 5;
+
+    [ObservableProperty]
+    private double polyStarInnerRadiusEditor = 0.46d;
+
+    [ObservableProperty]
+    private bool polyStarIsStarEditor = true;
+
+    [ObservableProperty]
     private bool onionSkinEnabled = true;
 
     [ObservableProperty]
@@ -1393,6 +1961,15 @@ public partial class MainWindowViewModel : ViewModelBase
     private int onionSkinAfter = 2;
 
     [ObservableProperty]
+    private bool onionSkinKeyframesOnly;
+
+    [ObservableProperty]
+    private double onionSkinBaseOpacity = 0.14d;
+
+    [ObservableProperty]
+    private double onionSkinOpacityFalloff = 0.06d;
+
+    [ObservableProperty]
     private string statusMessage = "Ready";
 
     [ObservableProperty]
@@ -1400,6 +1977,39 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string publishProfileNameEditor = string.Empty;
+
+    [ObservableProperty]
+    private AnimateDocumentType animateDocumentTypeEditor = AnimateDocumentType.Html5Canvas;
+
+    [ObservableProperty]
+    private AnimateDocumentUnits animateDocumentUnitsEditor = AnimateDocumentUnits.Pixels;
+
+    [ObservableProperty]
+    private bool animateDocumentResponsiveEditor = true;
+
+    [ObservableProperty]
+    private bool animateDocumentExternalScriptEditor = true;
+
+    [ObservableProperty]
+    private bool animateDocumentWebFontsEditor = true;
+
+    [ObservableProperty]
+    private bool animateDocumentAdvancedLayersEditor = true;
+
+    [ObservableProperty]
+    private bool animateDocumentEnable3DEditor = true;
+
+    [ObservableProperty]
+    private double animateDocumentPerspectiveAngleEditor = 55d;
+
+    [ObservableProperty]
+    private double animateDocumentVanishingPointXEditor = 0.5d;
+
+    [ObservableProperty]
+    private double animateDocumentVanishingPointYEditor = 0.5d;
+
+    [ObservableProperty]
+    private string animateDocumentTemplateNameEditor = "HTML5 Canvas";
 
     [ObservableProperty]
     private PublishOutputKind publishOutputKindEditor = PublishOutputKind.PngSequence;
@@ -1465,6 +2075,18 @@ public partial class MainWindowViewModel : ViewModelBase
     private double gradientAngleEditor = 45d;
 
     [ObservableProperty]
+    private double gradientCenterXEditor = 0.5d;
+
+    [ObservableProperty]
+    private double gradientCenterYEditor = 0.5d;
+
+    [ObservableProperty]
+    private double gradientScaleXEditor = 1d;
+
+    [ObservableProperty]
+    private double gradientScaleYEditor = 1d;
+
+    [ObservableProperty]
     private string gradientFromEditor = "#FFFFFF";
 
     [ObservableProperty]
@@ -1478,6 +2100,24 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private double strokeMiterLimitEditor = 3d;
+
+    [ObservableProperty]
+    private double cornerRadiusTopLeftEditor = 28d;
+
+    [ObservableProperty]
+    private double cornerRadiusTopRightEditor = 28d;
+
+    [ObservableProperty]
+    private double cornerRadiusBottomRightEditor = 28d;
+
+    [ObservableProperty]
+    private double cornerRadiusBottomLeftEditor = 28d;
+
+    [ObservableProperty]
+    private double ellipseStartAngleEditor;
+
+    [ObservableProperty]
+    private double ellipseSweepAngleEditor = 360d;
 
     [ObservableProperty]
     private string textEditor = string.Empty;
@@ -1534,10 +2174,22 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool pathClosedEditor;
 
     [ObservableProperty]
+    private int selectedPathPointIndexEditor = -1;
+
+    [ObservableProperty]
+    private VectorHandleMode selectedPathPointHandleModeEditor = VectorHandleMode.Corner;
+
+    [ObservableProperty]
+    private double selectedPathPointWidthScaleEditor = 1d;
+
+    [ObservableProperty]
     private string frameLabelEditor = string.Empty;
 
     [ObservableProperty]
     private string frameActionScriptEditor = string.Empty;
+
+    [ObservableProperty]
+    private ActionScriptSnippetViewModel? selectedActionScriptSnippet;
 
     [ObservableProperty]
     private string markerNameEditor = string.Empty;
@@ -1552,7 +2204,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private SceneMarkerKind selectedMarkerKind = SceneMarkerKind.Cue;
 
     [ObservableProperty]
-    private bool useWorkAreaPlayback = true;
+    private bool useWorkAreaPlayback;
 
     [ObservableProperty]
     private SceneMarkerViewModel? selectedSceneMarker;
@@ -1571,6 +2223,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool mediaLoopEditor;
+
+    [ObservableProperty]
+    private int mediaRepeatCountEditor = 1;
+
+    [ObservableProperty]
+    private bool mediaRepeatForeverEditor;
 
     [ObservableProperty]
     private double mediaVolumeEditor = 1d;
@@ -1636,10 +2294,31 @@ public partial class MainWindowViewModel : ViewModelBase
     private LayerViewModel? selectedGuideLayer;
 
     [ObservableProperty]
+    private LayerViewModel? selectedTransformParentLayer;
+
+    [ObservableProperty]
     private bool guideOrientToPathEditor;
 
     [ObservableProperty]
     private bool guideSnapToPathEditor;
+
+    [ObservableProperty]
+    private bool warpEnabledEditor;
+
+    [ObservableProperty]
+    private int warpMeshColumnsEditor = 3;
+
+    [ObservableProperty]
+    private int warpMeshRowsEditor = 3;
+
+    [ObservableProperty]
+    private bool rigEnabledEditor;
+
+    [ObservableProperty]
+    private string rigPoseNameEditor = "Pose 1";
+
+    [ObservableProperty]
+    private RigPoseViewModel? selectedRigPose;
 
     [ObservableProperty]
     private string selectedBehaviorNameEditor = string.Empty;
@@ -1727,6 +2406,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private double inspectorRotation;
+
+    [ObservableProperty]
+    private double inspectorRotationX;
+
+    [ObservableProperty]
+    private double inspectorRotationY;
+
+    [ObservableProperty]
+    private double inspectorZDepth;
 
     [ObservableProperty]
     private double inspectorOpacity = 1;
@@ -1837,6 +2525,24 @@ public partial class MainWindowViewModel : ViewModelBase
     private string layerGlowColorEditor = "#FFFFFF";
 
     [ObservableProperty]
+    private double layerGradientGlowSizeEditor;
+
+    [ObservableProperty]
+    private double layerGradientGlowStrengthEditor;
+
+    [ObservableProperty]
+    private double layerGradientGlowAngleEditor = 45d;
+
+    [ObservableProperty]
+    private double layerGradientGlowDistanceEditor;
+
+    [ObservableProperty]
+    private string layerGradientGlowFromEditor = "#61E6FF";
+
+    [ObservableProperty]
+    private string layerGradientGlowToEditor = "#09111F";
+
+    [ObservableProperty]
     private double layerShadowBlurEditor;
 
     [ObservableProperty]
@@ -1859,6 +2565,54 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private double layerBrightnessEditor;
+
+    [ObservableProperty]
+    private double layerContrastEditor;
+
+    [ObservableProperty]
+    private double layerHueShiftEditor;
+
+    [ObservableProperty]
+    private LayerBevelType layerBevelTypeEditor = LayerBevelType.Inner;
+
+    [ObservableProperty]
+    private double layerBevelSizeEditor;
+
+    [ObservableProperty]
+    private double layerBevelStrengthEditor;
+
+    [ObservableProperty]
+    private double layerBevelAngleEditor = 45d;
+
+    [ObservableProperty]
+    private double layerBevelDistanceEditor = 4d;
+
+    [ObservableProperty]
+    private string layerBevelHighlightColorEditor = "#FFFFFF";
+
+    [ObservableProperty]
+    private string layerBevelShadowColorEditor = "#09111F";
+
+    [ObservableProperty]
+    private LayerBevelType layerGradientBevelTypeEditor = LayerBevelType.Inner;
+
+    [ObservableProperty]
+    private double layerGradientBevelSizeEditor;
+
+    [ObservableProperty]
+    private double layerGradientBevelStrengthEditor;
+
+    [ObservableProperty]
+    private double layerGradientBevelAngleEditor = 45d;
+
+    [ObservableProperty]
+    private double layerGradientBevelDistanceEditor = 4d;
+
+    [ObservableProperty]
+    private string layerGradientBevelFromEditor = "#FFFFFF";
+
+    [ObservableProperty]
+    private string layerGradientBevelToEditor = "#09111F";
 
     [ObservableProperty]
     private FlashColorEffectMode layerFlashColorEffectModeEditor = FlashColorEffectMode.None;
@@ -1909,6 +2663,15 @@ public partial class MainWindowViewModel : ViewModelBase
     private EasingKind selectedKeyframeEasing = EasingKind.Linear;
 
     [ObservableProperty]
+    private MotionPresetViewModel? selectedMotionPreset;
+
+    [ObservableProperty]
+    private string motionPresetNameEditor = string.Empty;
+
+    [ObservableProperty]
+    private string motionPresetDescriptionEditor = string.Empty;
+
+    [ObservableProperty]
     private double customEaseControl1X = 0.25d;
 
     [ObservableProperty]
@@ -1936,7 +2699,9 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadTracks();
         UpdateFrameRowSelection();
         ReloadBehaviors();
+        ReloadActionScriptSnippets(SelectedActionScriptSnippet?.Name);
         ReloadVisualStateGroups();
+        ReloadSelectedComponentOverrides();
         RefreshInspector();
         OnPropertyChanged(nameof(SelectedLayerIsText));
         OnPropertyChanged(nameof(SelectedLayerId));
@@ -1952,13 +2717,40 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(ToolModeLabel));
         OnPropertyChanged(nameof(CanEditStyleSurface));
+        OnPropertyChanged(nameof(CanEditToolOptions));
         OnPropertyChanged(nameof(IsSelectToolActive));
+        OnPropertyChanged(nameof(IsSubselectToolActive));
+        OnPropertyChanged(nameof(IsLassoToolActive));
+        OnPropertyChanged(nameof(IsHandToolActive));
+        OnPropertyChanged(nameof(IsZoomToolActive));
+        OnPropertyChanged(nameof(IsRotateViewToolActive));
+        OnPropertyChanged(nameof(IsEyedropperToolActive));
+        OnPropertyChanged(nameof(IsPaintBucketToolActive));
+        OnPropertyChanged(nameof(IsInkBottleToolActive));
+        OnPropertyChanged(nameof(IsWidthToolActive));
+        OnPropertyChanged(nameof(IsWarpToolActive));
+        OnPropertyChanged(nameof(IsRigToolActive));
         OnPropertyChanged(nameof(IsRectangleToolActive));
         OnPropertyChanged(nameof(IsEllipseToolActive));
+        OnPropertyChanged(nameof(IsPolyStarToolActive));
         OnPropertyChanged(nameof(IsTextToolActive));
         OnPropertyChanged(nameof(IsLineToolActive));
         OnPropertyChanged(nameof(IsPenToolActive));
         OnPropertyChanged(nameof(IsBrushToolActive));
+        OnPropertyChanged(nameof(IsPencilToolActive));
+        OnPropertyChanged(nameof(IsEraserToolActive));
+        OnPropertyChanged(nameof(ShowZoomToolOptions));
+        OnPropertyChanged(nameof(ShowRotateViewToolOptions));
+        OnPropertyChanged(nameof(ShowLassoToolOptions));
+        OnPropertyChanged(nameof(ShowPencilToolOptions));
+        OnPropertyChanged(nameof(ShowEraserToolOptions));
+        OnPropertyChanged(nameof(ShowSubselectToolOptions));
+        OnPropertyChanged(nameof(ShowPaintBucketToolOptions));
+        OnPropertyChanged(nameof(ShowWidthToolOptions));
+        OnPropertyChanged(nameof(ShowStrokeProfileToolOptions));
+        OnPropertyChanged(nameof(CanvasViewportHint));
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+        RefreshShapeStyleStateProperties();
         StatusMessage = value == DrawingTool.Select
             ? "Selection tool active"
             : $"{ToolModeLabel} tool active";
@@ -2019,6 +2811,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshSceneEditor();
         RefreshSceneStateProperties();
         ReloadSceneMarkers();
+        ReloadActionScriptSnippets(SelectedActionScriptSnippet?.Name);
         RefreshSceneTimelineEditors();
         RefreshMonitorPreviews();
         StatusMessage = newValue is null
@@ -2046,6 +2839,27 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         ReloadLibraryItems();
+    }
+
+    partial void OnMovieExplorerSearchTextChanged(string value)
+    {
+        ReloadMovieExplorer();
+    }
+
+    partial void OnSelectedMovieExplorerNodeChanged(MovieExplorerNodeViewModel? oldValue, MovieExplorerNodeViewModel? newValue)
+    {
+        OnPropertyChanged(nameof(CanFocusSelectedMovieExplorerNode));
+        OnPropertyChanged(nameof(SelectedMovieExplorerSummary));
+    }
+
+    partial void OnStatusMessageChanged(string value)
+    {
+        if (!_capturePanelHistory)
+        {
+            return;
+        }
+
+        AppendHistoryEntry(value);
     }
 
     partial void OnLibraryItemNameEditorChanged(string value)
@@ -2273,6 +3087,23 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = value ? "Dock workspace active" : "Classic workspace active";
     }
 
+    partial void OnSelectedRenderingEngineChanged(RenderingEngineKind value)
+    {
+        RenderingEngineHostService.SelectedEngine = value;
+        RendererPreferencesPersistenceService.Save(new RendererPreferencesState
+        {
+            SelectedEngine = value
+        });
+        OnPropertyChanged(nameof(RenderingEngineSummary));
+        RefreshMonitorPreviews();
+        RefreshAnimationExchangePreviewCore(updateStatus: false);
+        StatusMessage = value switch
+        {
+            RenderingEngineKind.SkiaSharp => "Rendering engine switched to SkiaSharp",
+            _ => "Rendering engine switched to Avalonia"
+        };
+    }
+
     partial void OnSelectedAnimationExchangeFormatChanged(AnimationExchangeFormat value)
     {
         OnPropertyChanged(nameof(SelectedAnimationExchangeSummary));
@@ -2312,6 +3143,191 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(HelpMenuSummary));
     }
 
+    partial void OnAnimateDocumentTypeEditorChanged(AnimateDocumentType value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        AnimateDocumentProfileService.ApplyTargetDefaults(_document, value);
+        RefreshAnimateDocumentEditor();
+        ReloadActionScriptSnippets(SelectedActionScriptSnippet?.Name);
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"Document target converted to {AnimateDocumentProfileService.GetDisplayName(value)}";
+    }
+
+    partial void OnAnimateDocumentUnitsEditorChanged(AnimateDocumentUnits value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        _document.Animate.Units = value;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"Document units set to {value}";
+    }
+
+    partial void OnAnimateDocumentResponsiveEditorChanged(bool value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        _document.Animate.IsResponsive = value;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = value ? "Responsive document mode enabled" : "Responsive document mode disabled";
+    }
+
+    partial void OnAnimateDocumentExternalScriptEditorChanged(bool value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        _document.Animate.UseExternalScriptFile = value;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = value ? "External script output enabled" : "External script output disabled";
+    }
+
+    partial void OnAnimateDocumentWebFontsEditorChanged(bool value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        _document.Animate.UseWebFonts = value;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = value ? "Web fonts enabled for the document target" : "Web fonts disabled for the document target";
+    }
+
+    partial void OnAnimateDocumentAdvancedLayersEditorChanged(bool value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        _document.Animate.UseAdvancedLayers = value;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = value ? "Advanced layers enabled" : "Advanced layers disabled";
+    }
+
+    partial void OnAnimateDocumentEnable3DEditorChanged(bool value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        _document.Animate.Enable3DTransforms = value;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = value ? "Document 3D transforms enabled" : "Document 3D transforms disabled";
+    }
+
+    partial void OnAnimateDocumentPerspectiveAngleEditorChanged(double value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        var normalized = TimelineMath.Clamp(value, 1d, 89d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressAnimateDocumentEditor = true;
+            AnimateDocumentPerspectiveAngleEditor = normalized;
+            _suppressAnimateDocumentEditor = false;
+            return;
+        }
+
+        _document.Animate.PerspectiveAngle = normalized;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Document perspective angle updated";
+    }
+
+    partial void OnAnimateDocumentVanishingPointXEditorChanged(double value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        var normalized = TimelineMath.Clamp(value, 0d, 1d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressAnimateDocumentEditor = true;
+            AnimateDocumentVanishingPointXEditor = normalized;
+            _suppressAnimateDocumentEditor = false;
+            return;
+        }
+
+        _document.Animate.VanishingPointX = normalized;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Document vanishing point X updated";
+    }
+
+    partial void OnAnimateDocumentVanishingPointYEditorChanged(double value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        var normalized = TimelineMath.Clamp(value, 0d, 1d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressAnimateDocumentEditor = true;
+            AnimateDocumentVanishingPointYEditor = normalized;
+            _suppressAnimateDocumentEditor = false;
+            return;
+        }
+
+        _document.Animate.VanishingPointY = normalized;
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Document vanishing point Y updated";
+    }
+
+    partial void OnAnimateDocumentTemplateNameEditorChanged(string value)
+    {
+        if (_suppressAnimateDocumentEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        _document.Animate.TemplateName = string.IsNullOrWhiteSpace(value)
+            ? AnimateDocumentProfileService.GetDisplayName(_document.Animate.Type)
+            : value.Trim();
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Document template name updated";
+    }
+
     partial void OnSelectedWorkspacePresetChanged(WorkspaceLayoutPreset value)
     {
         OnPropertyChanged(nameof(WorkspaceLayoutLabel));
@@ -2328,8 +3344,82 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnSelectedComponentItemChanged(LibraryItemViewModel? oldValue, LibraryItemViewModel? newValue)
     {
         OnPropertyChanged(nameof(CanInsertSelectedComponent));
+        OnPropertyChanged(nameof(CanEditSelectedComponentParameters));
+        OnPropertyChanged(nameof(CanRemoveSelectedComponentParameter));
         OnPropertyChanged(nameof(SelectedComponentSummary));
+        OnPropertyChanged(nameof(SelectedComponentParameterSummary));
+        ReloadSelectedComponentParameters();
         RefreshSourceMonitorPreview();
+    }
+
+    partial void OnSelectedComponentParameterChanged(ComponentParameterDefinitionViewModel? oldValue, ComponentParameterDefinitionViewModel? newValue)
+    {
+        _suppressComponentParameterEditor = true;
+        ComponentParameterNameEditor = newValue?.Model.Name ?? string.Empty;
+        ComponentParameterKindEditor = newValue?.Model.Kind ?? ComponentParameterKind.String;
+        ComponentParameterBindingTargetEditor = newValue?.Model.BindingTarget ?? ComponentParameterBindingTarget.Text;
+        ComponentParameterTargetLayerNameEditor = newValue?.Model.TargetLayerName ?? string.Empty;
+        ComponentParameterDefaultValueEditor = newValue?.Model.DefaultValue ?? string.Empty;
+        ComponentParameterDescriptionEditor = newValue?.Model.Description ?? string.Empty;
+        _suppressComponentParameterEditor = false;
+        OnPropertyChanged(nameof(CanRemoveSelectedComponentParameter));
+    }
+
+    partial void OnSelectedComponentOverrideItemChanged(ComponentParameterOverrideViewModel? oldValue, ComponentParameterOverrideViewModel? newValue)
+    {
+        _suppressComponentOverrideEditor = true;
+        ComponentOverrideValueEditor = newValue?.Model.Value ?? string.Empty;
+        _suppressComponentOverrideEditor = false;
+        OnPropertyChanged(nameof(CanResetSelectedComponentOverride));
+    }
+
+    partial void OnComponentParameterNameEditorChanged(string value)
+    {
+        UpdateSelectedComponentParameter(
+            parameter => parameter.Name = string.IsNullOrWhiteSpace(value) ? "parameter" : value.Trim(),
+            "Component parameter name updated");
+    }
+
+    partial void OnComponentParameterKindEditorChanged(ComponentParameterKind value)
+    {
+        UpdateSelectedComponentParameter(
+            parameter => parameter.Kind = value,
+            "Component parameter kind updated");
+    }
+
+    partial void OnComponentParameterBindingTargetEditorChanged(ComponentParameterBindingTarget value)
+    {
+        UpdateSelectedComponentParameter(
+            parameter => parameter.BindingTarget = value,
+            "Component parameter binding target updated");
+    }
+
+    partial void OnComponentParameterTargetLayerNameEditorChanged(string value)
+    {
+        UpdateSelectedComponentParameter(
+            parameter => parameter.TargetLayerName = value?.Trim() ?? string.Empty,
+            "Component parameter target layer updated");
+    }
+
+    partial void OnComponentParameterDefaultValueEditorChanged(string value)
+    {
+        UpdateSelectedComponentParameter(
+            parameter => parameter.DefaultValue = value ?? string.Empty,
+            "Component parameter default updated");
+    }
+
+    partial void OnComponentParameterDescriptionEditorChanged(string value)
+    {
+        UpdateSelectedComponentParameter(
+            parameter => parameter.Description = value ?? string.Empty,
+            "Component parameter description updated");
+    }
+
+    partial void OnComponentOverrideValueEditorChanged(string value)
+    {
+        UpdateSelectedComponentOverride(
+            parameter => parameter.Value = value ?? string.Empty,
+            "Component override value updated");
     }
 
     partial void OnSelectedMediaAssetChanged(MediaAssetViewModel? oldValue, MediaAssetViewModel? newValue)
@@ -2352,6 +3442,50 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedBehaviorSummary));
     }
 
+    partial void OnSelectedMotionPresetChanged(MotionPresetViewModel? oldValue, MotionPresetViewModel? newValue)
+    {
+        _suppressInspector = true;
+        MotionPresetNameEditor = newValue?.Name ?? string.Empty;
+        MotionPresetDescriptionEditor = newValue?.Model.Description ?? string.Empty;
+        _suppressInspector = false;
+        RefreshMotionPresetStateProperties();
+    }
+
+    partial void OnMotionPresetNameEditorChanged(string value)
+    {
+        if (_suppressInspector || SelectedMotionPreset is null)
+        {
+            return;
+        }
+
+        var normalized = MotionPresetService.EnsureUniquePresetName(_document, value, SelectedMotionPreset.Id);
+        if (!string.Equals(normalized, value, StringComparison.Ordinal))
+        {
+            _suppressInspector = true;
+            MotionPresetNameEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        SelectedMotionPreset.Model.Name = normalized;
+        ReloadMotionPresets(SelectedMotionPreset.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Motion preset renamed";
+    }
+
+    partial void OnMotionPresetDescriptionEditorChanged(string value)
+    {
+        if (_suppressInspector || SelectedMotionPreset is null)
+        {
+            return;
+        }
+
+        SelectedMotionPreset.Model.Description = value?.Trim() ?? string.Empty;
+        ReloadMotionPresets(SelectedMotionPreset.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Motion preset description updated";
+    }
+
     partial void OnIsPrototypeModeChanged(bool value)
     {
         RefreshPrototypeStateProperties();
@@ -2370,6 +3504,16 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnIsPlayingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanStopPlayback));
+        OnPropertyChanged(nameof(CanMutateDocument));
+        RefreshSelectionStateProperties();
+        RefreshSceneStateProperties();
+        RefreshLibraryStateProperties();
+        RefreshMediaStateProperties();
+        RefreshPublishStateProperties();
+        RefreshBehaviorEditorStateProperties();
+        RefreshVisualStateStateProperties();
+        RefreshActionScriptStateProperties();
+        RefreshSymbolEditingProperties();
         OnPropertyChanged(nameof(ControlMenuSummary));
     }
 
@@ -2496,25 +3640,71 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDeleteSelectedKeyframe));
     }
 
-    partial void OnCurrentTimeChanged(double value)
+    partial void OnCurrentTimeChanged(double oldValue, double newValue)
     {
-        foreach (var layer in Layers)
-        {
-            layer.UpdatePreview(value, SceneFrameRate, TotalFrames);
-        }
+        var previousFrame = FrameTimelineService.TimeToFrame(oldValue, SceneFrameRate, TotalFrames);
+        var currentFrame = FrameTimelineService.TimeToFrame(newValue, SceneFrameRate, TotalFrames);
+        var frameChanged = previousFrame != currentFrame;
 
-        UpdateTrackPreviewValues();
-        UpdateTimelineRowPreviewValues();
-        UpdateFrameRowSelection();
-        RefreshInspector();
         OnPropertyChanged(nameof(CurrentTimeLabel));
         OnPropertyChanged(nameof(CurrentFrame));
         OnPropertyChanged(nameof(CurrentFrameLabel));
         OnPropertyChanged(nameof(ShapeTweenSummary));
         OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
-        RefreshFrameLabelEditor();
+
+        if (_isInteractiveChange)
+        {
+            switch (_interactiveChangeKind)
+            {
+                case InteractiveChangeKind.KeyframeDrag:
+                    return;
+
+                case InteractiveChangeKind.FrameTimelineDrag:
+                    return;
+
+                default:
+                    return;
+            }
+        }
+
+        if (IsPlaying)
+        {
+            if (frameChanged)
+            {
+                if (ShouldRefreshTimelinePlaybackValues() &&
+                    ShouldRefreshPlaybackInterval(ref _lastPlaybackTimelinePreviewRefreshTick, PlaybackTimelinePreviewRefreshIntervalMilliseconds))
+                {
+                    UpdateTrackPreviewValues();
+                    UpdateTimelineRowPreviewValues();
+                }
+
+                if (ShouldRefreshAudioMeterDuringPlayback() &&
+                    ShouldRefreshPlaybackInterval(ref _lastPlaybackAudioRefreshTick, PlaybackAudioMeterRefreshIntervalMilliseconds))
+                {
+                    RefreshAudioMeter();
+                }
+            }
+
+            if (ShouldRefreshInspectorDuringPlayback() &&
+                ShouldRefreshPlaybackInterval(ref _lastPlaybackInspectorRefreshTick, PlaybackInspectorRefreshIntervalMilliseconds))
+            {
+                RefreshInspectorPlaybackValues();
+            }
+
+            if (ShouldRefreshProgramMonitorDuringPlayback())
+            {
+                RefreshProgramMonitorPreview(force: false);
+            }
+            return;
+        }
+
+        RefreshLayerPreviewsAtCurrentTime();
+        UpdateTrackPreviewValues();
+        UpdateTimelineRowPreviewValues();
         RefreshAudioMeter();
-        RefreshProgramMonitorPreview();
+        RefreshInspector();
+        RefreshFrameLabelEditor();
+        RefreshProgramMonitorPreview(force: true);
     }
 
     partial void OnSelectedSceneMarkerChanged(SceneMarkerViewModel? oldValue, SceneMarkerViewModel? newValue)
@@ -2540,6 +3730,13 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedVisualStateSummary));
         OnPropertyChanged(nameof(CanApplySelectedVisualState));
         OnPropertyChanged(nameof(CanRemoveSelectedVisualState));
+    }
+
+    partial void OnSelectedActionScriptSnippetChanged(ActionScriptSnippetViewModel? oldValue, ActionScriptSnippetViewModel? newValue)
+    {
+        OnPropertyChanged(nameof(SelectedActionScriptSnippetSummary));
+        OnPropertyChanged(nameof(CanInsertActionScriptSnippetIntoFrame));
+        OnPropertyChanged(nameof(CanInsertActionScriptSnippetIntoBehavior));
     }
 
     partial void OnProgramMonitorBitmapChanged(Bitmap? oldValue, Bitmap? newValue)
@@ -2635,7 +3832,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnPlayAllScenesChanged(bool value)
     {
-        RefreshProgramMonitorPreview();
+        RefreshProgramMonitorPreview(force: true);
     }
 
     partial void OnSceneNameEditorChanged(string value)
@@ -2765,6 +3962,106 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanvasZoomLabel));
     }
 
+    partial void OnCanvasViewRotationChanged(double value)
+    {
+        var normalized = value;
+        while (normalized <= -180d)
+        {
+            normalized += 360d;
+        }
+
+        while (normalized > 180d)
+        {
+            normalized -= 360d;
+        }
+
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            CanvasViewRotation = normalized;
+            return;
+        }
+
+        OnPropertyChanged(nameof(CanvasViewRotationLabel));
+        OnPropertyChanged(nameof(CanvasViewportHint));
+        OnPropertyChanged(nameof(ShowRotateViewToolOptions));
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnZoomToolModeEditorChanged(ZoomToolMode value)
+    {
+        OnPropertyChanged(nameof(CanvasViewportHint));
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnLassoToolModeEditorChanged(LassoToolMode value)
+    {
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnLassoContactSensitiveSelectionChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnPencilToolModeEditorChanged(PencilToolMode value)
+    {
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnEraserToolModeEditorChanged(EraserToolMode value)
+    {
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnVectorStrokeProfilePresetEditorChanged(VectorStrokeProfilePreset value)
+    {
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnVectorStrokeProfileStrengthEditorChanged(double value)
+    {
+        var normalized = TimelineMath.Clamp(value, 0.1d, 1d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            VectorStrokeProfileStrengthEditor = normalized;
+            return;
+        }
+
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnPaintBucketGapSizeEditorChanged(PaintBucketGapSize value)
+    {
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnPaintBucketLockFillEditorChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnEraserSizeEditorChanged(double value)
+    {
+        var normalized = Math.Clamp(value, 6d, 240d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            EraserSizeEditor = normalized;
+            return;
+        }
+
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
+    partial void OnSyncBrushAndEraserSizeChanged(bool value)
+    {
+        if (value)
+        {
+            EraserSizeEditor = Math.Max(12d, StrokeThicknessEditor * 4d);
+        }
+
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+    }
+
     partial void OnDurationChanged(double value)
     {
         var normalized = SceneEditingService.NormalizeDuration(value);
@@ -2876,7 +4173,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnBackgroundFromChanged(string value)
     {
-        var normalized = string.IsNullOrWhiteSpace(value) ? "#09111F" : value.Trim();
+        var normalized = string.IsNullOrWhiteSpace(value)
+            ? SceneEditingService.DefaultStageBackgroundColor
+            : value.Trim();
         if (!string.Equals(normalized, value, StringComparison.Ordinal))
         {
             _suppressSceneSurfaceEditor = true;
@@ -2902,7 +4201,9 @@ public partial class MainWindowViewModel : ViewModelBase
         RecordHistoryIfNeeded();
         if (!_isInteractiveChange)
         {
-            StatusMessage = "Canvas background start color updated";
+            StatusMessage = TransparentStageBackground
+                ? "Stage color updated (stage remains transparent)"
+                : "Stage color updated";
         }
     }
 
@@ -2934,18 +4235,78 @@ public partial class MainWindowViewModel : ViewModelBase
         RecordHistoryIfNeeded();
         if (!_isInteractiveChange)
         {
-            StatusMessage = "Canvas background end color updated";
+            StatusMessage = "Legacy stage accent color updated";
+        }
+    }
+
+    partial void OnTransparentStageBackgroundChanged(bool value)
+    {
+        _document.TransparentStageBackground = value;
+        if (!IsEditingSymbol && SelectedScene is not null)
+        {
+            SelectedScene.Model.TransparentStageBackground = value;
+            SelectedScene.RefreshMetadata();
+        }
+
+        OnPropertyChanged(nameof(CanvasBackgroundSummary));
+        RefreshSceneStateProperties();
+        if (_suppressSceneSurfaceEditor || IsEditingSymbol)
+        {
+            return;
+        }
+
+        RecordHistoryIfNeeded();
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = value ? "Stage set to no color" : "Stage solid background restored";
+        }
+    }
+
+    partial void OnPasteboardColorChanged(string value)
+    {
+        var normalized = string.IsNullOrWhiteSpace(value) ? "#B9BEC7" : value.Trim();
+        if (!string.Equals(normalized, value, StringComparison.Ordinal))
+        {
+            PasteboardColor = normalized;
+            return;
+        }
+
+        OnPropertyChanged(nameof(CanvasBackgroundSummary));
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = "Pasteboard color updated";
+        }
+    }
+
+    partial void OnMatchPasteboardToStageColorChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanvasBackgroundSummary));
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = value
+                ? "Pasteboard matched to stage color"
+                : "Pasteboard restored to custom color";
         }
     }
 
     partial void OnSelectionStartFrameChanged(int value)
     {
+        if (_suppressFrameSelectionRefresh)
+        {
+            return;
+        }
+
         UpdateFrameRowSelection();
         RefreshFrameSelectionStateProperties();
     }
 
     partial void OnSelectionEndFrameChanged(int value)
     {
+        if (_suppressFrameSelectionRefresh)
+        {
+            return;
+        }
+
         UpdateFrameRowSelection();
         RefreshFrameSelectionStateProperties();
     }
@@ -3049,6 +4410,17 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        if (SyncBrushAndEraserSize)
+        {
+            var synchronizedSize = Math.Max(12d, normalized * 4d);
+            if (Math.Abs(EraserSizeEditor - synchronizedSize) > 0.0001d)
+            {
+                EraserSizeEditor = synchronizedSize;
+            }
+        }
+
+        OnPropertyChanged(nameof(ToolOptionsSummary));
+
         if (!CanEditSelection)
         {
             return;
@@ -3070,6 +4442,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedLayer!.Model.Style.UseGradient = value;
         SelectedLayer.RefreshMetadata();
         ReloadPreviewForLayer(SelectedLayer);
+        OnPropertyChanged(nameof(CanEditGradientTransform));
         RecordHistoryIfNeeded();
         StatusMessage = value ? "Gradient enabled" : "Gradient disabled";
     }
@@ -3099,6 +4472,94 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadPreviewForLayer(SelectedLayer);
         RecordHistoryIfNeeded();
         StatusMessage = "Gradient angle updated";
+    }
+
+    partial void OnGradientCenterXEditorChanged(double value)
+    {
+        if (_suppressInspector || !CanEditSelection)
+        {
+            return;
+        }
+
+        var normalized = Math.Clamp(value, 0d, 1d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            GradientCenterXEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        SelectedLayer!.Model.Style.GradientCenterX = normalized;
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Gradient center X updated";
+    }
+
+    partial void OnGradientCenterYEditorChanged(double value)
+    {
+        if (_suppressInspector || !CanEditSelection)
+        {
+            return;
+        }
+
+        var normalized = Math.Clamp(value, 0d, 1d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            GradientCenterYEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        SelectedLayer!.Model.Style.GradientCenterY = normalized;
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Gradient center Y updated";
+    }
+
+    partial void OnGradientScaleXEditorChanged(double value)
+    {
+        if (_suppressInspector || !CanEditSelection)
+        {
+            return;
+        }
+
+        var normalized = Math.Clamp(value, 0.1d, 2d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            GradientScaleXEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        SelectedLayer!.Model.Style.GradientScaleX = normalized;
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Gradient scale X updated";
+    }
+
+    partial void OnGradientScaleYEditorChanged(double value)
+    {
+        if (_suppressInspector || !CanEditSelection)
+        {
+            return;
+        }
+
+        var normalized = Math.Clamp(value, 0.1d, 2d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            GradientScaleYEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        SelectedLayer!.Model.Style.GradientScaleY = normalized;
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Gradient scale Y updated";
     }
 
     partial void OnGradientFromEditorChanged(string value)
@@ -3191,6 +4652,79 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadPreviewForLayer(SelectedLayer);
         RecordHistoryIfNeeded();
         StatusMessage = "Stroke miter updated";
+    }
+
+    partial void OnCornerRadiusTopLeftEditorChanged(double value) => UpdateCornerRadiusEditor(
+        value,
+        normalized => CornerRadiusTopLeftEditor = normalized,
+        (style, normalized) => style.CornerRadiusTopLeft = normalized,
+        "Top-left radius updated");
+
+    partial void OnCornerRadiusTopRightEditorChanged(double value) => UpdateCornerRadiusEditor(
+        value,
+        normalized => CornerRadiusTopRightEditor = normalized,
+        (style, normalized) => style.CornerRadiusTopRight = normalized,
+        "Top-right radius updated");
+
+    partial void OnCornerRadiusBottomRightEditorChanged(double value) => UpdateCornerRadiusEditor(
+        value,
+        normalized => CornerRadiusBottomRightEditor = normalized,
+        (style, normalized) => style.CornerRadiusBottomRight = normalized,
+        "Bottom-right radius updated");
+
+    partial void OnCornerRadiusBottomLeftEditorChanged(double value) => UpdateCornerRadiusEditor(
+        value,
+        normalized => CornerRadiusBottomLeftEditor = normalized,
+        (style, normalized) => style.CornerRadiusBottomLeft = normalized,
+        "Bottom-left radius updated");
+
+    partial void OnEllipseStartAngleEditorChanged(double value)
+    {
+        var normalized = NormalizeShapeAngle(value);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            EllipseStartAngleEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        if (SelectedLayer is null)
+        {
+            RefreshShapeStyleStateProperties();
+            return;
+        }
+
+        UpdateSelectedShapeAuthoring(
+            style => style.EllipseStartAngle = normalized,
+            "Ellipse start angle updated");
+    }
+
+    partial void OnEllipseSweepAngleEditorChanged(double value)
+    {
+        var normalized = Math.Clamp(value, -360d, 360d);
+        if (Math.Abs(normalized) < 0.1d)
+        {
+            normalized = 360d;
+        }
+
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            EllipseSweepAngleEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        if (SelectedLayer is null)
+        {
+            RefreshShapeStyleStateProperties();
+            return;
+        }
+
+        UpdateSelectedShapeAuthoring(
+            style => style.EllipseSweepAngle = normalized,
+            "Ellipse sweep updated");
     }
 
     partial void OnTextEditorChanged(string value)
@@ -3339,6 +4873,85 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
     }
 
+    partial void OnSelectedPathPointIndexEditorChanged(int value)
+    {
+        if (_suppressInspector)
+        {
+            return;
+        }
+
+        RefreshSelectedPathPointEditors();
+        OnPropertyChanged(nameof(HasSelectedPathPoint));
+        OnPropertyChanged(nameof(CanInsertPathPointAfterSelected));
+        OnPropertyChanged(nameof(CanDeleteSelectedPathPoint));
+        OnPropertyChanged(nameof(CanReverseSelectedPath));
+        OnPropertyChanged(nameof(CanApplySelectedStrokeProfile));
+        OnPropertyChanged(nameof(CanOptimizeSelectedPath));
+        OnPropertyChanged(nameof(SelectedPathPointSummary));
+    }
+
+    partial void OnSelectedPathPointHandleModeEditorChanged(VectorHandleMode value)
+    {
+        if (_suppressInspector || !HasSelectedPathPoint || SelectedLayer is null)
+        {
+            return;
+        }
+
+        if (!TimelineEditingService.SetPathPointHandleMode(
+                SelectedLayer.Model,
+                SelectedPathPointIndexEditor,
+                PathClosedEditor,
+                value,
+                CurrentTime,
+                ShouldCreateKeyframe(),
+                Duration))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RecordHistoryIfNeeded();
+        StatusMessage = value == VectorHandleMode.Smooth ? "Point converted to smooth" : "Point converted to corner";
+        OnPropertyChanged(nameof(ShapeTweenSummary));
+        OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
+    }
+
+    partial void OnSelectedPathPointWidthScaleEditorChanged(double value)
+    {
+        if (_suppressInspector || !HasSelectedPathPoint || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var normalized = Math.Clamp(value, 0.2d, 4d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            SelectedPathPointWidthScaleEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        if (!TimelineEditingService.SetPathPointStrokeWidthScale(
+                SelectedLayer.Model,
+                SelectedPathPointIndexEditor,
+                normalized,
+                CurrentTime,
+                ShouldCreateKeyframe(),
+                Duration))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Point width updated";
+        OnPropertyChanged(nameof(ShapeTweenSummary));
+        OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
+    }
+
     partial void OnSymbolPlaybackModeEditorChanged(SymbolPlaybackMode value)
     {
         if (_suppressSymbolInstanceEditor || !SelectedLayerIsSymbolInstance || SelectedLayer is null)
@@ -3421,6 +5034,28 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshGuideBindingStateProperties();
     }
 
+    partial void OnSelectedTransformParentLayerChanged(LayerViewModel? value)
+    {
+        if (_suppressInspector || !CanEditTransformParenting || SelectedLayer is null)
+        {
+            return;
+        }
+
+        if (value is not null && !LayerParentingService.CanSetParent(_document.Layers, SelectedLayer.Id, value.Id))
+        {
+            return;
+        }
+
+        var childSnapshot = SampleWorldLayerSnapshot(SelectedLayer.Model, CurrentTime);
+        LayerSnapshot? parentSnapshot = value is null ? null : SampleWorldLayerSnapshot(value.Model, CurrentTime);
+        LayerParentingService.BindToParent(SelectedLayer.Model, value?.Model, childSnapshot, parentSnapshot);
+        SelectedLayer.RefreshMetadata();
+        RebuildLayers(SelectedLayer.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = value is null ? "Transform parent cleared" : $"Transform parent set to {value.Name}";
+        RefreshTransformParentingStateProperties();
+    }
+
     partial void OnGuideOrientToPathEditorChanged(bool value)
     {
         if (_suppressInspector || !CanEditGuideBinding || SelectedLayer is null)
@@ -3447,6 +5082,84 @@ public partial class MainWindowViewModel : ViewModelBase
         RecordHistoryIfNeeded();
         StatusMessage = value ? "Guide snap enabled" : "Guide snap disabled";
         RefreshGuideBindingStateProperties();
+    }
+
+    partial void OnWarpEnabledEditorChanged(bool value)
+    {
+        if (_suppressInspector || !CanEditWarpRigging || SelectedLayer is null)
+        {
+            return;
+        }
+
+        SelectedLayer.Model.Warp.IsEnabled = value;
+        if (value && SelectedLayer.Model.Warp.Pins.Count == 0)
+        {
+            LayerDeformationService.EnsureDefaultWarpPins(SelectedLayer.Model);
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = value ? "Asset warp enabled" : "Asset warp disabled";
+        RefreshWarpRigStateProperties();
+    }
+
+    partial void OnWarpMeshColumnsEditorChanged(int value)
+    {
+        if (_suppressInspector || !CanEditWarpRigging || SelectedLayer is null)
+        {
+            return;
+        }
+
+        SelectedLayer.Model.Warp.MeshColumns = Math.Clamp(value, 2, 12);
+        LayerDeformationService.Normalize(SelectedLayer.Model);
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Warp mesh columns updated";
+        RefreshWarpRigStateProperties();
+    }
+
+    partial void OnWarpMeshRowsEditorChanged(int value)
+    {
+        if (_suppressInspector || !CanEditWarpRigging || SelectedLayer is null)
+        {
+            return;
+        }
+
+        SelectedLayer.Model.Warp.MeshRows = Math.Clamp(value, 2, 12);
+        LayerDeformationService.Normalize(SelectedLayer.Model);
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Warp mesh rows updated";
+        RefreshWarpRigStateProperties();
+    }
+
+    partial void OnRigEnabledEditorChanged(bool value)
+    {
+        if (_suppressInspector || !CanEditWarpRigging || SelectedLayer is null)
+        {
+            return;
+        }
+
+        SelectedLayer.Model.Rig.IsEnabled = value;
+        if (value && SelectedLayer.Model.Rig.Bones.Count == 0)
+        {
+            LayerDeformationService.EnsureDefaultRig(SelectedLayer.Model);
+        }
+
+        ReloadRigPoses();
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = value ? "Modern rig enabled" : "Modern rig disabled";
+        RefreshWarpRigStateProperties();
+    }
+
+    partial void OnSelectedRigPoseChanged(RigPoseViewModel? value)
+    {
+        RefreshWarpRigStateProperties();
+        if (value is not null)
+        {
+            RigPoseNameEditor = value.Name;
+        }
     }
 
     partial void OnLayerOutlineEditorChanged(bool value)
@@ -3527,8 +5240,39 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnMediaLoopEditorChanged(bool value)
     {
         UpdateSelectedMediaLayer(
-            settings => settings.Loop = value,
+            settings =>
+            {
+                settings.Loop = value;
+                settings.RepeatForever = value;
+            },
             value ? "Media looping enabled" : "Media looping disabled");
+    }
+
+    partial void OnMediaRepeatCountEditorChanged(int value)
+    {
+        var normalized = Math.Max(1, value);
+        if (normalized != value)
+        {
+            _suppressInspector = true;
+            MediaRepeatCountEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        UpdateSelectedMediaLayer(
+            settings => settings.RepeatCount = normalized,
+            normalized <= 1 ? "Media repeat count reset to single pass" : $"Media repeat count set to {normalized}");
+    }
+
+    partial void OnMediaRepeatForeverEditorChanged(bool value)
+    {
+        UpdateSelectedMediaLayer(
+            settings =>
+            {
+                settings.RepeatForever = value;
+                settings.Loop = value;
+            },
+            value ? "Media repeat forever enabled" : "Media repeat forever disabled");
     }
 
     partial void OnMediaVolumeEditorChanged(double value)
@@ -3570,6 +5314,123 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(EditMultipleFramesSummary));
         StatusMessage = value ? "Edit Multiple Frames enabled" : "Edit Multiple Frames disabled";
+    }
+
+    partial void OnOnionSkinKeyframesOnlyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(OnionSkinSummary));
+        if (!_suppressInspector)
+        {
+            StatusMessage = value ? "Onion skin limited to keyed frames" : "Onion skin includes sampled frames";
+        }
+    }
+
+    partial void OnOnionSkinBaseOpacityChanged(double value)
+    {
+        var normalized = TimelineMath.Clamp(value, 0.02d, 0.72d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            OnionSkinBaseOpacity = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        OnPropertyChanged(nameof(OnionSkinSummary));
+    }
+
+    partial void OnOnionSkinOpacityFalloffChanged(double value)
+    {
+        var normalized = TimelineMath.Clamp(value, 0.01d, 0.36d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            OnionSkinOpacityFalloff = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        OnPropertyChanged(nameof(OnionSkinSummary));
+    }
+
+    partial void OnShapeDrawingModeEditorChanged(ShapeDrawingMode value)
+    {
+        if (_suppressInspector)
+        {
+            return;
+        }
+
+        if (SelectedLayer is null)
+        {
+            RefreshShapeStyleStateProperties();
+            return;
+        }
+
+        UpdateSelectedShapeAuthoring(
+            style => style.DrawingMode = value,
+            $"Drawing mode set to {value}");
+    }
+
+    partial void OnPolyStarSidesEditorChanged(int value)
+    {
+        var normalized = Math.Clamp(value, 3, 16);
+        if (normalized != value)
+        {
+            _suppressInspector = true;
+            PolyStarSidesEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        if (SelectedLayer is null)
+        {
+            RefreshShapeStyleStateProperties();
+            return;
+        }
+
+        UpdateSelectedShapeAuthoring(
+            style => style.PolyStarSides = normalized,
+            "PolyStar sides updated");
+    }
+
+    partial void OnPolyStarInnerRadiusEditorChanged(double value)
+    {
+        var normalized = TimelineMath.Clamp(value, 0.08d, 0.95d);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            PolyStarInnerRadiusEditor = normalized;
+            _suppressInspector = false;
+            return;
+        }
+
+        if (SelectedLayer is null)
+        {
+            RefreshShapeStyleStateProperties();
+            return;
+        }
+
+        UpdateSelectedShapeAuthoring(
+            style => style.PolyStarInnerRadius = normalized,
+            "PolyStar inner radius updated");
+    }
+
+    partial void OnPolyStarIsStarEditorChanged(bool value)
+    {
+        if (_suppressInspector)
+        {
+            return;
+        }
+
+        if (SelectedLayer is null)
+        {
+            RefreshShapeStyleStateProperties();
+            return;
+        }
+
+        UpdateSelectedShapeAuthoring(
+            style => style.PolyStarIsStar = value,
+            value ? "PolyStar set to star mode" : "PolyStar set to polygon mode");
     }
 
     partial void OnSelectedBehaviorNameEditorChanged(string value)
@@ -3731,6 +5592,12 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnInspectorSkewYChanged(double value) => ApplyInspectorValue(AnimatedProperty.SkewY, value);
 
     partial void OnInspectorRotationChanged(double value) => ApplyInspectorValue(AnimatedProperty.Rotation, value);
+
+    partial void OnInspectorRotationXChanged(double value) => ApplyInspectorValue(AnimatedProperty.RotationX, value);
+
+    partial void OnInspectorRotationYChanged(double value) => ApplyInspectorValue(AnimatedProperty.RotationY, value);
+
+    partial void OnInspectorZDepthChanged(double value) => ApplyInspectorValue(AnimatedProperty.ZDepth, value);
 
     partial void OnInspectorOpacityChanged(double value) => ApplyInspectorValue(AnimatedProperty.Opacity, value);
 
@@ -3965,6 +5832,142 @@ public partial class MainWindowViewModel : ViewModelBase
         compositing => compositing.Brightness = TimelineMath.Clamp(value, -1d, 1d),
         "Brightness updated");
 
+    partial void OnLayerContrastEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.Contrast = TimelineMath.Clamp(value, -1d, 1d),
+        "Contrast updated");
+
+    partial void OnLayerHueShiftEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.HueShift = value,
+        "Hue shift updated");
+
+    partial void OnLayerBevelTypeEditorChanged(LayerBevelType value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.BevelType = value,
+        "Bevel type updated");
+
+    partial void OnLayerBevelSizeEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.BevelSize = Math.Max(0d, value),
+        "Bevel size updated");
+
+    partial void OnLayerBevelStrengthEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.BevelStrength = Math.Max(0d, value),
+        "Bevel strength updated");
+
+    partial void OnLayerBevelAngleEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.BevelAngle = value,
+        "Bevel angle updated");
+
+    partial void OnLayerBevelDistanceEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.BevelDistance = Math.Max(0d, value),
+        "Bevel distance updated");
+
+    partial void OnLayerBevelHighlightColorEditorChanged(string value)
+    {
+        if (_suppressInspector || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        UpdateSelectedLayerCompositing(
+            compositing => compositing.BevelHighlightColor = value.Trim(),
+            "Bevel highlight updated");
+    }
+
+    partial void OnLayerBevelShadowColorEditorChanged(string value)
+    {
+        if (_suppressInspector || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        UpdateSelectedLayerCompositing(
+            compositing => compositing.BevelShadowColor = value.Trim(),
+            "Bevel shadow updated");
+    }
+
+    partial void OnLayerGradientGlowSizeEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientGlowSize = Math.Max(0d, value),
+        "Gradient glow size updated");
+
+    partial void OnLayerGradientGlowStrengthEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientGlowStrength = Math.Max(0d, value),
+        "Gradient glow strength updated");
+
+    partial void OnLayerGradientGlowAngleEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientGlowAngle = value,
+        "Gradient glow angle updated");
+
+    partial void OnLayerGradientGlowDistanceEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientGlowDistance = Math.Max(0d, value),
+        "Gradient glow distance updated");
+
+    partial void OnLayerGradientGlowFromEditorChanged(string value)
+    {
+        if (_suppressInspector || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        UpdateSelectedLayerCompositing(
+            compositing => compositing.GradientGlowFrom = value.Trim(),
+            "Gradient glow start updated");
+    }
+
+    partial void OnLayerGradientGlowToEditorChanged(string value)
+    {
+        if (_suppressInspector || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        UpdateSelectedLayerCompositing(
+            compositing => compositing.GradientGlowTo = value.Trim(),
+            "Gradient glow end updated");
+    }
+
+    partial void OnLayerGradientBevelTypeEditorChanged(LayerBevelType value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientBevelType = value,
+        "Gradient bevel type updated");
+
+    partial void OnLayerGradientBevelSizeEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientBevelSize = Math.Max(0d, value),
+        "Gradient bevel size updated");
+
+    partial void OnLayerGradientBevelStrengthEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientBevelStrength = Math.Max(0d, value),
+        "Gradient bevel strength updated");
+
+    partial void OnLayerGradientBevelAngleEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientBevelAngle = value,
+        "Gradient bevel angle updated");
+
+    partial void OnLayerGradientBevelDistanceEditorChanged(double value) => UpdateSelectedLayerCompositing(
+        compositing => compositing.GradientBevelDistance = Math.Max(0d, value),
+        "Gradient bevel distance updated");
+
+    partial void OnLayerGradientBevelFromEditorChanged(string value)
+    {
+        if (_suppressInspector || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        UpdateSelectedLayerCompositing(
+            compositing => compositing.GradientBevelFrom = value.Trim(),
+            "Gradient bevel highlight updated");
+    }
+
+    partial void OnLayerGradientBevelToEditorChanged(string value)
+    {
+        if (_suppressInspector || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        UpdateSelectedLayerCompositing(
+            compositing => compositing.GradientBevelTo = value.Trim(),
+            "Gradient bevel shadow updated");
+    }
+
     partial void OnLayerFlashColorEffectModeEditorChanged(FlashColorEffectMode value)
     {
         RefreshFlashColorEffectStateProperties();
@@ -4085,6 +6088,312 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         LoadDocument(SampleProjectFactory.Create(), "Sample Composition");
         StatusMessage = "Sample composition restored";
+    }
+
+    [RelayCommand]
+    private void ApplyColorSwatch(string? parameter)
+    {
+        if (string.IsNullOrWhiteSpace(parameter))
+        {
+            return;
+        }
+
+        var separatorIndex = parameter.IndexOf(':', StringComparison.Ordinal);
+        if (separatorIndex <= 0 || separatorIndex >= parameter.Length - 1)
+        {
+            return;
+        }
+
+        var target = parameter[..separatorIndex];
+        var color = parameter[(separatorIndex + 1)..].Trim();
+        if (!color.StartsWith('#'))
+        {
+            color = $"#{color}";
+        }
+
+        switch (target)
+        {
+            case "fill" when CanEditStyleSurface:
+                FillHexEditor = color;
+                StatusMessage = $"Swatch applied to fill ({color})";
+                break;
+            case "stroke" when CanEditStyleSurface:
+                StrokeHexEditor = color;
+                StatusMessage = $"Swatch applied to stroke ({color})";
+                break;
+            case "gradientFrom" when CanEditStyleSurface:
+                GradientFromEditor = color;
+                StatusMessage = $"Swatch applied to gradient start ({color})";
+                break;
+            case "gradientTo" when CanEditStyleSurface:
+                GradientToEditor = color;
+                StatusMessage = $"Swatch applied to gradient end ({color})";
+                break;
+            case "backgroundFrom" when CanEditCanvasProperties:
+                BackgroundFrom = color;
+                StatusMessage = $"Swatch applied to stage color ({color})";
+                break;
+            case "backgroundTo" when CanEditCanvasProperties:
+                PasteboardColor = color;
+                StatusMessage = $"Swatch applied to pasteboard ({color})";
+                break;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearHistoryEntries()
+    {
+        HistoryEntries.Clear();
+        OnPropertyChanged(nameof(HistoryPanelSummary));
+        StatusMessage = "History panel cleared";
+    }
+
+    [RelayCommand]
+    private void FocusMovieExplorerNode(MovieExplorerNodeViewModel? node)
+    {
+        var targetNode = node ?? SelectedMovieExplorerNode;
+        if (targetNode is null || string.IsNullOrWhiteSpace(targetNode.FocusToken))
+        {
+            return;
+        }
+
+        if (TryFocusMovieExplorerNode(targetNode.FocusToken))
+        {
+            SelectedMovieExplorerNode = targetNode;
+            StatusMessage = $"{targetNode.Title} focused from Movie Explorer";
+        }
+    }
+
+    [RelayCommand]
+    private void CaptureMotionPreset()
+    {
+        if (!CanCaptureMotionPreset || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var presetName = MotionPresetService.EnsureUniquePresetName(_document, MotionPresetNameEditor);
+        var preset = MotionPresetService.CapturePreset(SelectedLayer.Model, presetName, MotionPresetDescriptionEditor);
+        _document.MotionPresets.Add(preset);
+        ReloadMotionPresets(preset.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{preset.Name} captured";
+    }
+
+    [RelayCommand]
+    private void ApplySelectedMotionPreset()
+    {
+        if (!CanApplySelectedMotionPreset || SelectedLayer is null || SelectedMotionPreset is null)
+        {
+            return;
+        }
+
+        if (!MotionPresetService.ApplyPreset(SelectedLayer.Model, SelectedMotionPreset.Model))
+        {
+            return;
+        }
+
+        PrimitiveShapeService.NormalizeStyle(SelectedLayer.Model.Style);
+        if (SelectedLayer.Model.Style.PrimitiveShape == PrimitiveShapeType.PolyStar)
+        {
+            PrimitiveShapeService.UpdatePolyStarGeometry(SelectedLayer.Model);
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        ReloadTracks();
+        RefreshInspector();
+        RefreshSelectionStateProperties();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{SelectedMotionPreset.Name} applied";
+    }
+
+    [RelayCommand]
+    private void DeleteSelectedMotionPreset()
+    {
+        if (!CanDeleteSelectedMotionPreset || SelectedMotionPreset is null)
+        {
+            return;
+        }
+
+        var removedName = SelectedMotionPreset.Name;
+        _document.MotionPresets.RemoveAll(item => item.Id == SelectedMotionPreset.Id);
+        ReloadMotionPresets();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{removedName} removed";
+    }
+
+    [RelayCommand]
+    private void InsertPathPointAfterSelected()
+    {
+        if (!CanInsertPathPointAfterSelected || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var countBefore = SelectedLayer.Model.Style.PathPoints.Count;
+        var sourceIndex = SelectedPathPointIndexEditor;
+        if (!TimelineEditingService.InsertPathPoint(
+                SelectedLayer.Model,
+                sourceIndex,
+                PathClosedEditor,
+                CurrentTime,
+                ShouldCreateKeyframe(),
+                Duration))
+        {
+            return;
+        }
+
+        var countAfter = SelectedLayer.Model.Style.PathPoints.Count;
+        SelectedPathPointIndexEditor = PathClosedEditor && sourceIndex == countBefore - 1 ? countAfter - 1 : Math.Min(countAfter - 1, sourceIndex + 1);
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Path point inserted";
+    }
+
+    [RelayCommand]
+    private void DeleteSelectedPathPoint()
+    {
+        if (!CanDeleteSelectedPathPoint || SelectedLayer is null)
+        {
+            return;
+        }
+
+        if (!TimelineEditingService.DeletePathPoint(
+                SelectedLayer.Model,
+                SelectedPathPointIndexEditor,
+                CurrentTime,
+                ShouldCreateKeyframe(),
+                Duration))
+        {
+            return;
+        }
+
+        SelectedPathPointIndexEditor = Math.Min(SelectedPathPointIndexEditor, SelectedLayer.Model.Style.PathPoints.Count - 1);
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Path point deleted";
+    }
+
+    [RelayCommand]
+    private void ReverseSelectedPath()
+    {
+        if (!CanReverseSelectedPath || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var oldIndex = SelectedPathPointIndexEditor;
+        if (!TimelineEditingService.ReversePath(SelectedLayer.Model, CurrentTime, ShouldCreateKeyframe(), Duration))
+        {
+            return;
+        }
+
+        SelectedPathPointIndexEditor = oldIndex >= 0
+            ? Math.Max(0, SelectedLayer.Model.Style.PathPoints.Count - 1 - oldIndex)
+            : -1;
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Path direction reversed";
+    }
+
+    [RelayCommand]
+    private void ApplySelectedStrokeProfile()
+    {
+        if (!CanApplySelectedStrokeProfile || SelectedLayer is null)
+        {
+            return;
+        }
+
+        if (!TimelineEditingService.ApplyStrokeProfile(
+                SelectedLayer.Model,
+                VectorStrokeProfilePresetEditor,
+                VectorStrokeProfileStrengthEditor,
+                PathClosedEditor,
+                CurrentTime,
+                ShouldCreateKeyframe(),
+                Duration))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{VectorStrokeProfilePresetEditor} stroke profile applied";
+    }
+
+    [RelayCommand]
+    private void SmoothSelectedPath()
+    {
+        if (!CanOptimizeSelectedPath || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var snapshot = FrameTimelineService.SampleLayer(SelectedLayer.Model, CurrentTime, SceneFrameRate, TotalFrames)
+            ?? TimelineInterpolationService.SampleLayer(SelectedLayer.Model, CurrentTime);
+        if (!TimelineEditingService.SmoothPath(SelectedLayer.Model, snapshot, CurrentTime, ShouldCreateKeyframe(), Duration))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Path smoothed";
+    }
+
+    [RelayCommand]
+    private void StraightenSelectedPath()
+    {
+        if (!CanOptimizeSelectedPath || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var snapshot = FrameTimelineService.SampleLayer(SelectedLayer.Model, CurrentTime, SceneFrameRate, TotalFrames)
+            ?? TimelineInterpolationService.SampleLayer(SelectedLayer.Model, CurrentTime);
+        if (!TimelineEditingService.StraightenPath(SelectedLayer.Model, snapshot, CurrentTime, ShouldCreateKeyframe(), Duration))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Path straightened";
+    }
+
+    [RelayCommand]
+    private void OptimizeSelectedPath()
+    {
+        if (!CanOptimizeSelectedPath || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var snapshot = FrameTimelineService.SampleLayer(SelectedLayer.Model, CurrentTime, SceneFrameRate, TotalFrames)
+            ?? TimelineInterpolationService.SampleLayer(SelectedLayer.Model, CurrentTime);
+        if (!TimelineEditingService.OptimizePath(SelectedLayer.Model, snapshot, CurrentTime, ShouldCreateKeyframe(), Duration))
+        {
+            return;
+        }
+
+        SelectedPathPointIndexEditor = Math.Min(SelectedPathPointIndexEditor, SelectedLayer.Model.Style.PathPoints.Count - 1);
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Path optimized";
     }
 
     [RelayCommand]
@@ -4257,6 +6566,22 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void AddPolyStar()
+    {
+        if (!CanInsertStageItems)
+        {
+            return;
+        }
+
+        var placement = GetNextLibraryPlacement();
+        var layer = CreatePolyStarLayer("Signal Star", new Rect(placement.X, placement.Y, 220d, 220d));
+        TimelineEditingService.AddLayer(_document, layer);
+        RebuildLayers(layer.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{layer.Name} added";
+    }
+
+    [RelayCommand]
     private void AddText()
     {
         AddLayer(LayerKind.Text, new Point(240, 420));
@@ -4335,6 +6660,13 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         SelectedDrawingTool = drawingTool;
+    }
+
+    [RelayCommand]
+    private void ResetCanvasViewRotation()
+    {
+        CanvasViewRotation = 0d;
+        StatusMessage = "Stage view rotation reset";
     }
 
     [RelayCommand]
@@ -4428,6 +6760,98 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void AddComponentParameter()
+    {
+        if (!CanEditSelectedComponentParameters || SelectedComponentItem is null)
+        {
+            return;
+        }
+
+        var parameter = new ComponentParameterDefinition
+        {
+            Name = "parameter",
+            Kind = ComponentParameterKind.String,
+            BindingTarget = ComponentParameterBindingTarget.Text,
+            DefaultValue = string.Empty,
+            Description = "Reusable component input"
+        };
+
+        SelectedComponentItem.Model.ComponentParameters.Add(parameter);
+        ComponentParameterService.NormalizeDefinitions(SelectedComponentItem.Model);
+        foreach (var layer in _document.Layers.Where(layer => layer.SourceLibraryItemId == SelectedComponentItem.Id))
+        {
+            ComponentParameterService.EnsureOverrides(layer, SelectedComponentItem.Model);
+        }
+
+        SelectedComponentItem.RefreshMetadata();
+        if (SelectedLibraryItem?.Id == SelectedComponentItem.Id)
+        {
+            ReloadLibraryItems(SelectedComponentItem.Id);
+        }
+        else
+        {
+            ReloadLibraryItems(SelectedLibraryItem?.Id);
+        }
+
+        ReloadComponentItems(SelectedComponentItem.Id);
+        ReloadSelectedComponentParameters(parameter.Id);
+        RebuildLayers(SelectedLayer?.Id);
+        RefreshSourceMonitorPreview();
+        RecordHistoryIfNeeded();
+        StatusMessage = "Component parameter added";
+    }
+
+    [RelayCommand]
+    private void RemoveSelectedComponentParameter()
+    {
+        if (!CanRemoveSelectedComponentParameter || SelectedComponentItem is null || SelectedComponentParameter is null)
+        {
+            return;
+        }
+
+        var removedName = SelectedComponentParameter.Name;
+        SelectedComponentItem.Model.ComponentParameters.RemoveAll(item => item.Id == SelectedComponentParameter.Id);
+        ComponentParameterService.NormalizeDefinitions(SelectedComponentItem.Model);
+        foreach (var layer in _document.Layers.Where(layer => layer.SourceLibraryItemId == SelectedComponentItem.Id))
+        {
+            ComponentParameterService.EnsureOverrides(layer, SelectedComponentItem.Model);
+        }
+
+        SelectedComponentItem.RefreshMetadata();
+        if (SelectedLibraryItem?.Id == SelectedComponentItem.Id)
+        {
+            ReloadLibraryItems(SelectedComponentItem.Id);
+        }
+        else
+        {
+            ReloadLibraryItems(SelectedLibraryItem?.Id);
+        }
+
+        ReloadComponentItems(SelectedComponentItem.Id);
+        ReloadSelectedComponentParameters();
+        RebuildLayers(SelectedLayer?.Id);
+        RefreshSourceMonitorPreview();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{removedName} removed from the component";
+    }
+
+    [RelayCommand]
+    private void ResetSelectedComponentOverride()
+    {
+        if (!CanResetSelectedComponentOverride || SelectedComponentOverrideItem is null)
+        {
+            return;
+        }
+
+        SelectedComponentOverrideItem.Model.Value = SelectedComponentOverrideItem.Definition.DefaultValue ?? string.Empty;
+        ReloadSelectedComponentOverrides(SelectedComponentOverrideItem.Model.Name);
+        RebuildLayers(SelectedLayer?.Id);
+        RefreshSourceMonitorPreview();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{SelectedComponentOverrideItem.Name} reset to the component default";
+    }
+
+    [RelayCommand]
     private void AddBehavior()
     {
         if (!CanAddBehavior || SelectedLayer is null)
@@ -4454,6 +6878,30 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadBehaviors();
         RecordHistoryIfNeeded();
         StatusMessage = "Behavior removed";
+    }
+
+    [RelayCommand]
+    private void InsertSelectedSnippetIntoFrameAction()
+    {
+        if (!CanInsertActionScriptSnippetIntoFrame || SelectedActionScriptSnippet is null)
+        {
+            return;
+        }
+
+        FrameActionScriptEditor = AppendActionScriptSnippet(FrameActionScriptEditor, SelectedActionScriptSnippet.Script);
+        StatusMessage = $"Inserted frame snippet '{SelectedActionScriptSnippet.Name}'";
+    }
+
+    [RelayCommand]
+    private void InsertSelectedSnippetIntoBehaviorScript()
+    {
+        if (!CanInsertActionScriptSnippetIntoBehavior || SelectedActionScriptSnippet is null)
+        {
+            return;
+        }
+
+        SelectedBehaviorScriptEditor = AppendActionScriptSnippet(SelectedBehaviorScriptEditor, SelectedActionScriptSnippet.Script);
+        StatusMessage = $"Inserted behavior snippet '{SelectedActionScriptSnippet.Name}'";
     }
 
     [RelayCommand]
@@ -5272,6 +7720,124 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public void ApplyFrameRulerInteraction(FrameTimelineRulerInteractionKind interactionKind, int frame)
+    {
+        var normalizedFrame = Math.Clamp(frame, 0, Math.Max(0, TotalFrames - 1));
+
+        switch (interactionKind)
+        {
+            case FrameTimelineRulerInteractionKind.Playhead:
+                SeekFrame(normalizedFrame);
+                return;
+
+            case FrameTimelineRulerInteractionKind.InPoint:
+                SetSceneInPointFrame(normalizedFrame);
+                return;
+
+            case FrameTimelineRulerInteractionKind.OutPoint:
+                SetSceneOutPointFrame(normalizedFrame);
+                return;
+
+            case FrameTimelineRulerInteractionKind.WorkAreaStart:
+                SetSceneWorkAreaStartFrame(normalizedFrame);
+                return;
+
+            case FrameTimelineRulerInteractionKind.WorkAreaEnd:
+                SetSceneWorkAreaEndFrame(normalizedFrame);
+                return;
+
+            case FrameTimelineRulerInteractionKind.OnionBefore:
+                OnionSkinBefore = Math.Clamp(CurrentFrame - normalizedFrame, 0, 12);
+                if (!_isInteractiveChange)
+                {
+                    StatusMessage = $"Onion skin previous frames set to {OnionSkinBefore}";
+                }
+                return;
+
+            case FrameTimelineRulerInteractionKind.OnionAfter:
+                OnionSkinAfter = Math.Clamp(normalizedFrame - CurrentFrame, 0, 12);
+                if (!_isInteractiveChange)
+                {
+                    StatusMessage = $"Onion skin next frames set to {OnionSkinAfter}";
+                }
+                return;
+        }
+    }
+
+    public void SetSceneInPointFrame(int frame)
+    {
+        if (!CanEditSceneMarkers || SelectedScene is null)
+        {
+            return;
+        }
+
+        SceneTimelineService.SetInPoint(SelectedScene.Model, frame, TotalFrames);
+        RefreshSceneTimelineEditors();
+        RecordHistoryIfNeeded();
+        RefreshSceneStateProperties();
+        if (!_isInteractiveChange)
+        {
+            RefreshMonitorPreviews();
+            SeekFrame(CurrentSceneInFrame);
+            StatusMessage = $"Scene in point set at {CurrentSceneInFrameLabel}";
+        }
+    }
+
+    public void SetSceneOutPointFrame(int frame)
+    {
+        if (!CanEditSceneMarkers || SelectedScene is null)
+        {
+            return;
+        }
+
+        SceneTimelineService.SetOutPoint(SelectedScene.Model, frame, TotalFrames);
+        RefreshSceneTimelineEditors();
+        RecordHistoryIfNeeded();
+        RefreshSceneStateProperties();
+        if (!_isInteractiveChange)
+        {
+            RefreshMonitorPreviews();
+            SeekFrame(CurrentSceneOutFrame);
+            StatusMessage = $"Scene out point set at {CurrentSceneOutFrameLabel}";
+        }
+    }
+
+    public void SetSceneWorkAreaStartFrame(int frame)
+    {
+        if (!CanEditSceneMarkers || SelectedScene is null)
+        {
+            return;
+        }
+
+        SceneTimelineService.SetWorkAreaStart(SelectedScene.Model, frame, TotalFrames);
+        RefreshSceneTimelineEditors();
+        RecordHistoryIfNeeded();
+        RefreshSceneStateProperties();
+        if (!_isInteractiveChange)
+        {
+            RefreshMonitorPreviews();
+            StatusMessage = $"Work area start set to F{CurrentSceneWorkAreaStartFrame + 1}";
+        }
+    }
+
+    public void SetSceneWorkAreaEndFrame(int frame)
+    {
+        if (!CanEditSceneMarkers || SelectedScene is null)
+        {
+            return;
+        }
+
+        SceneTimelineService.SetWorkAreaEnd(SelectedScene.Model, frame, TotalFrames);
+        RefreshSceneTimelineEditors();
+        RecordHistoryIfNeeded();
+        RefreshSceneStateProperties();
+        if (!_isInteractiveChange)
+        {
+            RefreshMonitorPreviews();
+            StatusMessage = $"Work area end set to F{CurrentSceneWorkAreaEndFrame + 1}";
+        }
+    }
+
     public void SetTimelineDockHeightPixels(double height)
     {
         var normalized = Math.Clamp(height, MinTimelineDockHeight, MaxTimelineDockHeight);
@@ -5325,6 +7891,23 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         SetCanvasSize(width, height, $"Canvas preset {width:0} × {height:0} applied");
+    }
+
+    [RelayCommand]
+    private void ApplyAnimateDocumentTargetDefaults()
+    {
+        if (IsEditingSymbol)
+        {
+            return;
+        }
+
+        AnimateDocumentProfileService.ApplyTargetDefaults(_document, AnimateDocumentTypeEditor);
+        RefreshAnimateDocumentEditor();
+        ReloadActionScriptSnippets(SelectedActionScriptSnippet?.Name);
+        RefreshSceneStateProperties();
+        RefreshPublishValidation();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{AnimateDocumentProfileService.GetDisplayName(AnimateDocumentTypeEditor)} defaults applied";
     }
 
     [RelayCommand]
@@ -5572,8 +8155,10 @@ public partial class MainWindowViewModel : ViewModelBase
         _suppressButtonStateEditor = false;
         SelectedDrawingTool = DrawingTool.Select;
         SceneEditingService.EnsureScenes(_document);
+        AnimateDocumentProfileService.EnsureSettings(_document);
         LibraryManagementService.EnsureLibraryMetadata(_document);
         PublishProfileService.EnsureProfiles(_document);
+        MotionPresetService.EnsureBuiltInPresets(_document);
         DocumentName = document.Name;
         FileLabel = label;
         CurrentDocumentFileFormat = format;
@@ -5586,10 +8171,16 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadComponentItems();
         ReloadMediaAssets();
         ReloadPublishProfiles();
+        ReloadMotionPresets();
         ReloadScenes(document.ActiveSceneId);
+        RefreshAnimateDocumentEditor();
+        ReloadActionScriptSnippets();
         RefreshFrameSelectionStateProperties();
         RefreshSymbolEditingProperties();
         ResetHistory();
+        HistoryEntries.Clear();
+        ReloadMovieExplorer();
+        OnPropertyChanged(nameof(HistoryPanelSummary));
         RefreshAnimationExchangePreviewCore(updateStatus: false);
         StatusMessage = "Document loaded";
     }
@@ -5622,6 +8213,411 @@ public partial class MainWindowViewModel : ViewModelBase
     public TimelineDocument CreateExportDocumentSnapshot()
     {
         return BuildPersistedDocumentSnapshot();
+    }
+
+    private void SeedColorSwatches()
+    {
+        ColorSwatches.Clear();
+        foreach (var swatch in new[]
+                 {
+                     new ColorSwatchViewModel("Stage Night", "#09111F"),
+                     new ColorSwatchViewModel("Stage Indigo", "#182748"),
+                     new ColorSwatchViewModel("Signal Cyan", "#24E5C1"),
+                     new ColorSwatchViewModel("Vector Aqua", "#61E6FF"),
+                     new ColorSwatchViewModel("Accent Blue", "#1F7DFF"),
+                     new ColorSwatchViewModel("Solar Orange", "#FF8A4C"),
+                     new ColorSwatchViewModel("Warm Gold", "#FFCC4D"),
+                     new ColorSwatchViewModel("Studio White", "#F7F5ED"),
+                     new ColorSwatchViewModel("Ink Slate", "#243651"),
+                     new ColorSwatchViewModel("Fog Gray", "#74839A"),
+                     new ColorSwatchViewModel("Rig Violet", "#8B5CF6"),
+                     new ColorSwatchViewModel("Danger Coral", "#FF6E6E")
+                 })
+        {
+            ColorSwatches.Add(swatch);
+        }
+    }
+
+    private void AppendHistoryEntry(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        var normalized = message.Trim();
+        if (HistoryEntries.Count > 0 && string.Equals(HistoryEntries[0].Message, normalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        HistoryEntries.Insert(0, new HistoryEntryViewModel(normalized, DateTimeOffset.Now));
+        while (HistoryEntries.Count > 60)
+        {
+            HistoryEntries.RemoveAt(HistoryEntries.Count - 1);
+        }
+
+        OnPropertyChanged(nameof(HistoryPanelSummary));
+    }
+
+    private bool TryFocusMovieExplorerNode(string focusToken)
+    {
+        var parts = focusToken.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+        {
+            return false;
+        }
+
+        if (string.Equals(parts[0], "scene", StringComparison.Ordinal) &&
+            parts.Length >= 2 &&
+            Guid.TryParse(parts[1], out var sceneId))
+        {
+            return TryFocusScene(sceneId);
+        }
+
+        if (string.Equals(parts[0], "layer", StringComparison.Ordinal) &&
+            parts.Length >= 3 &&
+            Guid.TryParse(parts[1], out var layerSceneId) &&
+            Guid.TryParse(parts[2], out var layerId))
+        {
+            return TryFocusLayer(layerSceneId, layerId);
+        }
+
+        if (string.Equals(parts[0], "marker", StringComparison.Ordinal) &&
+            parts.Length >= 3 &&
+            Guid.TryParse(parts[1], out var markerSceneId) &&
+            Guid.TryParse(parts[2], out var markerId))
+        {
+            return TryFocusMarker(markerSceneId, markerId);
+        }
+
+        if (string.Equals(parts[0], "label", StringComparison.Ordinal) &&
+            parts.Length >= 3 &&
+            Guid.TryParse(parts[1], out var labelSceneId) &&
+            Guid.TryParse(parts[2], out var labelId))
+        {
+            return TryFocusFrameLabel(labelSceneId, labelId);
+        }
+
+        if (string.Equals(parts[0], "library", StringComparison.Ordinal) &&
+            parts.Length >= 2 &&
+            Guid.TryParse(parts[1], out var libraryItemId))
+        {
+            SelectedLibraryItem = LibraryItems.FirstOrDefault(item => item.Id == libraryItemId);
+            return SelectedLibraryItem is not null;
+        }
+
+        if (string.Equals(parts[0], "media", StringComparison.Ordinal) &&
+            parts.Length >= 2 &&
+            Guid.TryParse(parts[1], out var mediaAssetId))
+        {
+            SelectedMediaAsset = MediaAssets.FirstOrDefault(item => item.Id == mediaAssetId);
+            return SelectedMediaAsset is not null;
+        }
+
+        if (string.Equals(parts[0], "motion", StringComparison.Ordinal) &&
+            parts.Length >= 2 &&
+            Guid.TryParse(parts[1], out var motionPresetId))
+        {
+            SelectedMotionPreset = MotionPresets.FirstOrDefault(item => item.Id == motionPresetId);
+            return SelectedMotionPreset is not null;
+        }
+
+        if (string.Equals(parts[0], "behavior", StringComparison.Ordinal) &&
+            parts.Length >= 4 &&
+            Guid.TryParse(parts[1], out var behaviorSceneId) &&
+            Guid.TryParse(parts[2], out var behaviorLayerId) &&
+            Guid.TryParse(parts[3], out var behaviorId))
+        {
+            if (!TryFocusLayer(behaviorSceneId, behaviorLayerId))
+            {
+                return false;
+            }
+
+            SelectedBehavior = Behaviors.FirstOrDefault(item => item.Id == behaviorId);
+            return SelectedBehavior is not null;
+        }
+
+        if (string.Equals(parts[0], "stateGroup", StringComparison.Ordinal) &&
+            parts.Length >= 4 &&
+            Guid.TryParse(parts[1], out var stateGroupSceneId) &&
+            Guid.TryParse(parts[2], out var stateGroupLayerId) &&
+            Guid.TryParse(parts[3], out var stateGroupId))
+        {
+            if (!TryFocusLayer(stateGroupSceneId, stateGroupLayerId))
+            {
+                return false;
+            }
+
+            SelectedVisualStateGroup = VisualStateGroups.FirstOrDefault(item => item.Id == stateGroupId);
+            return SelectedVisualStateGroup is not null;
+        }
+
+        if (string.Equals(parts[0], "state", StringComparison.Ordinal) &&
+            parts.Length >= 5 &&
+            Guid.TryParse(parts[1], out var stateSceneId) &&
+            Guid.TryParse(parts[2], out var stateLayerId) &&
+            Guid.TryParse(parts[3], out var stateParentGroupId) &&
+            Guid.TryParse(parts[4], out var stateId))
+        {
+            if (!TryFocusLayer(stateSceneId, stateLayerId))
+            {
+                return false;
+            }
+
+            SelectedVisualStateGroup = VisualStateGroups.FirstOrDefault(item => item.Id == stateParentGroupId);
+            SelectedVisualState = VisualStates.FirstOrDefault(item => item.Id == stateId);
+            return SelectedVisualState is not null;
+        }
+
+        return false;
+    }
+
+    private bool TryFocusScene(Guid sceneId)
+    {
+        var scene = Scenes.FirstOrDefault(item => item.Id == sceneId);
+        if (scene is null)
+        {
+            return false;
+        }
+
+        SelectedScene = scene;
+        return true;
+    }
+
+    private bool TryFocusLayer(Guid sceneId, Guid layerId)
+    {
+        if (!TryFocusScene(sceneId))
+        {
+            return false;
+        }
+
+        SelectedLayer = Layers.FirstOrDefault(item => item.Id == layerId);
+        return SelectedLayer is not null;
+    }
+
+    private bool TryFocusMarker(Guid sceneId, Guid markerId)
+    {
+        if (!TryFocusScene(sceneId))
+        {
+            return false;
+        }
+
+        SelectedSceneMarker = SceneMarkers.FirstOrDefault(item => item.Id == markerId);
+        if (SelectedSceneMarker is null)
+        {
+            return false;
+        }
+
+        Seek(FrameTimelineService.FrameToTime(SelectedSceneMarker.Frame, SceneFrameRate));
+        return true;
+    }
+
+    private bool TryFocusFrameLabel(Guid sceneId, Guid labelId)
+    {
+        if (!TryFocusScene(sceneId))
+        {
+            return false;
+        }
+
+        var label = SceneFrameLabels.FirstOrDefault(item => item.Id == labelId);
+        if (label is null)
+        {
+            return false;
+        }
+
+        Seek(FrameTimelineService.FrameToTime(label.Frame, SceneFrameRate));
+        return true;
+    }
+
+    private void ReloadMovieExplorer()
+    {
+        MovieExplorerNodes.Clear();
+
+        var search = MovieExplorerSearchText.Trim();
+        foreach (var node in BuildMovieExplorerNodes(search))
+        {
+            MovieExplorerNodes.Add(node);
+        }
+
+        SelectedMovieExplorerNode = SelectedMovieExplorerNode is null
+            ? MovieExplorerNodes.FirstOrDefault()
+            : MovieExplorerNodes.SelectMany(FlattenMovieExplorerNodes)
+                .FirstOrDefault(item => string.Equals(item.FocusToken, SelectedMovieExplorerNode.FocusToken, StringComparison.Ordinal))
+              ?? MovieExplorerNodes.FirstOrDefault();
+
+        OnPropertyChanged(nameof(MovieExplorerSummary));
+        OnPropertyChanged(nameof(SelectedMovieExplorerSummary));
+        OnPropertyChanged(nameof(CanFocusSelectedMovieExplorerNode));
+    }
+
+    private IEnumerable<MovieExplorerNodeViewModel> BuildMovieExplorerNodes(string search)
+    {
+        foreach (var scene in _document.Scenes.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var sceneNode = new MovieExplorerNodeViewModel(
+                scene.Name,
+                "Scene",
+                $"{scene.Layers.Count} layers • {scene.Duration:0.##}s • {scene.FrameRate:0.#} fps",
+                $"scene:{scene.Id}");
+
+            foreach (var layer in scene.Layers.OrderByDescending(item => item.ZIndex))
+            {
+                var layerNode = BuildLayerMovieExplorerNode(scene, layer);
+                if (layerNode is not null)
+                {
+                    sceneNode.Children.Add(layerNode);
+                }
+            }
+
+            foreach (var marker in scene.Markers.OrderBy(item => item.Frame).ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                sceneNode.Children.Add(new MovieExplorerNodeViewModel(
+                    string.IsNullOrWhiteSpace(marker.Name) ? $"Marker F{marker.Frame + 1}" : marker.Name,
+                    "Marker",
+                    $"{marker.Kind} • F{marker.Frame + 1}",
+                    $"marker:{scene.Id}:{marker.Id}"));
+            }
+
+            foreach (var label in scene.FrameLabels.OrderBy(item => item.Frame).ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                sceneNode.Children.Add(new MovieExplorerNodeViewModel(
+                    string.IsNullOrWhiteSpace(label.Name) ? $"Label F{label.Frame + 1}" : label.Name,
+                    "Frame Label",
+                    $"F{label.Frame + 1}",
+                    $"label:{scene.Id}:{label.Id}"));
+            }
+
+            if (MatchesMovieExplorerSearch(sceneNode, search))
+            {
+                yield return sceneNode;
+            }
+        }
+
+        var libraryRoot = new MovieExplorerNodeViewModel("Library", "Panel", $"{_document.LibraryItems.Count} symbols");
+        foreach (var item in _document.LibraryItems.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            libraryRoot.Children.Add(new MovieExplorerNodeViewModel(
+                item.Name,
+                "Library Item",
+                $"{item.SymbolKind} • {item.FolderPath}",
+                $"library:{item.Id}"));
+        }
+
+        if (MatchesMovieExplorerSearch(libraryRoot, search))
+        {
+            yield return libraryRoot;
+        }
+
+        var mediaRoot = new MovieExplorerNodeViewModel("Media", "Panel", $"{_document.MediaAssets.Count} assets");
+        foreach (var asset in _document.MediaAssets.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            mediaRoot.Children.Add(new MovieExplorerNodeViewModel(
+                asset.Name,
+                "Media",
+                $"{asset.Kind} • {asset.SourceLabel}",
+                $"media:{asset.Id}"));
+        }
+
+        if (MatchesMovieExplorerSearch(mediaRoot, search))
+        {
+            yield return mediaRoot;
+        }
+
+        var motionRoot = new MovieExplorerNodeViewModel("Motion Presets", "Panel", $"{_document.MotionPresets.Count} presets");
+        foreach (var preset in _document.MotionPresets.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            motionRoot.Children.Add(new MovieExplorerNodeViewModel(
+                preset.Name,
+                "Motion Preset",
+                preset.Description ?? string.Empty,
+                $"motion:{preset.Id}"));
+        }
+
+        if (MatchesMovieExplorerSearch(motionRoot, search))
+        {
+            yield return motionRoot;
+        }
+    }
+
+    private MovieExplorerNodeViewModel? BuildLayerMovieExplorerNode(SceneModel scene, TimelineLayer layer)
+    {
+        var subtitleParts = new List<string>
+        {
+            layer.Kind.ToString()
+        };
+        if (!layer.IsVisible)
+        {
+            subtitleParts.Add("hidden");
+        }
+
+        if (layer.IsLocked)
+        {
+            subtitleParts.Add("locked");
+        }
+
+        var layerNode = new MovieExplorerNodeViewModel(
+            layer.Name,
+            "Layer",
+            string.Join(" • ", subtitleParts),
+            $"layer:{scene.Id}:{layer.Id}");
+
+        foreach (var behavior in layer.Behaviors.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            layerNode.Children.Add(new MovieExplorerNodeViewModel(
+                string.IsNullOrWhiteSpace(behavior.Name) ? behavior.Trigger.ToString() : behavior.Name,
+                "Behavior",
+                $"{behavior.Trigger} • {behavior.Action}",
+                $"behavior:{scene.Id}:{layer.Id}:{behavior.Id}"));
+        }
+
+        foreach (var group in layer.VisualStateGroups.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var groupNode = new MovieExplorerNodeViewModel(
+                group.Name,
+                "State Group",
+                $"{group.States.Count} states",
+                $"stateGroup:{scene.Id}:{layer.Id}:{group.Id}");
+
+            foreach (var state in group.States.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                groupNode.Children.Add(new MovieExplorerNodeViewModel(
+                    state.Name,
+                    "State",
+                    "Captured template",
+                    $"state:{scene.Id}:{layer.Id}:{group.Id}:{state.Id}"));
+            }
+
+            layerNode.Children.Add(groupNode);
+        }
+
+        return layerNode;
+    }
+
+    private static bool MatchesMovieExplorerSearch(MovieExplorerNodeViewModel node, string search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return true;
+        }
+
+        return FlattenMovieExplorerNodes(node).Any(item =>
+            item.Title.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            item.KindLabel.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            item.Subtitle.Contains(search, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IEnumerable<MovieExplorerNodeViewModel> FlattenMovieExplorerNodes(MovieExplorerNodeViewModel node)
+    {
+        yield return node;
+
+        foreach (var child in node.Children)
+        {
+            foreach (var nested in FlattenMovieExplorerNodes(child))
+            {
+                yield return nested;
+            }
+        }
     }
 
     private void RefreshAnimationExchangePreviewCore(bool updateStatus)
@@ -5781,13 +8777,66 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public void ToggleTimelineHierarchy(Guid layerId)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer is null)
+        {
+            return;
+        }
+
+        if (layer.Kind == LayerKind.Folder)
+        {
+            SelectLayer(layerId);
+            ToggleSelectedFolderExpanded();
+            return;
+        }
+
+        if (_collapsedTimelineLayers.Contains(layerId))
+        {
+            _collapsedTimelineLayers.Remove(layerId);
+            StatusMessage = $"{layer.Name} curves expanded";
+        }
+        else
+        {
+            _collapsedTimelineLayers.Add(layerId);
+            StatusMessage = $"{layer.Name} curves collapsed";
+        }
+
+        ReloadTimelineRows();
+    }
+
+    public void ToggleFrameHierarchy(Guid layerId)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer?.Kind != LayerKind.Folder)
+        {
+            return;
+        }
+
+        SelectLayer(layerId);
+        ToggleSelectedFolderExpanded();
+    }
+
     public void SelectFrameRange(Guid layerId, int startFrame, int endFrame)
     {
-        SelectLayer(layerId);
+        if (SelectedLayer?.Id != layerId)
+        {
+            SelectLayer(layerId);
+        }
+
         SelectedKeyframeId = null;
+        _suppressFrameSelectionRefresh = true;
         SelectionStartFrame = Math.Clamp(startFrame, 0, Math.Max(0, TotalFrames - 1));
         SelectionEndFrame = Math.Clamp(endFrame, 0, Math.Max(0, TotalFrames - 1));
-        SeekFrame(Math.Min(SelectionStartFrame, SelectionEndFrame));
+        _suppressFrameSelectionRefresh = false;
+        UpdateFrameRowSelection();
+        RefreshFrameSelectionStateProperties();
+        var targetFrame = Math.Min(SelectionStartFrame, SelectionEndFrame);
+        if (CurrentFrame != targetFrame)
+        {
+            SeekFrame(targetFrame);
+        }
     }
 
     public void DeselectKeyframe()
@@ -5847,13 +8896,36 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        if (TimelineEditingService.MoveKeyframe(SelectedLayer.Model, property, keyframeId, Snap(time), Duration))
+        var snappedTime = Snap(time);
+        var existingKeyframe = SelectedLayer.Model.Tracks
+            .FirstOrDefault(track => track.Property == property)?
+            .Keyframes
+            .FirstOrDefault(candidate => candidate.Id == keyframeId);
+        if (existingKeyframe is not null && Math.Abs(existingKeyframe.Time - snappedTime) < 0.0001d)
         {
-            ReloadTracks();
+            if (Math.Abs(CurrentTime - snappedTime) > 0.0001d)
+            {
+                Seek(snappedTime);
+            }
+
+            return;
+        }
+
+        if (TimelineEditingService.MoveKeyframe(SelectedLayer.Model, property, keyframeId, snappedTime, Duration))
+        {
             SelectedProperty = property;
             SelectedKeyframeId = keyframeId;
-            Seek(Snap(time));
-            RecordHistoryIfNeeded();
+            if (_isInteractiveChange)
+            {
+                RefreshInteractiveTrackState(SelectedLayer.Model, property);
+            }
+            else
+            {
+                ReloadTracks();
+                RecordHistoryIfNeeded();
+            }
+
+            Seek(snappedTime);
             if (!_isInteractiveChange)
             {
                 StatusMessage = "Keyframe moved";
@@ -5863,7 +8935,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public void MoveKeyframe(Guid layerId, AnimatedProperty property, Guid keyframeId, double time)
     {
-        SelectLayer(layerId);
+        if (SelectedLayer?.Id != layerId)
+        {
+            SelectLayer(layerId);
+        }
+
         MoveKeyframe(property, keyframeId, time);
     }
 
@@ -5941,6 +9017,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         SelectedLayer = layer;
+        SelectedPathPointIndexEditor = pointIndex;
         var snapshot = FrameTimelineService.SampleLayer(layer.Model, CurrentTime, SceneFrameRate, TotalFrames)
             ?? TimelineInterpolationService.SampleLayer(layer.Model, CurrentTime);
         if (!TimelineEditingService.ApplyPathPoint(
@@ -5956,7 +9033,9 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         ReloadPreviewForLayer(layer);
+        RefreshSelectedPathPointEditors();
         RefreshInspector();
+        RefreshSelectionStateProperties();
         RecordHistoryIfNeeded();
         OnPropertyChanged(nameof(ShapeTweenSummary));
         OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
@@ -5966,9 +9045,141 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    public void BeginInteractiveChange()
+    public void SelectPathPoint(Guid layerId, int pointIndex)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer is null || layer.Kind != LayerKind.Path)
+        {
+            return;
+        }
+
+        SelectedLayer = layer;
+        SelectedPathPointIndexEditor = pointIndex;
+        RefreshSelectedPathPointEditors();
+        RefreshSelectionStateProperties();
+        StatusMessage = "Vector point selected";
+    }
+
+    public void UpdatePathHandle(Guid layerId, int pointIndex, VectorHandleKind handleKind, Point documentPoint)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer is null || layer.IsLocked || layer.Kind != LayerKind.Path)
+        {
+            return;
+        }
+
+        SelectedLayer = layer;
+        SelectedPathPointIndexEditor = pointIndex;
+        var snapshot = FrameTimelineService.SampleLayer(layer.Model, CurrentTime, SceneFrameRate, TotalFrames)
+            ?? TimelineInterpolationService.SampleLayer(layer.Model, CurrentTime);
+        if (!TimelineEditingService.ApplyPathHandle(
+                layer.Model,
+                pointIndex,
+                handleKind,
+                new VectorPointModel { X = documentPoint.X, Y = documentPoint.Y },
+                snapshot,
+                CurrentTime,
+                ShouldCreateKeyframe(),
+                Duration))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(layer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RefreshSelectionStateProperties();
+        RecordHistoryIfNeeded();
+        OnPropertyChanged(nameof(ShapeTweenSummary));
+        OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = "Bezier handle moved";
+        }
+    }
+
+    public void UpdatePathPointWidthScale(Guid layerId, int pointIndex, double scale)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer is null || layer.IsLocked || layer.Kind != LayerKind.Path)
+        {
+            return;
+        }
+
+        SelectedLayer = layer;
+        SelectedPathPointIndexEditor = pointIndex;
+        if (!TimelineEditingService.SetLocalizedPathPointStrokeWidthScale(
+                layer.Model,
+                pointIndex,
+                scale,
+                CurrentTime,
+                ShouldCreateKeyframe(),
+                Duration))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(layer);
+        RefreshSelectedPathPointEditors();
+        RefreshInspector();
+        RefreshSelectionStateProperties();
+        RecordHistoryIfNeeded();
+        OnPropertyChanged(nameof(ShapeTweenSummary));
+        OnPropertyChanged(nameof(CanDeleteCurrentShapeKeyframe));
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = "Stroke width adjusted";
+        }
+    }
+
+    public void UpdateWarpPin(Guid layerId, Guid pinId, Point normalizedPoint)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer is null || layer.IsLocked || layer.Kind != LayerKind.Path)
+        {
+            return;
+        }
+
+        if (!LayerDeformationService.MoveWarpPin(layer.Model, pinId, normalizedPoint.X, normalizedPoint.Y))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(layer);
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = "Warp pin moved";
+        }
+    }
+
+    public void UpdateRigBoneHandle(Guid layerId, Guid boneId, RigBoneHandleKind handleKind, Point normalizedPoint)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer is null || layer.IsLocked || layer.Kind != LayerKind.Path)
+        {
+            return;
+        }
+
+        if (!LayerDeformationService.MoveRigBoneHandle(layer.Model, boneId, handleKind, normalizedPoint.X, normalizedPoint.Y))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(layer);
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        if (!_isInteractiveChange)
+        {
+            StatusMessage = handleKind == RigBoneHandleKind.Start ? "Rig bone start moved" : "Rig bone endpoint moved";
+        }
+    }
+
+    public void BeginInteractiveChange(InteractiveChangeKind kind = InteractiveChangeKind.Generic)
     {
         _isInteractiveChange = true;
+        _interactiveChangeKind = kind;
     }
 
     public void CommitInteractiveChange(string statusMessage)
@@ -5979,6 +9190,8 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         _isInteractiveChange = false;
+        _interactiveChangeKind = InteractiveChangeKind.Generic;
+        RefreshEditorStateAfterInteractiveChange();
         RecordHistoryIfNeeded();
         StatusMessage = statusMessage;
     }
@@ -6000,10 +9213,12 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             DrawingTool.Rectangle => CreateCanvasShapeLayer(LayerKind.Rectangle, "Vector Card", bounds),
             DrawingTool.Ellipse => CreateCanvasShapeLayer(LayerKind.Ellipse, "Vector Orb", bounds),
+            DrawingTool.PolyStar => CreatePolyStarLayer("Signal Star", bounds),
             DrawingTool.Text => CreateCanvasShapeLayer(LayerKind.Text, "Canvas Caption", bounds),
-            DrawingTool.Line => CreateVectorStrokeLayer("Vector Line", points, false, Math.Max(2, StrokeThicknessEditor)),
-            DrawingTool.Pen => CreateVectorStrokeLayer("Pen Path", points, false, Math.Max(2.2d, StrokeThicknessEditor)),
-            DrawingTool.Brush => CreateVectorStrokeLayer("Brush Stroke", points, false, Math.Max(6d, StrokeThicknessEditor)),
+            DrawingTool.Line => CreateVectorStrokeLayer("Vector Line", tool, points, false, Math.Max(2, StrokeThicknessEditor)),
+            DrawingTool.Pen => CreateVectorStrokeLayer("Pen Path", tool, points, false, Math.Max(2.2d, StrokeThicknessEditor)),
+            DrawingTool.Brush => CreateVectorStrokeLayer("Brush Stroke", tool, points, false, Math.Max(6d, StrokeThicknessEditor)),
+            DrawingTool.Pencil => CreateVectorStrokeLayer("Pencil Stroke", tool, points, false, Math.Max(2d, StrokeThicknessEditor)),
             _ => null
         };
 
@@ -6015,6 +9230,126 @@ public partial class MainWindowViewModel : ViewModelBase
         TimelineEditingService.AddLayer(_document, layer);
         RebuildLayers(layer.Id);
         StatusMessage = $"{layer.Name} added";
+    }
+
+    public void ApplyLassoSelection(IReadOnlyList<Guid> layerIds)
+    {
+        if (layerIds.Count == 0)
+        {
+            SelectedLayer = null;
+            StatusMessage = "Lasso selection cleared";
+            return;
+        }
+
+        SelectLayer(layerIds[0]);
+        StatusMessage = layerIds.Count == 1
+            ? $"{SelectedLayer?.Name ?? "Layer"} selected with lasso"
+            : $"{SelectedLayer?.Name ?? "Layer"} selected from {layerIds.Count} lasso matches";
+    }
+
+    public void ApplyCanvasErase(Guid layerId, Point documentPoint, double radius)
+    {
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (layer is null || layer.IsLocked)
+        {
+            return;
+        }
+
+        SelectedLayer = layer;
+        var snapshot = FrameTimelineService.SampleLayer(layer.Model, CurrentTime, SceneFrameRate, TotalFrames)
+            ?? TimelineInterpolationService.SampleLayer(layer.Model, CurrentTime);
+        var result = ToolAuthoringService.ApplyEraser(
+            layer.Model,
+            snapshot,
+            new VectorPointModel { X = documentPoint.X, Y = documentPoint.Y },
+            radius,
+            EraserToolModeEditor,
+            CurrentTime,
+            ShouldCreateKeyframe(),
+            Duration);
+        if (!result.Changed)
+        {
+            return;
+        }
+
+        if (result.RemoveLayer)
+        {
+            var removedId = layer.Id;
+            TimelineEditingService.RemoveLayer(_document, removedId);
+            RebuildLayers(_document.Layers.LastOrDefault()?.Id);
+            RecordHistoryIfNeeded();
+            StatusMessage = $"{layer.Name} erased";
+            return;
+        }
+
+        ReloadPreviewForLayer(layer);
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{EraserToolModeEditor} erase applied";
+    }
+
+    public void SampleLayerStyle(Guid layerId)
+    {
+        var sourceLayer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (sourceLayer is null)
+        {
+            return;
+        }
+
+        if (SelectedLayer is null || SelectedLayer.Id == layerId || !CanEditSelection)
+        {
+            SelectLayer(layerId);
+            StatusMessage = $"Style sampled from {sourceLayer.Name}";
+            return;
+        }
+
+        CopyStyleSurface(sourceLayer.Model.Style, SelectedLayer.Model.Style);
+        ReloadPreviewForLayer(SelectedLayer);
+        RefreshInspector();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"Sampled style from {sourceLayer.Name} into {SelectedLayer.Name}";
+    }
+
+    public void ApplyStageStyle(Guid layerId, CanvasStyleApplicationKind applicationKind)
+    {
+        var targetLayer = Layers.FirstOrDefault(item => item.Id == layerId);
+        if (targetLayer is null)
+        {
+            return;
+        }
+
+        var shouldSelectTarget = SelectedLayer is null || SelectedLayer.Id == layerId;
+
+        if (applicationKind == CanvasStyleApplicationKind.Fill)
+        {
+            var snapshot = FrameTimelineService.SampleLayer(targetLayer.Model, CurrentTime, SceneFrameRate, TotalFrames)
+                ?? TimelineInterpolationService.SampleLayer(targetLayer.Model, CurrentTime);
+            var decision = PaintBucketToolService.AnalyzeFillTarget(snapshot, PaintBucketGapSizeEditor);
+            if (!decision.CanApply)
+            {
+                StatusMessage = $"Paint Bucket gap is too wide for {PaintBucketGapSizeEditor} closing";
+                return;
+            }
+
+            ApplyFillSurface(targetLayer, decision.ClosePath, PaintBucketLockFillEditor);
+        }
+        else
+        {
+            ApplyStrokeSurface(targetLayer);
+        }
+
+        ReloadPreviewForLayer(targetLayer);
+        if (shouldSelectTarget)
+        {
+            SelectLayer(layerId);
+        }
+
+        RecordHistoryIfNeeded();
+        StatusMessage = applicationKind == CanvasStyleApplicationKind.Fill
+            ? PaintBucketLockFillEditor
+                ? $"Fill applied to {targetLayer.Name} with Lock Fill"
+                : $"Fill applied to {targetLayer.Name}"
+            : $"Stroke applied to {targetLayer.Name}";
     }
 
     private void AddLayer(LayerKind kind, Point position)
@@ -6092,6 +9427,97 @@ public partial class MainWindowViewModel : ViewModelBase
         };
     }
 
+    private static string AppendActionScriptSnippet(string existing, string snippet)
+    {
+        var normalizedSnippet = snippet?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedSnippet))
+        {
+            return existing ?? string.Empty;
+        }
+
+        return string.IsNullOrWhiteSpace(existing)
+            ? normalizedSnippet
+            : $"{existing.TrimEnd()}{Environment.NewLine}{normalizedSnippet}";
+    }
+
+    private void ApplyFillSurface(LayerViewModel targetLayer, bool closePathForFill, bool preserveGradientTransform)
+    {
+        var previousGradientKind = targetLayer.Model.Style.GradientKind;
+        var previousGradientAngle = targetLayer.Model.Style.GradientAngle;
+        var previousGradientCenterX = targetLayer.Model.Style.GradientCenterX;
+        var previousGradientCenterY = targetLayer.Model.Style.GradientCenterY;
+        var previousGradientScaleX = targetLayer.Model.Style.GradientScaleX;
+        var previousGradientScaleY = targetLayer.Model.Style.GradientScaleY;
+        var previousClosedState = targetLayer.Model.Style.IsClosed;
+        targetLayer.Model.Style.HasFill = FillEnabledEditor;
+        targetLayer.Model.Style.Fill = FillHexEditor;
+        targetLayer.Model.Style.UseGradient = UseGradientEditor;
+        targetLayer.Model.Style.GradientKind = GradientKindEditor;
+        targetLayer.Model.Style.GradientAngle = GradientAngleEditor;
+        targetLayer.Model.Style.GradientCenterX = GradientCenterXEditor;
+        targetLayer.Model.Style.GradientCenterY = GradientCenterYEditor;
+        targetLayer.Model.Style.GradientScaleX = GradientScaleXEditor;
+        targetLayer.Model.Style.GradientScaleY = GradientScaleYEditor;
+        targetLayer.Model.Style.GradientFrom = GradientFromEditor;
+        targetLayer.Model.Style.GradientTo = GradientToEditor;
+        if (preserveGradientTransform && targetLayer.Model.Style.UseGradient)
+        {
+            targetLayer.Model.Style.GradientKind = previousGradientKind;
+            targetLayer.Model.Style.GradientAngle = previousGradientAngle;
+            targetLayer.Model.Style.GradientCenterX = previousGradientCenterX;
+            targetLayer.Model.Style.GradientCenterY = previousGradientCenterY;
+            targetLayer.Model.Style.GradientScaleX = previousGradientScaleX;
+            targetLayer.Model.Style.GradientScaleY = previousGradientScaleY;
+        }
+
+        targetLayer.Model.Style.IsClosed = closePathForFill || previousClosedState;
+    }
+
+    private void ApplyStrokeSurface(LayerViewModel targetLayer)
+    {
+        targetLayer.Model.Style.HasStroke = StrokeEnabledEditor;
+        targetLayer.Model.Style.Stroke = StrokeHexEditor;
+        targetLayer.Model.Style.StrokeThickness = StrokeThicknessEditor;
+        targetLayer.Model.Style.StrokeCapStyle = StrokeCapStyleEditor;
+        targetLayer.Model.Style.StrokeJoinStyle = StrokeJoinStyleEditor;
+        targetLayer.Model.Style.StrokeMiterLimit = StrokeMiterLimitEditor;
+    }
+
+    private static void CopyStyleSurface(LayerStyle source, LayerStyle target)
+    {
+        target.DrawingMode = source.DrawingMode;
+        target.PrimitiveShape = source.PrimitiveShape;
+        target.HasFill = source.HasFill;
+        target.Fill = source.Fill;
+        target.HasStroke = source.HasStroke;
+        target.Stroke = source.Stroke;
+        target.StrokeThickness = source.StrokeThickness;
+        target.StrokeCapStyle = source.StrokeCapStyle;
+        target.StrokeJoinStyle = source.StrokeJoinStyle;
+        target.StrokeMiterLimit = source.StrokeMiterLimit;
+        target.UseGradient = source.UseGradient;
+        target.GradientKind = source.GradientKind;
+        target.GradientAngle = source.GradientAngle;
+        target.GradientCenterX = source.GradientCenterX;
+        target.GradientCenterY = source.GradientCenterY;
+        target.GradientScaleX = source.GradientScaleX;
+        target.GradientScaleY = source.GradientScaleY;
+        target.GradientFrom = source.GradientFrom;
+        target.GradientTo = source.GradientTo;
+        target.CornerRadius = source.CornerRadius;
+        target.CornerRadiusTopLeft = source.CornerRadiusTopLeft;
+        target.CornerRadiusTopRight = source.CornerRadiusTopRight;
+        target.CornerRadiusBottomRight = source.CornerRadiusBottomRight;
+        target.CornerRadiusBottomLeft = source.CornerRadiusBottomLeft;
+        target.IsClosed = source.IsClosed;
+        target.EllipseStartAngle = source.EllipseStartAngle;
+        target.EllipseSweepAngle = source.EllipseSweepAngle;
+        target.PathPoints = VectorPathService.ClonePoints(source.PathPoints);
+        target.PolyStarSides = source.PolyStarSides;
+        target.PolyStarInnerRadius = source.PolyStarInnerRadius;
+        target.PolyStarIsStar = source.PolyStarIsStar;
+    }
+
     private static string GetDefaultAvaloniaControlFill(AvaloniaControlKind controlKind)
     {
         return controlKind switch
@@ -6131,6 +9557,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void ApplyActiveStyle(TimelineLayer layer, bool keepText)
     {
+        layer.Style.DrawingMode = ShapeDrawingModeEditor;
         layer.Style.HasFill = FillEnabledEditor;
         layer.Style.Fill = ResolveFillPreset();
         layer.Style.HasStroke = StrokeEnabledEditor;
@@ -6139,16 +9566,32 @@ public partial class MainWindowViewModel : ViewModelBase
         layer.Style.UseGradient = UseGradientEditor;
         layer.Style.GradientKind = GradientKindEditor;
         layer.Style.GradientAngle = GradientAngleEditor;
+        layer.Style.GradientCenterX = GradientCenterXEditor;
+        layer.Style.GradientCenterY = GradientCenterYEditor;
+        layer.Style.GradientScaleX = GradientScaleXEditor;
+        layer.Style.GradientScaleY = GradientScaleYEditor;
         layer.Style.GradientFrom = ResolveGradientFromPreset();
         layer.Style.GradientTo = ResolveGradientToPreset();
         layer.Style.StrokeCapStyle = StrokeCapStyleEditor;
         layer.Style.StrokeJoinStyle = StrokeJoinStyleEditor;
         layer.Style.StrokeMiterLimit = Math.Max(1d, StrokeMiterLimitEditor);
+        layer.Style.CornerRadius = Math.Max(0d, InspectorCornerRadius);
+        layer.Style.CornerRadiusTopLeft = Math.Max(0d, CornerRadiusTopLeftEditor);
+        layer.Style.CornerRadiusTopRight = Math.Max(0d, CornerRadiusTopRightEditor);
+        layer.Style.CornerRadiusBottomRight = Math.Max(0d, CornerRadiusBottomRightEditor);
+        layer.Style.CornerRadiusBottomLeft = Math.Max(0d, CornerRadiusBottomLeftEditor);
+        layer.Style.EllipseStartAngle = NormalizeShapeAngle(EllipseStartAngleEditor);
+        layer.Style.EllipseSweepAngle = Math.Clamp(EllipseSweepAngleEditor, -360d, 360d);
+        layer.Style.PolyStarSides = Math.Clamp(PolyStarSidesEditor, 3, 16);
+        layer.Style.PolyStarInnerRadius = TimelineMath.Clamp(PolyStarInnerRadiusEditor, 0.08d, 0.95d);
+        layer.Style.PolyStarIsStar = PolyStarIsStarEditor;
 
         if (!keepText)
         {
             layer.Style.Text = string.Empty;
         }
+
+        PrimitiveShapeService.NormalizeStyle(layer.Style);
     }
 
     private string ResolveFillPreset()
@@ -6185,14 +9628,55 @@ public partial class MainWindowViewModel : ViewModelBase
         var layer = TimelineEditingService.CreateLayer(kind, name, ResolveFillPreset(), text, normalizedBounds.X, normalizedBounds.Y, _document.Layers.Count);
         SetLayerBounds(layer, normalizedBounds);
         ApplyActiveStyle(layer, keepText: kind == LayerKind.Text);
+        layer.Style.PrimitiveShape = kind switch
+        {
+            LayerKind.Rectangle => PrimitiveShapeType.Rectangle,
+            LayerKind.Ellipse => PrimitiveShapeType.Ellipse,
+            _ => PrimitiveShapeType.None
+        };
+        PrimitiveShapeService.NormalizeStyle(layer.Style);
         return layer;
     }
 
-    private TimelineLayer CreateVectorStrokeLayer(string name, IReadOnlyList<Point> points, bool isClosed, double strokeThickness)
+    private TimelineLayer CreatePolyStarLayer(string name, Rect bounds)
     {
-        var sampledPoints = VectorPathService.SimplifyStroke(
-            points.Select(point => new VectorPointModel { X = point.X, Y = point.Y }),
-            minimumDistance: SelectedDrawingTool == DrawingTool.Brush ? 4d : 8d);
+        var points = PrimitiveShapeService.CreatePolyStarPoints(PolyStarSidesEditor, PolyStarInnerRadiusEditor, PolyStarIsStarEditor);
+        var layer = TimelineEditingService.CreatePathLayer(
+            name,
+            ResolveFillPreset(),
+            ResolveStrokePreset(),
+            points,
+            isClosed: true,
+            _document.Layers.Count,
+            Math.Max(1.2d, StrokeThicknessEditor),
+            UseGradientEditor,
+            ResolveGradientFromPreset(),
+            ResolveGradientToPreset(),
+            GradientKindEditor,
+            GradientAngleEditor,
+            FillEnabledEditor,
+            StrokeEnabledEditor,
+            StrokeCapStyleEditor,
+            StrokeJoinStyleEditor,
+            StrokeMiterLimitEditor);
+        SetLayerBounds(layer, bounds);
+        ApplyActiveStyle(layer, keepText: false);
+        layer.Style.PrimitiveShape = PrimitiveShapeType.PolyStar;
+        layer.Style.IsClosed = true;
+        PrimitiveShapeService.UpdatePolyStarGeometry(layer);
+        return layer;
+    }
+
+    private TimelineLayer CreateVectorStrokeLayer(string name, DrawingTool tool, IReadOnlyList<Point> points, bool isClosed, double strokeThickness)
+    {
+        var documentPoints = points.Select(point => new VectorPointModel { X = point.X, Y = point.Y }).ToList();
+        List<VectorPointModel> sampledPoints = tool switch
+        {
+            DrawingTool.Brush => VectorPathService.SimplifyStroke(documentPoints, 4d),
+            DrawingTool.Pencil => ToolAuthoringService.RefinePencilStroke(documentPoints, PencilToolModeEditor),
+            _ => VectorPathService.SimplifyStroke(documentPoints, 8d)
+        };
+        VectorStrokeProfileService.ApplyProfile(sampledPoints, VectorStrokeProfilePresetEditor, VectorStrokeProfileStrengthEditor, isClosed);
         return TimelineEditingService.CreatePathLayer(
             name,
             ResolveFillPreset(),
@@ -6215,10 +9699,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void RebuildLayers(Guid? selectionId)
     {
+        LayerParentingService.Normalize(_document.Layers);
+        foreach (var documentLayer in _document.Layers)
+        {
+            LayerDeformationService.Normalize(documentLayer);
+        }
+
         Layers.Clear();
         var libraryLookup = _document.LibraryItems.ToDictionary(item => item.Id);
         var mediaLookup = _document.MediaAssets.ToDictionary(item => item.Id);
         var hierarchy = LayerHierarchyService.Flatten(_document.Layers);
+        var worldSnapshots = LayerParentingService.BuildWorldSnapshots(_document.Layers, CurrentTime, SceneFrameRate, TotalFrames);
 
         foreach (var entry in hierarchy)
         {
@@ -6236,7 +9727,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 layerViewModel.SetMediaLink(mediaAsset.Name, mediaAsset.Kind);
             }
 
-            layerViewModel.UpdatePreview(CurrentTime, SceneFrameRate, TotalFrames);
+            var frameSample = FrameTimelineService.SampleLayer(layer, CurrentTime, SceneFrameRate, TotalFrames);
+            var previewSnapshot = worldSnapshots.GetValueOrDefault(layer.Id)
+                                  ?? frameSample
+                                  ?? TimelineInterpolationService.SampleLayer(layer, CurrentTime);
+            layerViewModel.ApplyPreviewSnapshot(previewSnapshot, frameSample is not null);
 
             Layers.Add(layerViewModel);
         }
@@ -6250,6 +9745,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadFrameRows();
         ReloadTimelineRows();
         ReloadVisualStateGroups();
+        ReloadMovieExplorer();
     }
 
     private bool ReplaceCurrentLayer(TimelineLayer replacement)
@@ -6295,6 +9791,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshSceneStateProperties();
         ReloadSceneMarkers();
         RefreshMonitorPreviews();
+        ReloadMovieExplorer();
     }
 
     private void ReloadTracks()
@@ -6322,6 +9819,79 @@ public partial class MainWindowViewModel : ViewModelBase
         ReloadTimelineRows();
     }
 
+    private void RefreshInteractiveTrackState(TimelineLayer layer, AnimatedProperty property)
+    {
+        var track = Tracks.FirstOrDefault(item => item.Property == property);
+        if (track is not null)
+        {
+            track.SyncKeyframesFromLayer(layer, SelectedKeyframeId);
+            track.RefreshCurrentValue(layer, CurrentTime, SceneFrameRate, TotalFrames);
+        }
+
+        foreach (var row in TimelineRows)
+        {
+            if (!row.IsTrackRow || row.LayerId != layer.Id || row.Property != property)
+            {
+                continue;
+            }
+
+            row.SyncTrackFromLayer(
+                layer,
+                CurrentTime,
+                SceneFrameRate,
+                TotalFrames,
+                SelectedLayer?.Id,
+                SelectedProperty,
+                SelectedKeyframeId);
+        }
+
+        OnPropertyChanged(nameof(SelectedKeyframeSummary));
+        RefreshSelectedKeyframeEditor();
+    }
+
+    private void RefreshEditorStateAfterInteractiveChange()
+    {
+        RefreshLayerPreviewsAtCurrentTime();
+        UpdateTrackPreviewValues();
+        UpdateTimelineRowPreviewValues();
+        UpdateFrameRowSelection();
+        RefreshFrameSelectionStateProperties();
+        RefreshAudioMeter();
+        RefreshInspector();
+        RefreshFrameLabelEditor();
+        RefreshProgramMonitorPreview(force: true);
+    }
+
+    private void ReloadMotionPresets(Guid? selectionId = null)
+    {
+        var nextSelectionId = selectionId ?? SelectedMotionPreset?.Id;
+        MotionPresets.Clear();
+
+        foreach (var preset in _document.MotionPresets.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            MotionPresets.Add(new MotionPresetViewModel(preset));
+        }
+
+        _suppressInspector = true;
+        SelectedMotionPreset = nextSelectionId is null
+            ? MotionPresets.FirstOrDefault()
+            : MotionPresets.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? MotionPresets.FirstOrDefault();
+        if (SelectedMotionPreset is null)
+        {
+            MotionPresetNameEditor = string.Empty;
+            MotionPresetDescriptionEditor = string.Empty;
+        }
+        else
+        {
+            MotionPresetNameEditor = SelectedMotionPreset.Name;
+            MotionPresetDescriptionEditor = SelectedMotionPreset.Model.Description ?? string.Empty;
+        }
+
+        _suppressInspector = false;
+        RefreshMotionPresetStateProperties();
+        ReloadMovieExplorer();
+    }
+
     private void ReloadLibraryItems(Guid? selectionId = null)
     {
         var nextSelectionId = selectionId ?? SelectedLibraryItem?.Id;
@@ -6343,6 +9913,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ? LibraryItems.FirstOrDefault()
             : LibraryItems.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? LibraryItems.FirstOrDefault();
         RefreshLibraryStateProperties();
+        ReloadMovieExplorer();
     }
 
     private void ReloadLibraryFolderFilters()
@@ -6435,6 +10006,131 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedComponentSummary));
     }
 
+    private void ReloadSelectedComponentParameters(Guid? selectionId = null)
+    {
+        var nextSelectionId = selectionId ?? SelectedComponentParameter?.Id;
+        SelectedComponentParameters.Clear();
+
+        if (SelectedComponentItem is null)
+        {
+            SelectedComponentParameter = null;
+            OnPropertyChanged(nameof(SelectedComponentParameterSummary));
+            return;
+        }
+
+        ComponentParameterService.NormalizeDefinitions(SelectedComponentItem.Model);
+        foreach (var definition in SelectedComponentItem.Model.ComponentParameters
+                     .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            SelectedComponentParameters.Add(new ComponentParameterDefinitionViewModel(definition));
+        }
+
+        SelectedComponentParameter = nextSelectionId is null
+            ? SelectedComponentParameters.FirstOrDefault()
+            : SelectedComponentParameters.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? SelectedComponentParameters.FirstOrDefault();
+        OnPropertyChanged(nameof(SelectedComponentParameterSummary));
+    }
+
+    private void ReloadSelectedComponentOverrides(string? selectionName = null)
+    {
+        var nextSelectionName = selectionName ?? SelectedComponentOverrideItem?.Model.Name;
+        SelectedComponentOverrideItems.Clear();
+
+        if (SelectedLayer is null ||
+            SelectedLayer.Model.SourceLibraryItemId is not Guid libraryItemId ||
+            _document.LibraryItems.FirstOrDefault(item => item.Id == libraryItemId && item.IsComponent) is not { } component)
+        {
+            SelectedComponentOverrideItem = null;
+            OnPropertyChanged(nameof(SelectedComponentOverrideSummary));
+            return;
+        }
+
+        ComponentParameterService.EnsureOverrides(SelectedLayer.Model, component);
+        foreach (var definition in component.ComponentParameters)
+        {
+            var overrideValue = SelectedLayer.Model.ComponentParameterOverrides
+                .First(item => string.Equals(item.Name, definition.Name, StringComparison.OrdinalIgnoreCase));
+            SelectedComponentOverrideItems.Add(new ComponentParameterOverrideViewModel(definition, overrideValue));
+        }
+
+        SelectedComponentOverrideItem = string.IsNullOrWhiteSpace(nextSelectionName)
+            ? SelectedComponentOverrideItems.FirstOrDefault()
+            : SelectedComponentOverrideItems.FirstOrDefault(item => string.Equals(item.Model.Name, nextSelectionName, StringComparison.OrdinalIgnoreCase))
+              ?? SelectedComponentOverrideItems.FirstOrDefault();
+        OnPropertyChanged(nameof(SelectedComponentOverrideSummary));
+    }
+
+    private void UpdateSelectedComponentParameter(Action<ComponentParameterDefinition> update, string statusMessage)
+    {
+        if (_suppressComponentParameterEditor || SelectedComponentItem is null || SelectedComponentParameter is null)
+        {
+            return;
+        }
+
+        var component = SelectedComponentItem.Model;
+        var selectedDefinition = SelectedComponentParameter.Model;
+        var previousName = selectedDefinition.Name;
+        var selectedParameterId = selectedDefinition.Id;
+        var selectedLayerId = SelectedLayer?.Id;
+        update(selectedDefinition);
+        ComponentParameterService.NormalizeDefinitions(component);
+
+        var nextDefinition = component.ComponentParameters.FirstOrDefault(item => item.Id == selectedParameterId) ?? selectedDefinition;
+        if (!string.Equals(previousName, nextDefinition.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var layer in _document.Layers.Where(layer => layer.SourceLibraryItemId == component.Id))
+            {
+                var overrideValue = layer.ComponentParameterOverrides.FirstOrDefault(item => string.Equals(item.Name, previousName, StringComparison.OrdinalIgnoreCase));
+                if (overrideValue is not null)
+                {
+                    overrideValue.Name = nextDefinition.Name;
+                }
+
+                ComponentParameterService.EnsureOverrides(layer, component);
+            }
+        }
+        else
+        {
+            foreach (var layer in _document.Layers.Where(layer => layer.SourceLibraryItemId == component.Id))
+            {
+                ComponentParameterService.EnsureOverrides(layer, component);
+            }
+        }
+
+        SelectedComponentItem.RefreshMetadata();
+        if (SelectedLibraryItem?.Id == component.Id)
+        {
+            ReloadLibraryItems(component.Id);
+        }
+        else
+        {
+            ReloadLibraryItems(SelectedLibraryItem?.Id);
+        }
+
+        ReloadComponentItems(component.Id);
+        ReloadSelectedComponentParameters(selectedParameterId);
+        RebuildLayers(selectedLayerId);
+        RefreshSourceMonitorPreview();
+        RecordHistoryIfNeeded();
+        StatusMessage = statusMessage;
+    }
+
+    private void UpdateSelectedComponentOverride(Action<ComponentParameterOverride> update, string statusMessage)
+    {
+        if (_suppressComponentOverrideEditor || SelectedLayer is null || SelectedComponentOverrideItem is null)
+        {
+            return;
+        }
+
+        update(SelectedComponentOverrideItem.Model);
+        SelectedComponentOverrideItem.RefreshMetadata();
+        ReloadSelectedComponentOverrides(SelectedComponentOverrideItem.Model.Name);
+        RebuildLayers(SelectedLayer.Id);
+        RefreshSourceMonitorPreview();
+        RecordHistoryIfNeeded();
+        StatusMessage = statusMessage;
+    }
+
     private void ReloadMediaAssets(Guid? selectionId = null)
     {
         var nextSelectionId = selectionId ?? SelectedMediaAsset?.Id;
@@ -6449,6 +10145,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ? MediaAssets.FirstOrDefault()
             : MediaAssets.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? MediaAssets.FirstOrDefault();
         RefreshMediaStateProperties();
+        ReloadMovieExplorer();
     }
 
     private void ReloadPublishProfiles(Guid? selectionId = null)
@@ -6489,6 +10186,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ? Behaviors.FirstOrDefault()
             : Behaviors.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? Behaviors.FirstOrDefault();
         RefreshBehaviorEditorStateProperties();
+        ReloadMovieExplorer();
     }
 
     private void RefreshSelectedBehaviorEditor()
@@ -6658,6 +10356,24 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanEditSelectedBehaviorScript));
         OnPropertyChanged(nameof(CurrentFrameActionSummary));
         OnPropertyChanged(nameof(SelectedBehaviorScriptSummary));
+        OnPropertyChanged(nameof(SelectedActionScriptSnippetSummary));
+        OnPropertyChanged(nameof(CanInsertActionScriptSnippetIntoFrame));
+        OnPropertyChanged(nameof(CanInsertActionScriptSnippetIntoBehavior));
+    }
+
+    private void ReloadActionScriptSnippets(string? preferredName = null)
+    {
+        var selectedName = preferredName ?? SelectedActionScriptSnippet?.Name;
+        ActionScriptSnippets.Clear();
+        foreach (var snippet in ActionScriptSnippetService.BuildSnippets(_document, SelectedScene?.Model, SelectedLayer?.Model))
+        {
+            ActionScriptSnippets.Add(new ActionScriptSnippetViewModel(snippet));
+        }
+
+        SelectedActionScriptSnippet = string.IsNullOrWhiteSpace(selectedName)
+            ? ActionScriptSnippets.FirstOrDefault()
+            : ActionScriptSnippets.FirstOrDefault(item => string.Equals(item.Name, selectedName, StringComparison.OrdinalIgnoreCase))
+                ?? ActionScriptSnippets.FirstOrDefault();
     }
 
     private void RefreshSelectedPublishProfileEditor()
@@ -6754,37 +10470,59 @@ public partial class MainWindowViewModel : ViewModelBase
 
         foreach (var layer in Layers)
         {
-            if (layer.Kind is LayerKind.Audio or LayerKind.Folder)
+            var headerRow = new TimelineTrackRowViewModel(layer.Id, TimelineTrackRowKind.LayerHeader);
+            var isExpanded = layer.Kind == LayerKind.Folder || !_collapsedTimelineLayers.Contains(layer.Id);
+            headerRow.ApplyHierarchyState(layer.Depth);
+            headerRow.LoadLayerHeaderFromLayer(layer.Model, SelectedLayer?.Id == layer.Id, isExpanded);
+            TimelineRows.Add(headerRow);
+
+            if (layer.Kind is LayerKind.Audio or LayerKind.Folder || !isExpanded)
             {
                 continue;
             }
 
-            var firstForLayer = true;
-            foreach (var property in Enum.GetValues<AnimatedProperty>())
+            foreach (var group in GetTimelinePropertyGroups())
             {
-                var row = new TimelineTrackRowViewModel(layer.Id, property);
-                row.ApplyHierarchyState(layer.Depth);
-                row.LoadFromLayer(
-                    layer.Model,
-                    CurrentTime,
-                    SceneFrameRate,
-                    TotalFrames,
-                    SelectedLayer?.Id,
-                    SelectedProperty,
-                    SelectedKeyframeId,
-                    firstForLayer);
-                TimelineRows.Add(row);
-                firstForLayer = false;
+                var properties = GetPropertiesForGroup(group);
+                var keyedPropertyCount = properties.Count(property =>
+                    layer.Model.Tracks.Any(track => track.Property == property && track.Keyframes.Count > 1));
+
+                var groupRow = new TimelineTrackRowViewModel(layer.Id, TimelineTrackRowKind.PropertyGroupHeader, groupKind: group);
+                groupRow.ApplyHierarchyState(layer.Depth, 1);
+                groupRow.LoadGroupHeaderFromLayer(layer.Model, keyedPropertyCount);
+                TimelineRows.Add(groupRow);
+
+                foreach (var property in properties)
+                {
+                    var row = new TimelineTrackRowViewModel(layer.Id, TimelineTrackRowKind.PropertyTrack, property, group);
+                    row.ApplyHierarchyState(layer.Depth, 2);
+                    row.LoadFromLayer(
+                        layer.Model,
+                        CurrentTime,
+                        SceneFrameRate,
+                        TotalFrames,
+                        SelectedLayer?.Id,
+                        SelectedProperty,
+                        SelectedKeyframeId,
+                        false);
+                    TimelineRows.Add(row);
+                }
             }
         }
 
         OnPropertyChanged(nameof(TimelineSurfaceHeight));
+        OnPropertyChanged(nameof(TimelineSurfaceBodyHeight));
     }
 
     private void UpdateTimelineRowPreviewValues()
     {
         foreach (var row in TimelineRows)
         {
+            if (!row.IsTrackRow)
+            {
+                continue;
+            }
+
             var layer = Layers.FirstOrDefault(item => item.Id == row.LayerId);
             if (layer is not null)
             {
@@ -6822,6 +10560,50 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(FrameTimelineSurfaceHeight));
+        OnPropertyChanged(nameof(FrameTimelineSurfaceBodyHeight));
+    }
+
+    private static IReadOnlyList<TimelineTrackGroupKind> GetTimelinePropertyGroups()
+    {
+        return
+        [
+            TimelineTrackGroupKind.Layout,
+            TimelineTrackGroupKind.Scale,
+            TimelineTrackGroupKind.Rotation3D,
+            TimelineTrackGroupKind.Appearance
+        ];
+    }
+
+    private static IReadOnlyList<AnimatedProperty> GetPropertiesForGroup(TimelineTrackGroupKind group)
+    {
+        return group switch
+        {
+            TimelineTrackGroupKind.Layout =>
+            [
+                AnimatedProperty.X,
+                AnimatedProperty.Y,
+                AnimatedProperty.Width,
+                AnimatedProperty.Height
+            ],
+            TimelineTrackGroupKind.Scale =>
+            [
+                AnimatedProperty.ScaleX,
+                AnimatedProperty.ScaleY
+            ],
+            TimelineTrackGroupKind.Rotation3D =>
+            [
+                AnimatedProperty.Rotation,
+                AnimatedProperty.SkewX,
+                AnimatedProperty.SkewY,
+                AnimatedProperty.RotationX,
+                AnimatedProperty.RotationY,
+                AnimatedProperty.ZDepth
+            ],
+            _ =>
+            [
+                AnimatedProperty.Opacity
+            ]
+        };
     }
 
     private void ReloadFrameLabels()
@@ -6867,6 +10649,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ? SceneMarkers.FirstOrDefault(item => item.Frame == CurrentFrame)
             : SceneMarkers.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? SceneMarkers.FirstOrDefault(item => item.Frame == CurrentFrame);
         RefreshSceneTimelineEditors();
+        ReloadMovieExplorer();
     }
 
     private void ReloadVisualStateGroups(Guid? selectionId = null)
@@ -6891,6 +10674,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ? VisualStateGroups.FirstOrDefault()
             : VisualStateGroups.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? VisualStateGroups.FirstOrDefault();
         RefreshVisualStateStateProperties();
+        ReloadMovieExplorer();
     }
 
     private void ReloadVisualStates(Guid? selectionId = null)
@@ -6917,6 +10701,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ? VisualStates.FirstOrDefault(item => string.Equals(item.Name, activeState, StringComparison.OrdinalIgnoreCase)) ?? VisualStates.FirstOrDefault()
             : VisualStates.FirstOrDefault(item => item.Id == nextSelectionId.Value) ?? VisualStates.FirstOrDefault();
         RefreshVisualStateStateProperties();
+        ReloadMovieExplorer();
     }
 
     private void UpdateFrameRowSelection()
@@ -6939,10 +10724,7 @@ public partial class MainWindowViewModel : ViewModelBase
             SelectionEndFrame = TotalFrames - 1;
         }
 
-        foreach (var layer in Layers)
-        {
-            layer.UpdatePreview(CurrentTime, SceneFrameRate, TotalFrames);
-        }
+        RefreshLayerPreviewsAtCurrentTime();
 
         ReloadFrameRows();
         ReloadTracks();
@@ -6956,6 +10738,14 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(TimelineSurfaceWidth));
     }
 
+    private void RefreshLayerPreviewsAtCurrentTime()
+    {
+        foreach (var layer in Layers)
+        {
+            layer.UpdatePreview(CurrentTime, SceneFrameRate, TotalFrames);
+        }
+    }
+
     private void RefreshFrameSelectionStateProperties()
     {
         OnPropertyChanged(nameof(CanCopyFrameRange));
@@ -6963,6 +10753,15 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedFrameRangeSummary));
         OnPropertyChanged(nameof(CanSetSceneWorkArea));
         OnPropertyChanged(nameof(EditMultipleFramesSummary));
+        OnPropertyChanged(nameof(OnionSkinSummary));
+    }
+
+    private void RefreshMotionPresetStateProperties()
+    {
+        OnPropertyChanged(nameof(CanCaptureMotionPreset));
+        OnPropertyChanged(nameof(CanApplySelectedMotionPreset));
+        OnPropertyChanged(nameof(CanDeleteSelectedMotionPreset));
+        OnPropertyChanged(nameof(MotionPresetSummary));
     }
 
     private void RefreshSceneTimelineEditors()
@@ -7004,18 +10803,36 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void RefreshMonitorPreviews()
     {
-        RefreshProgramMonitorPreview();
+        RefreshProgramMonitorPreview(force: true);
         RefreshSourceMonitorPreview();
     }
 
-    private void RefreshProgramMonitorPreview()
+    private void RefreshProgramMonitorPreview(bool force)
     {
-        var snapshot = BuildPersistedDocumentSnapshot();
+        if (!force && IsPlaying)
+        {
+            var nowTick = Environment.TickCount64;
+            if (_lastProgramMonitorRefreshTick >= 0 &&
+                nowTick - _lastProgramMonitorRefreshTick < ProgramMonitorPlaybackRefreshIntervalMilliseconds)
+            {
+                return;
+            }
+
+            _lastProgramMonitorRefreshTick = nowTick;
+        }
+        else
+        {
+            _lastProgramMonitorRefreshTick = Environment.TickCount64;
+        }
+
+        var previewDocument = IsEditingSymbol
+            ? BuildPersistedDocumentSnapshot()
+            : _document;
         try
         {
             ProgramMonitorBitmap = EditorMonitorPreviewService.RenderProgramMonitor(
-                snapshot,
-                PlayAllScenes ? GetCurrentSequenceTime(snapshot) : CurrentTime,
+                previewDocument,
+                PlayAllScenes ? GetCurrentSequenceTime(previewDocument) : CurrentTime,
                 PlayAllScenes);
         }
         catch
@@ -7024,6 +10841,98 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(ProgramMonitorSummary));
+    }
+
+    private static bool ShouldRefreshPlaybackInterval(ref long lastTick, int intervalMilliseconds)
+    {
+        var nowTick = Environment.TickCount64;
+        if (lastTick >= 0 && nowTick - lastTick < intervalMilliseconds)
+        {
+            return false;
+        }
+
+        lastTick = nowTick;
+        return true;
+    }
+
+    private bool ShouldRefreshProgramMonitorDuringPlayback()
+    {
+        if (!UseDockWorkspace)
+        {
+            return true;
+        }
+
+        return DockWorkspace.IsSurfaceActivelyVisible(DockWorkspaceSurfaceIds.ProgramMonitorTool);
+    }
+
+    private bool ShouldRefreshTimelinePlaybackValues()
+    {
+        if (!UseDockWorkspace)
+        {
+            return SelectedTimelineView == TimelineWorkspaceView.Curves;
+        }
+
+        return DockWorkspace.IsSurfaceActivelyVisible(DockWorkspaceSurfaceIds.CurvesTimelineTool);
+    }
+
+    private bool ShouldRefreshInspectorDuringPlayback()
+    {
+        if (SelectedLayer is null)
+        {
+            return false;
+        }
+
+        if (!UseDockWorkspace)
+        {
+            return IsRightPanelVisible;
+        }
+
+        return DockWorkspace.IsSurfaceActivelyVisible(DockWorkspaceSurfaceIds.InspectorTool);
+    }
+
+    private bool ShouldRefreshAudioMeterDuringPlayback()
+    {
+        return SelectedLayer?.Model.Media.SourceMediaAssetId is Guid;
+    }
+
+    private void RefreshInspectorPlaybackValues()
+    {
+        if (_suppressInspector || SelectedLayer is null)
+        {
+            return;
+        }
+
+        var snapshot = FrameTimelineService.SampleLayer(SelectedLayer.Model, CurrentTime, SceneFrameRate, TotalFrames);
+        if (snapshot is null)
+        {
+            return;
+        }
+
+        var previousSuppressInspector = _suppressInspector;
+        _suppressInspector = true;
+        try
+        {
+            InspectorX = snapshot.Value.X;
+            InspectorY = snapshot.Value.Y;
+            InspectorWidth = snapshot.Value.Width;
+            InspectorHeight = snapshot.Value.Height;
+            InspectorScaleX = snapshot.Value.ScaleX;
+            InspectorScaleY = snapshot.Value.ScaleY;
+            InspectorSkewX = snapshot.Value.SkewX;
+            InspectorSkewY = snapshot.Value.SkewY;
+            InspectorRotation = snapshot.Value.Rotation;
+            InspectorRotationX = snapshot.Value.RotationX;
+            InspectorRotationY = snapshot.Value.RotationY;
+            InspectorZDepth = snapshot.Value.ZDepth;
+            InspectorOpacity = snapshot.Value.Opacity;
+            InspectorCornerRadius = snapshot.Value.CornerRadius;
+            InspectorFontSize = snapshot.Value.FontSize;
+            TextEditor = snapshot.Value.Text;
+        }
+        finally
+        {
+            _suppressInspector = previousSuppressInspector;
+        }
     }
 
     private void RefreshSourceMonitorPreview()
@@ -7207,9 +11116,27 @@ public partial class MainWindowViewModel : ViewModelBase
             InspectorSkewX = 0;
             InspectorSkewY = 0;
             InspectorRotation = 0;
+            InspectorRotationX = 0;
+            InspectorRotationY = 0;
+            InspectorZDepth = 0;
             InspectorOpacity = 1;
             InspectorCornerRadius = 0;
             InspectorFontSize = 48;
+            ShapeDrawingModeEditor = SelectedDrawingTool switch
+            {
+                DrawingTool.Rectangle or DrawingTool.Ellipse or DrawingTool.PolyStar => ShapeDrawingMode.Primitive,
+                DrawingTool.Pen or DrawingTool.Brush or DrawingTool.Line or DrawingTool.Pencil => ShapeDrawingMode.Object,
+                _ => ShapeDrawingMode.Merge
+            };
+            CornerRadiusTopLeftEditor = 28d;
+            CornerRadiusTopRightEditor = 28d;
+            CornerRadiusBottomRightEditor = 28d;
+            CornerRadiusBottomLeftEditor = 28d;
+            EllipseStartAngleEditor = 0d;
+            EllipseSweepAngleEditor = 360d;
+            PolyStarSidesEditor = 5;
+            PolyStarInnerRadiusEditor = 0.46d;
+            PolyStarIsStarEditor = true;
             FillHexEditor = string.Empty;
             StrokeHexEditor = string.Empty;
             FillEnabledEditor = true;
@@ -7218,6 +11145,10 @@ public partial class MainWindowViewModel : ViewModelBase
             UseGradientEditor = false;
             GradientKindEditor = LayerGradientKind.Linear;
             GradientAngleEditor = 45d;
+            GradientCenterXEditor = 0.5d;
+            GradientCenterYEditor = 0.5d;
+            GradientScaleXEditor = 1d;
+            GradientScaleYEditor = 1d;
             GradientFromEditor = string.Empty;
             GradientToEditor = string.Empty;
             StrokeCapStyleEditor = LayerStrokeCapStyle.Round;
@@ -7239,6 +11170,9 @@ public partial class MainWindowViewModel : ViewModelBase
             TextPasswordEditor = false;
             TextUseDeviceFontsEditor = false;
             TextAntiAliasModeEditor = FlashTextAntiAliasMode.Animation;
+            SelectedPathPointIndexEditor = -1;
+            SelectedPathPointHandleModeEditor = VectorHandleMode.Corner;
+            SelectedPathPointWidthScaleEditor = 1d;
             AvaloniaControlContentEditor = string.Empty;
             AvaloniaControlSecondaryContentEditor = string.Empty;
             AvaloniaControlIsCheckedEditor = false;
@@ -7262,6 +11196,28 @@ public partial class MainWindowViewModel : ViewModelBase
             LayerTintColorEditor = "#FFFFFF";
             LayerTintStrengthEditor = 0;
             LayerBrightnessEditor = 0;
+            LayerContrastEditor = 0;
+            LayerHueShiftEditor = 0;
+            LayerBevelTypeEditor = LayerBevelType.Inner;
+            LayerBevelSizeEditor = 0d;
+            LayerBevelStrengthEditor = 0d;
+            LayerBevelAngleEditor = 45d;
+            LayerBevelDistanceEditor = 4d;
+            LayerBevelHighlightColorEditor = "#FFFFFF";
+            LayerBevelShadowColorEditor = "#09111F";
+            LayerGradientGlowSizeEditor = 0d;
+            LayerGradientGlowStrengthEditor = 0d;
+            LayerGradientGlowAngleEditor = 45d;
+            LayerGradientGlowDistanceEditor = 0d;
+            LayerGradientGlowFromEditor = "#61E6FF";
+            LayerGradientGlowToEditor = "#09111F";
+            LayerGradientBevelTypeEditor = LayerBevelType.Inner;
+            LayerGradientBevelSizeEditor = 0d;
+            LayerGradientBevelStrengthEditor = 0d;
+            LayerGradientBevelAngleEditor = 45d;
+            LayerGradientBevelDistanceEditor = 4d;
+            LayerGradientBevelFromEditor = "#FFFFFF";
+            LayerGradientBevelToEditor = "#09111F";
             LayerFlashColorEffectModeEditor = FlashColorEffectMode.None;
             LayerFlashAlphaPercentEditor = 100d;
             LayerFlashTintColorEditor = "#FFFFFF";
@@ -7282,6 +11238,8 @@ public partial class MainWindowViewModel : ViewModelBase
             MediaClipOffsetEditor = 0;
             MediaClipDurationEditor = 1d;
             MediaLoopEditor = false;
+            MediaRepeatCountEditor = 1;
+            MediaRepeatForeverEditor = false;
             MediaVolumeEditor = 1d;
             MediaGainDbEditor = 0d;
             MediaPanEditor = 0d;
@@ -7291,15 +11249,25 @@ public partial class MainWindowViewModel : ViewModelBase
             LayerOutlineColorEditor = "#57C9FF";
             LayerCacheAsBitmapEditor = false;
             LayerBitmapCacheBackgroundEditor = "#000000";
+            SelectedTransformParentLayer = null;
             SelectedGuideLayer = null;
             GuideOrientToPathEditor = false;
             GuideSnapToPathEditor = false;
+            WarpEnabledEditor = false;
+            WarpMeshColumnsEditor = 3;
+            WarpMeshRowsEditor = 3;
+            RigEnabledEditor = false;
+            RigPoseNameEditor = "Pose 1";
+            RigPoses.Clear();
+            SelectedRigPose = null;
             _suppressInspector = false;
             RefreshShapeStyleStateProperties();
             RefreshFlashColorEffectStateProperties();
             RefreshFlashTextFieldStateProperties();
             RefreshGuideBindingStateProperties();
+            RefreshTransformParentingStateProperties();
             RefreshAuthoringMetadataStateProperties();
+            RefreshWarpRigStateProperties();
             RefreshAudioMeter();
             return;
         }
@@ -7313,11 +11281,31 @@ public partial class MainWindowViewModel : ViewModelBase
         UseGradientEditor = SelectedLayer.Model.Style.UseGradient;
         GradientKindEditor = SelectedLayer.Model.Style.GradientKind;
         GradientAngleEditor = SelectedLayer.Model.Style.GradientAngle;
+        GradientCenterXEditor = SelectedLayer.Model.Style.GradientCenterX;
+        GradientCenterYEditor = SelectedLayer.Model.Style.GradientCenterY;
+        GradientScaleXEditor = SelectedLayer.Model.Style.GradientScaleX;
+        GradientScaleYEditor = SelectedLayer.Model.Style.GradientScaleY;
         GradientFromEditor = SelectedLayer.Model.Style.GradientFrom;
         GradientToEditor = SelectedLayer.Model.Style.GradientTo;
         StrokeCapStyleEditor = SelectedLayer.Model.Style.StrokeCapStyle;
         StrokeJoinStyleEditor = SelectedLayer.Model.Style.StrokeJoinStyle;
         StrokeMiterLimitEditor = SelectedLayer.Model.Style.StrokeMiterLimit;
+        ShapeDrawingModeEditor = SelectedLayer.Model.Style.DrawingMode;
+        CornerRadiusTopLeftEditor = SelectedLayer.Model.Style.CornerRadiusTopLeft;
+        CornerRadiusTopRightEditor = SelectedLayer.Model.Style.CornerRadiusTopRight;
+        CornerRadiusBottomRightEditor = SelectedLayer.Model.Style.CornerRadiusBottomRight;
+        CornerRadiusBottomLeftEditor = SelectedLayer.Model.Style.CornerRadiusBottomLeft;
+        EllipseStartAngleEditor = SelectedLayer.Model.Style.EllipseStartAngle;
+        EllipseSweepAngleEditor = SelectedLayer.Model.Style.EllipseSweepAngle;
+        PolyStarSidesEditor = SelectedLayer.Model.Style.PolyStarSides;
+        PolyStarInnerRadiusEditor = SelectedLayer.Model.Style.PolyStarInnerRadius;
+        PolyStarIsStarEditor = SelectedLayer.Model.Style.PolyStarIsStar;
+        if (SelectedLayer.Kind != LayerKind.Path || SelectedPathPointIndexEditor >= SelectedLayer.Model.Style.PathPoints.Count)
+        {
+            SelectedPathPointIndexEditor = -1;
+        }
+
+        RefreshSelectedPathPointEditors();
         TextEditor = SelectedLayer.TextContent;
         PathClosedEditor = SelectedLayer.Model.Style.IsClosed;
         InspectorX = SelectedLayer.X;
@@ -7329,6 +11317,9 @@ public partial class MainWindowViewModel : ViewModelBase
         InspectorSkewX = SelectedLayer.SkewX;
         InspectorSkewY = SelectedLayer.SkewY;
         InspectorRotation = SelectedLayer.Rotation;
+        InspectorRotationX = SelectedLayer.RotationX;
+        InspectorRotationY = SelectedLayer.RotationY;
+        InspectorZDepth = SelectedLayer.ZDepth;
         InspectorOpacity = SelectedLayer.Opacity;
         InspectorCornerRadius = SelectedLayer.CornerRadius;
         InspectorFontSize = SelectedLayer.FontSize;
@@ -7371,6 +11362,28 @@ public partial class MainWindowViewModel : ViewModelBase
         LayerTintColorEditor = SelectedLayer.Model.Compositing.TintColor;
         LayerTintStrengthEditor = SelectedLayer.Model.Compositing.TintStrength;
         LayerBrightnessEditor = SelectedLayer.Model.Compositing.Brightness;
+        LayerContrastEditor = SelectedLayer.Model.Compositing.Contrast;
+        LayerHueShiftEditor = SelectedLayer.Model.Compositing.HueShift;
+        LayerBevelTypeEditor = SelectedLayer.Model.Compositing.BevelType;
+        LayerBevelSizeEditor = SelectedLayer.Model.Compositing.BevelSize;
+        LayerBevelStrengthEditor = SelectedLayer.Model.Compositing.BevelStrength;
+        LayerBevelAngleEditor = SelectedLayer.Model.Compositing.BevelAngle;
+        LayerBevelDistanceEditor = SelectedLayer.Model.Compositing.BevelDistance;
+        LayerBevelHighlightColorEditor = SelectedLayer.Model.Compositing.BevelHighlightColor;
+        LayerBevelShadowColorEditor = SelectedLayer.Model.Compositing.BevelShadowColor;
+        LayerGradientGlowSizeEditor = SelectedLayer.Model.Compositing.GradientGlowSize;
+        LayerGradientGlowStrengthEditor = SelectedLayer.Model.Compositing.GradientGlowStrength;
+        LayerGradientGlowAngleEditor = SelectedLayer.Model.Compositing.GradientGlowAngle;
+        LayerGradientGlowDistanceEditor = SelectedLayer.Model.Compositing.GradientGlowDistance;
+        LayerGradientGlowFromEditor = SelectedLayer.Model.Compositing.GradientGlowFrom;
+        LayerGradientGlowToEditor = SelectedLayer.Model.Compositing.GradientGlowTo;
+        LayerGradientBevelTypeEditor = SelectedLayer.Model.Compositing.GradientBevelType;
+        LayerGradientBevelSizeEditor = SelectedLayer.Model.Compositing.GradientBevelSize;
+        LayerGradientBevelStrengthEditor = SelectedLayer.Model.Compositing.GradientBevelStrength;
+        LayerGradientBevelAngleEditor = SelectedLayer.Model.Compositing.GradientBevelAngle;
+        LayerGradientBevelDistanceEditor = SelectedLayer.Model.Compositing.GradientBevelDistance;
+        LayerGradientBevelFromEditor = SelectedLayer.Model.Compositing.GradientBevelFrom;
+        LayerGradientBevelToEditor = SelectedLayer.Model.Compositing.GradientBevelTo;
         LayerFlashColorEffectModeEditor = SelectedLayer.Model.Compositing.FlashColorEffectMode;
         LayerFlashAlphaPercentEditor = SelectedLayer.Model.Compositing.FlashAlphaPercent;
         LayerFlashTintColorEditor = SelectedLayer.Model.Compositing.FlashTintColor;
@@ -7391,6 +11404,8 @@ public partial class MainWindowViewModel : ViewModelBase
         MediaClipOffsetEditor = SelectedLayer.Model.Media.ClipOffset;
         MediaClipDurationEditor = Math.Max(0.05d, SelectedLayer.Model.Media.ClipDuration);
         MediaLoopEditor = SelectedLayer.Model.Media.Loop;
+        MediaRepeatCountEditor = Math.Max(1, SelectedLayer.Model.Media.RepeatCount);
+        MediaRepeatForeverEditor = SelectedLayer.Model.Media.RepeatForever || SelectedLayer.Model.Media.Loop;
         MediaVolumeEditor = SelectedLayer.Model.Media.Volume;
         MediaGainDbEditor = SelectedLayer.Model.Media.GainDb;
         MediaPanEditor = SelectedLayer.Model.Media.Pan;
@@ -7400,11 +11415,22 @@ public partial class MainWindowViewModel : ViewModelBase
         LayerOutlineColorEditor = SelectedLayer.Model.OutlineColor;
         LayerCacheAsBitmapEditor = SelectedLayer.Model.CacheAsBitmap;
         LayerBitmapCacheBackgroundEditor = SelectedLayer.Model.BitmapCacheBackgroundColor;
+        SelectedTransformParentLayer = SelectedLayer.Model.TransformParenting.ParentLayerId is Guid transformParentLayerId
+            ? Layers.FirstOrDefault(item => item.Id == transformParentLayerId)
+            : null;
         SelectedGuideLayer = SelectedLayer.Model.GuidedByLayerId is Guid guideLayerId
             ? Layers.FirstOrDefault(item => item.Id == guideLayerId)
             : null;
         GuideOrientToPathEditor = SelectedLayer.Model.OrientToGuidePath;
         GuideSnapToPathEditor = SelectedLayer.Model.SnapToGuidePath;
+        WarpEnabledEditor = SelectedLayer.Model.Warp.IsEnabled;
+        WarpMeshColumnsEditor = SelectedLayer.Model.Warp.MeshColumns;
+        WarpMeshRowsEditor = SelectedLayer.Model.Warp.MeshRows;
+        RigEnabledEditor = SelectedLayer.Model.Rig.IsEnabled;
+        RigPoseNameEditor = SelectedLayer.Model.Rig.Poses.Count == 0
+            ? "Pose 1"
+            : $"Pose {SelectedLayer.Model.Rig.Poses.Count + 1}";
+        ReloadRigPoses();
         RefreshSymbolInstanceEditor();
 
         _suppressInspector = false;
@@ -7412,8 +11438,29 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshFlashColorEffectStateProperties();
         RefreshFlashTextFieldStateProperties();
         RefreshGuideBindingStateProperties();
+        RefreshTransformParentingStateProperties();
         RefreshAuthoringMetadataStateProperties();
+        RefreshWarpRigStateProperties();
         RefreshAudioMeter();
+    }
+
+    private void ReloadRigPoses()
+    {
+        RigPoses.Clear();
+        if (SelectedLayer is null)
+        {
+            SelectedRigPose = null;
+            return;
+        }
+
+        foreach (var pose in SelectedLayer.Model.Rig.Poses.OrderBy(item => item.Time))
+        {
+            RigPoses.Add(new RigPoseViewModel(pose));
+        }
+
+        SelectedRigPose = SelectedRigPose is null
+            ? RigPoses.FirstOrDefault()
+            : RigPoses.FirstOrDefault(item => item.Id == SelectedRigPose.Id) ?? RigPoses.FirstOrDefault();
     }
 
     private void UpdateSelectedLayerCompositing(Action<LayerCompositeSettings> update, string statusMessage)
@@ -7448,6 +11495,61 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = statusMessage;
     }
 
+    private void UpdateSelectedShapeAuthoring(Action<LayerStyle> update, string statusMessage)
+    {
+        if (_suppressInspector || !CanEditSelection || SelectedLayer is null)
+        {
+            return;
+        }
+
+        update(SelectedLayer.Model.Style);
+        PrimitiveShapeService.NormalizeStyle(SelectedLayer.Model.Style);
+        if (SelectedLayer.Model.Style.PrimitiveShape == PrimitiveShapeType.PolyStar)
+        {
+            PrimitiveShapeService.UpdatePolyStarGeometry(SelectedLayer.Model);
+        }
+
+        SelectedLayer.RefreshMetadata();
+        ReloadPreviewForLayer(SelectedLayer);
+        ReloadTracks();
+        RefreshShapeStyleStateProperties();
+        RecordHistoryIfNeeded();
+        StatusMessage = statusMessage;
+    }
+
+    private void UpdateCornerRadiusEditor(double value, Action<double> setEditorValue, Action<LayerStyle, double> applyValue, string statusMessage)
+    {
+        if (_suppressInspector)
+        {
+            return;
+        }
+
+        var normalized = Math.Max(0d, value);
+        if (Math.Abs(normalized - value) > 0.0001d)
+        {
+            _suppressInspector = true;
+            setEditorValue(normalized);
+            _suppressInspector = false;
+            return;
+        }
+
+        if (SelectedLayer is null)
+        {
+            RefreshShapeStyleStateProperties();
+            return;
+        }
+
+        UpdateSelectedShapeAuthoring(
+            style => applyValue(style, normalized),
+            statusMessage);
+    }
+
+    private static double NormalizeShapeAngle(double value)
+    {
+        var normalized = value % 360d;
+        return normalized < 0d ? normalized + 360d : normalized;
+    }
+
     private void UpdateSelectedLayerAuthoringMetadata(Action<TimelineLayer> update, string statusMessage)
     {
         if (_suppressInspector || !CanEditSelection || SelectedLayer is null)
@@ -7474,6 +11576,15 @@ public partial class MainWindowViewModel : ViewModelBase
     private void RefreshShapeStyleStateProperties()
     {
         OnPropertyChanged(nameof(SelectedLayerUsesMiterJoin));
+        OnPropertyChanged(nameof(SelectedLayerSupportsPrimitiveCornerRadii));
+        OnPropertyChanged(nameof(SelectedLayerSupportsPrimitiveEllipse));
+        OnPropertyChanged(nameof(SelectedLayerSupportsPolyStar));
+        OnPropertyChanged(nameof(CanEditShapeAuthoring));
+        OnPropertyChanged(nameof(CanUseShapeQuickControls));
+        OnPropertyChanged(nameof(ShapeAuthoringShowsRectangleOptions));
+        OnPropertyChanged(nameof(ShapeAuthoringShowsEllipseOptions));
+        OnPropertyChanged(nameof(ShapeAuthoringShowsPolyStarOptions));
+        OnPropertyChanged(nameof(ShapeAuthoringSummary));
     }
 
     private void RefreshFlashColorEffectStateProperties()
@@ -7495,10 +11606,57 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(GuideBindingSummary));
     }
 
+    private void RefreshTransformParentingStateProperties()
+    {
+        OnPropertyChanged(nameof(CanEditTransformParenting));
+        OnPropertyChanged(nameof(AvailableTransformParentLayers));
+        OnPropertyChanged(nameof(HasTransformParent));
+        OnPropertyChanged(nameof(TransformParentingSummary));
+    }
+
     private void RefreshAuthoringMetadataStateProperties()
     {
         OnPropertyChanged(nameof(CanEditBitmapCacheMetadata));
         OnPropertyChanged(nameof(LayerAuthoringSummary));
+    }
+
+    private void RefreshWarpRigStateProperties()
+    {
+        OnPropertyChanged(nameof(CanEditWarpRigging));
+        OnPropertyChanged(nameof(HasWarpPins));
+        OnPropertyChanged(nameof(HasRigBones));
+        OnPropertyChanged(nameof(HasRigPoses));
+        OnPropertyChanged(nameof(CanApplySelectedRigPose));
+        OnPropertyChanged(nameof(CanDeleteSelectedRigPose));
+        OnPropertyChanged(nameof(WarpRigSummary));
+        OnPropertyChanged(nameof(SelectedRigPoseSummary));
+    }
+
+    private void RefreshSelectedPathPointEditors()
+    {
+        _suppressInspector = true;
+
+        if (SelectedLayer is null || SelectedLayer.Kind != LayerKind.Path)
+        {
+            SelectedPathPointIndexEditor = -1;
+            SelectedPathPointHandleModeEditor = VectorHandleMode.Corner;
+            SelectedPathPointWidthScaleEditor = 1d;
+            _suppressInspector = false;
+            return;
+        }
+
+        if (SelectedPathPointIndexEditor < 0 || SelectedPathPointIndexEditor >= SelectedLayer.Model.Style.PathPoints.Count)
+        {
+            SelectedPathPointHandleModeEditor = VectorHandleMode.Corner;
+            SelectedPathPointWidthScaleEditor = 1d;
+            _suppressInspector = false;
+            return;
+        }
+
+        var point = SelectedLayer.Model.Style.PathPoints[SelectedPathPointIndexEditor];
+        SelectedPathPointHandleModeEditor = point.HandleMode;
+        SelectedPathPointWidthScaleEditor = point.StrokeWidthScale;
+        _suppressInspector = false;
     }
 
     private void UpdateSelectedMediaLayer(Action<LayerMediaSettings> update, string statusMessage)
@@ -7531,6 +11689,7 @@ public partial class MainWindowViewModel : ViewModelBase
         AudioMeterIsAudible = meter.IsAudible;
         OnPropertyChanged(nameof(AudioMeterSummary));
         OnPropertyChanged(nameof(MediaAudioSummary));
+        OnPropertyChanged(nameof(MediaRepeatSummary));
         OnPropertyChanged(nameof(MediaLayerSummary));
     }
 
@@ -7561,7 +11720,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void ApplyInspectorValue(AnimatedProperty property, double value)
     {
-        if (_suppressInspector || !CanEditPropertyTracks || SelectedLayer is null)
+        if (_suppressInspector || IsPlaying || !CanEditPropertyTracks || SelectedLayer is null)
         {
             return;
         }
@@ -7637,12 +11796,21 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ReloadPreviewForLayer(LayerViewModel layer)
     {
         layer.RefreshMetadata();
-        layer.UpdatePreview(CurrentTime, SceneFrameRate, TotalFrames);
+        var frameSample = FrameTimelineService.SampleLayer(layer.Model, CurrentTime, SceneFrameRate, TotalFrames);
+        var snapshot = SampleWorldLayerSnapshot(layer.Model, CurrentTime);
+        layer.ApplyPreviewSnapshot(snapshot, frameSample is not null);
+    }
+
+    private LayerSnapshot SampleWorldLayerSnapshot(TimelineLayer layer, double time)
+    {
+        return LayerParentingService.SampleWorldSnapshot(_document.Layers, layer, time, SceneFrameRate, TotalFrames)
+               ?? (FrameTimelineService.SampleLayer(layer, time, SceneFrameRate, TotalFrames)
+                   ?? TimelineInterpolationService.SampleLayer(layer, time));
     }
 
     private bool ShouldCreateKeyframe()
     {
-        return AutoKey || CurrentTime > 0.0001d;
+        return !IsPlaying && (AutoKey || CurrentTime > 0.0001d);
     }
 
     private double Snap(double time)
@@ -7794,6 +11962,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(CanUndo));
         OnPropertyChanged(nameof(CanRedo));
+        OnPropertyChanged(nameof(HistoryPanelSummary));
     }
 
     private void StartPlayback()
@@ -7807,6 +11976,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _playbackOriginTime = CurrentTime;
         _playbackClock.Restart();
+        _lastProgramMonitorRefreshTick = -1;
+        _lastPlaybackInspectorRefreshTick = -1;
+        _lastPlaybackTimelinePreviewRefreshTick = -1;
+        _lastPlaybackAudioRefreshTick = -1;
         _playbackTimer.Start();
         IsPlaying = true;
         if (IsPrototypeMode)
@@ -7845,7 +12018,14 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        Seek(nextTime);
+        var nextFrame = FrameTimelineService.TimeToFrame(nextTime, SceneFrameRate, TotalFrames);
+        var quantizedTime = FrameTimelineService.FrameToTime(nextFrame, SceneFrameRate);
+        if (Math.Abs(quantizedTime - CurrentTime) < 0.0001d)
+        {
+            return;
+        }
+
+        Seek(quantizedTime);
         if (IsPrototypeMode)
         {
             HandlePrototypeTimelineAdvance(previousTime, CurrentTime);
@@ -7856,11 +12036,25 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _playbackTimer.Stop();
         _playbackClock.Stop();
+        _lastProgramMonitorRefreshTick = -1;
+        _lastPlaybackInspectorRefreshTick = -1;
+        _lastPlaybackTimelinePreviewRefreshTick = -1;
+        _lastPlaybackAudioRefreshTick = -1;
         IsPlaying = false;
 
         if (resetTime)
         {
             Seek(GetCurrentScenePlaybackStartTime());
+        }
+        else
+        {
+            RefreshLayerPreviewsAtCurrentTime();
+            UpdateTrackPreviewValues();
+            UpdateTimelineRowPreviewValues();
+            RefreshAudioMeter();
+            RefreshInspector();
+            RefreshFrameLabelEditor();
+            RefreshProgramMonitorPreview(force: true);
         }
 
         if (IsPrototypeMode)
@@ -8256,6 +12450,9 @@ public partial class MainWindowViewModel : ViewModelBase
             AnimatedProperty.SkewX => "Skew X",
             AnimatedProperty.SkewY => "Skew Y",
             AnimatedProperty.Rotation => "Rotation",
+            AnimatedProperty.RotationX => "Rotation X",
+            AnimatedProperty.RotationY => "Rotation Y",
+            AnimatedProperty.ZDepth => "Z Depth",
             AnimatedProperty.Opacity => "Opacity",
             _ => property.ToString()
         };
@@ -8357,12 +12554,138 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshGuideBindingStateProperties();
     }
 
+    [RelayCommand]
+    private void ClearTransformParent()
+    {
+        if (!CanEditTransformParenting || SelectedLayer is null)
+        {
+            return;
+        }
+
+        _suppressInspector = true;
+        SelectedTransformParentLayer = null;
+        _suppressInspector = false;
+
+        SelectedLayer.Model.TransformParenting = new TransformParentingSettings();
+        SelectedLayer.RefreshMetadata();
+        RebuildLayers(SelectedLayer.Id);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Transform parent cleared";
+        RefreshTransformParentingStateProperties();
+    }
+
+    [RelayCommand]
+    private void EnsureDefaultWarpPins()
+    {
+        if (!CanEditWarpRigging || SelectedLayer is null)
+        {
+            return;
+        }
+
+        LayerDeformationService.EnsureDefaultWarpPins(SelectedLayer.Model);
+        _suppressInspector = true;
+        WarpEnabledEditor = true;
+        WarpMeshColumnsEditor = SelectedLayer.Model.Warp.MeshColumns;
+        WarpMeshRowsEditor = SelectedLayer.Model.Warp.MeshRows;
+        _suppressInspector = false;
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Default warp pins created";
+        RefreshWarpRigStateProperties();
+    }
+
+    [RelayCommand]
+    private void EnsureDefaultRig()
+    {
+        if (!CanEditWarpRigging || SelectedLayer is null)
+        {
+            return;
+        }
+
+        LayerDeformationService.EnsureDefaultRig(SelectedLayer.Model);
+        _suppressInspector = true;
+        RigEnabledEditor = true;
+        _suppressInspector = false;
+        ReloadRigPoses();
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = "Default rig created";
+        RefreshWarpRigStateProperties();
+    }
+
+    [RelayCommand]
+    private void CaptureRigPose()
+    {
+        if (!CanEditWarpRigging || SelectedLayer is null)
+        {
+            return;
+        }
+
+        if (!LayerDeformationService.CapturePose(SelectedLayer.Model, RigPoseNameEditor, CurrentTime))
+        {
+            return;
+        }
+
+        ReloadRigPoses();
+        SelectedRigPose = RigPoses.LastOrDefault();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{SelectedRigPose?.Name ?? "Pose"} captured";
+        RefreshWarpRigStateProperties();
+    }
+
+    [RelayCommand]
+    private void ApplySelectedRigPose()
+    {
+        if (!CanEditWarpRigging || SelectedLayer is null || SelectedRigPose is null)
+        {
+            return;
+        }
+
+        if (!LayerDeformationService.ApplyPose(SelectedLayer.Model, SelectedRigPose.Id))
+        {
+            return;
+        }
+
+        ReloadPreviewForLayer(SelectedLayer);
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{SelectedRigPose.Name} applied";
+        RefreshWarpRigStateProperties();
+    }
+
+    [RelayCommand]
+    private void DeleteSelectedRigPose()
+    {
+        if (!CanEditWarpRigging || SelectedLayer is null || SelectedRigPose is null)
+        {
+            return;
+        }
+
+        var deletedName = SelectedRigPose.Name;
+        if (!LayerDeformationService.DeletePose(SelectedLayer.Model, SelectedRigPose.Id))
+        {
+            return;
+        }
+
+        ReloadRigPoses();
+        SelectedRigPose = RigPoses.FirstOrDefault();
+        RecordHistoryIfNeeded();
+        StatusMessage = $"{deletedName} deleted";
+        RefreshWarpRigStateProperties();
+    }
+
     private void RefreshSelectionStateProperties()
     {
         OnPropertyChanged(nameof(CanEditSelection));
         OnPropertyChanged(nameof(CanEditPropertyTracks));
         OnPropertyChanged(nameof(CanEditStyleSurface));
         OnPropertyChanged(nameof(CanEditPathPoints));
+        OnPropertyChanged(nameof(HasSelectedPathPoint));
+        OnPropertyChanged(nameof(CanInsertPathPointAfterSelected));
+        OnPropertyChanged(nameof(CanDeleteSelectedPathPoint));
+        OnPropertyChanged(nameof(CanReverseSelectedPath));
+        OnPropertyChanged(nameof(CanApplySelectedStrokeProfile));
+        OnPropertyChanged(nameof(CanOptimizeSelectedPath));
+        OnPropertyChanged(nameof(CanEditGradientTransform));
         OnPropertyChanged(nameof(CanAlignSelection));
         OnPropertyChanged(nameof(CanEditAvaloniaControl));
         OnPropertyChanged(nameof(CanCaptureShapeKeyframe));
@@ -8375,6 +12698,9 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanUseEditorialTools));
         OnPropertyChanged(nameof(CanDeleteSelectedKeyframe));
         OnPropertyChanged(nameof(CanEditCustomEasingCurve));
+        OnPropertyChanged(nameof(CanCaptureMotionPreset));
+        OnPropertyChanged(nameof(CanApplySelectedMotionPreset));
+        OnPropertyChanged(nameof(CanDeleteSelectedMotionPreset));
         OnPropertyChanged(nameof(SelectedLayerId));
         OnPropertyChanged(nameof(SelectedLayerIsPath));
         OnPropertyChanged(nameof(SelectedLayerIsFolder));
@@ -8388,9 +12714,21 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedLayerIsSymbolInstance));
         OnPropertyChanged(nameof(SelectedLayerIsComponentInstance));
         OnPropertyChanged(nameof(CanEditSelectedLayerInstanceMetadata));
+        OnPropertyChanged(nameof(CanEditSelectedComponentOverrides));
+        OnPropertyChanged(nameof(CanResetSelectedComponentOverride));
         OnPropertyChanged(nameof(CanEditGuideBinding));
+        OnPropertyChanged(nameof(CanEditTransformParenting));
+        OnPropertyChanged(nameof(CanEditWarpRigging));
         OnPropertyChanged(nameof(CanEditBitmapCacheMetadata));
         OnPropertyChanged(nameof(SelectedLayerSupportsCornerRadius));
+        OnPropertyChanged(nameof(SelectedLayerSupportsPrimitiveCornerRadii));
+        OnPropertyChanged(nameof(SelectedLayerSupportsPrimitiveEllipse));
+        OnPropertyChanged(nameof(SelectedLayerSupportsPolyStar));
+        OnPropertyChanged(nameof(CanEditShapeAuthoring));
+        OnPropertyChanged(nameof(CanUseShapeQuickControls));
+        OnPropertyChanged(nameof(ShapeAuthoringShowsRectangleOptions));
+        OnPropertyChanged(nameof(ShapeAuthoringShowsEllipseOptions));
+        OnPropertyChanged(nameof(ShapeAuthoringShowsPolyStarOptions));
         OnPropertyChanged(nameof(SelectedSymbolInstanceIsButton));
         OnPropertyChanged(nameof(SelectedLayerVisibilityLabel));
         OnPropertyChanged(nameof(SelectedLayerLockLabel));
@@ -8407,12 +12745,21 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShapeTweenSummary));
         OnPropertyChanged(nameof(CompositingSummary));
         OnPropertyChanged(nameof(MediaLayerSummary));
+        OnPropertyChanged(nameof(MediaRepeatSummary));
         OnPropertyChanged(nameof(LayerHierarchySummary));
         OnPropertyChanged(nameof(GuideBindingSummary));
+        OnPropertyChanged(nameof(TransformParentingSummary));
         OnPropertyChanged(nameof(LayerAuthoringSummary));
+        OnPropertyChanged(nameof(WarpRigSummary));
+        OnPropertyChanged(nameof(SelectedRigPoseSummary));
         OnPropertyChanged(nameof(EditMultipleFramesSummary));
         OnPropertyChanged(nameof(MediaAudioSummary));
         OnPropertyChanged(nameof(AudioMeterSummary));
+        OnPropertyChanged(nameof(ShapeAuthoringSummary));
+        OnPropertyChanged(nameof(SelectedPathPointSummary));
+        OnPropertyChanged(nameof(MotionPresetSummary));
+        OnPropertyChanged(nameof(OnionSkinSummary));
+        OnPropertyChanged(nameof(SelectedComponentOverrideSummary));
         OnPropertyChanged(nameof(CanEditVisualStates));
         OnPropertyChanged(nameof(CanApplySelectedVisualState));
         OnPropertyChanged(nameof(CanRemoveSelectedVisualState));
@@ -8420,9 +12767,12 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedVisualStateSummary));
         RefreshFlashTextFieldStateProperties();
         RefreshGuideBindingStateProperties();
+        RefreshTransformParentingStateProperties();
         RefreshAuthoringMetadataStateProperties();
+        RefreshWarpRigStateProperties();
         RefreshBehaviorEditorStateProperties();
         RefreshFrameSelectionStateProperties();
+        RefreshMotionPresetStateProperties();
     }
 
     private void RefreshLibraryStateProperties()
@@ -8430,6 +12780,8 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanInsertFromLibrary));
         OnPropertyChanged(nameof(CanEditSelectedLibraryItem));
         OnPropertyChanged(nameof(CanInsertSelectedComponent));
+        OnPropertyChanged(nameof(CanEditSelectedComponentParameters));
+        OnPropertyChanged(nameof(CanRemoveSelectedComponentParameter));
         OnPropertyChanged(nameof(CanCreateSymbolFromSelection));
         OnPropertyChanged(nameof(CanCreateComponentFromSelection));
         OnPropertyChanged(nameof(CanUpdateLinkedSymbol));
@@ -8437,6 +12789,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanEnterSymbolEdit));
         OnPropertyChanged(nameof(SelectedLibrarySummary));
         OnPropertyChanged(nameof(SelectedComponentSummary));
+        OnPropertyChanged(nameof(SelectedComponentParameterSummary));
     }
 
     private void RefreshMediaStateProperties()
@@ -8482,6 +12835,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void RefreshSceneStateProperties()
     {
+        RefreshAnimateDocumentCompatibilityIssues();
         OnPropertyChanged(nameof(CanDeleteScene));
         OnPropertyChanged(nameof(CanMoveSceneBackward));
         OnPropertyChanged(nameof(CanMoveSceneForward));
@@ -8507,6 +12861,41 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CurrentSceneOutFrameLabel));
         OnPropertyChanged(nameof(CurrentSceneWorkAreaLabel));
         OnPropertyChanged(nameof(SceneTransitionSummary));
+        OnPropertyChanged(nameof(AnimateDocumentTypeLabel));
+        OnPropertyChanged(nameof(AnimateDocumentSummary));
+        OnPropertyChanged(nameof(AnimateDocumentCompatibilitySummary));
+        OnPropertyChanged(nameof(HasAnimateDocumentCompatibilityIssues));
+        OnPropertyChanged(nameof(AnimateDocumentConversionSummary));
+        OnPropertyChanged(nameof(AnimateDocumentConvertButtonLabel));
+        OnPropertyChanged(nameof(AnimateDocumentOptionsSummary));
+        OnPropertyChanged(nameof(DocumentFileSummary));
+    }
+
+    private void RefreshAnimateDocumentCompatibilityIssues()
+    {
+        AnimateDocumentCompatibilityIssues.Clear();
+        foreach (var issue in AnimateDocumentProfileService.ValidateCompatibility(BuildPersistedDocumentSnapshot()))
+        {
+            AnimateDocumentCompatibilityIssues.Add(issue);
+        }
+    }
+
+    private void RefreshAnimateDocumentEditor()
+    {
+        _suppressAnimateDocumentEditor = true;
+        AnimateDocumentProfileService.EnsureSettings(_document);
+        AnimateDocumentTypeEditor = _document.Animate.Type;
+        AnimateDocumentUnitsEditor = _document.Animate.Units;
+        AnimateDocumentResponsiveEditor = _document.Animate.IsResponsive;
+        AnimateDocumentExternalScriptEditor = _document.Animate.UseExternalScriptFile;
+        AnimateDocumentWebFontsEditor = _document.Animate.UseWebFonts;
+        AnimateDocumentAdvancedLayersEditor = _document.Animate.UseAdvancedLayers;
+        AnimateDocumentEnable3DEditor = _document.Animate.Enable3DTransforms;
+        AnimateDocumentPerspectiveAngleEditor = _document.Animate.PerspectiveAngle;
+        AnimateDocumentVanishingPointXEditor = _document.Animate.VanishingPointX;
+        AnimateDocumentVanishingPointYEditor = _document.Animate.VanishingPointY;
+        AnimateDocumentTemplateNameEditor = _document.Animate.TemplateName;
+        _suppressAnimateDocumentEditor = false;
     }
 
     private void RefreshWorkspaceLayoutProperties()
@@ -8949,6 +13338,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Duration = scene.Duration;
         CanvasWidth = scene.CanvasWidth;
         CanvasHeight = scene.CanvasHeight;
+        TransparentStageBackground = scene.TransparentStageBackground;
         BackgroundFrom = scene.BackgroundFrom;
         BackgroundTo = scene.BackgroundTo;
         _suppressSceneSurfaceEditor = false;

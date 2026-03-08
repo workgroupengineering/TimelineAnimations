@@ -42,6 +42,13 @@ public sealed class MainWindowNativeMenuFactory
         fileMenu.Menu.Items.Add(ActionItem("Save...", actions.SaveDocumentAsync, canExecute: actions.CanSaveDocuments));
         fileMenu.Menu.Items.Add(new NativeMenuItemSeparator());
 
+        var flashMenu = Submenu("Flash Authoring");
+        flashMenu.Menu!.Items.Add(ActionItem("Open XFL Folder...", actions.OpenFlashXflFolderAsync, canExecute: actions.CanPickFolders));
+        flashMenu.Menu.Items.Add(ActionItem("Save XFL Folder...", actions.SaveFlashXflFolderAsync, canExecute: actions.CanPickFolders));
+        flashMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+        flashMenu.Menu.Items.Add(ActionItem("Convert FLA to XFL Folder...", actions.ConvertFlashFlaToXflFolderAsync, canExecute: () => actions.CanOpenDocuments() && actions.CanPickFolders()));
+        flashMenu.Menu.Items.Add(ActionItem("Convert XFL Folder to FLA...", actions.ConvertFlashXflFolderToFlaAsync, canExecute: () => actions.CanPickFolders() && actions.CanSaveDocuments()));
+
         var importMenu = Submenu("Import");
         state.ImportAvalonia = RadioActionItem("Avalonia XAML...", actions.ImportAnimationFormatAsync, AnimationExchangeFormat.AvaloniaXaml);
         state.ImportFlash = RadioActionItem("Flash XFL...", actions.ImportAnimationFormatAsync, AnimationExchangeFormat.FlashXfl);
@@ -77,6 +84,7 @@ public sealed class MainWindowNativeMenuFactory
 
         fileMenu.Menu.Items.Add(importMenu);
         fileMenu.Menu.Items.Add(exportMenu);
+        fileMenu.Menu.Items.Add(flashMenu);
         fileMenu.Menu.Items.Add(publishMenu);
         return fileMenu;
     }
@@ -130,19 +138,47 @@ public sealed class MainWindowNativeMenuFactory
 
         var toolMenu = Submenu("Active Tool");
         state.SelectTool = RadioCommandItem("Select", viewModel.SelectDrawingToolCommand, "Select");
+        state.SubselectTool = RadioCommandItem("Subselect", viewModel.SelectDrawingToolCommand, "Subselect");
+        state.LassoTool = RadioCommandItem("Lasso", viewModel.SelectDrawingToolCommand, "Lasso");
+        state.HandTool = RadioCommandItem("Hand", viewModel.SelectDrawingToolCommand, "Hand");
+        state.ZoomTool = RadioCommandItem("Zoom", viewModel.SelectDrawingToolCommand, "Zoom");
+        state.RotateViewTool = RadioCommandItem("Rotate View", viewModel.SelectDrawingToolCommand, "RotateView");
+        state.EyedropperTool = RadioCommandItem("Eyedropper", viewModel.SelectDrawingToolCommand, "Eyedropper");
+        state.PaintBucketTool = RadioCommandItem("Paint Bucket", viewModel.SelectDrawingToolCommand, "PaintBucket");
+        state.InkBottleTool = RadioCommandItem("Ink Bottle", viewModel.SelectDrawingToolCommand, "InkBottle");
+        state.WidthTool = RadioCommandItem("Width", viewModel.SelectDrawingToolCommand, "Width");
+        state.WarpTool = RadioCommandItem("Warp", viewModel.SelectDrawingToolCommand, "Warp");
+        state.RigTool = RadioCommandItem("Rig", viewModel.SelectDrawingToolCommand, "Rig");
         state.RectangleTool = RadioCommandItem("Rectangle", viewModel.SelectDrawingToolCommand, "Rectangle");
         state.EllipseTool = RadioCommandItem("Ellipse", viewModel.SelectDrawingToolCommand, "Ellipse");
+        state.PolyStarTool = RadioCommandItem("PolyStar", viewModel.SelectDrawingToolCommand, "PolyStar");
         state.TextTool = RadioCommandItem("Text", viewModel.SelectDrawingToolCommand, "Text");
         state.LineTool = RadioCommandItem("Line", viewModel.SelectDrawingToolCommand, "Line");
         state.PenTool = RadioCommandItem("Pen", viewModel.SelectDrawingToolCommand, "Pen");
         state.BrushTool = RadioCommandItem("Brush", viewModel.SelectDrawingToolCommand, "Brush");
+        state.PencilTool = RadioCommandItem("Pencil", viewModel.SelectDrawingToolCommand, "Pencil");
+        state.EraserTool = RadioCommandItem("Eraser", viewModel.SelectDrawingToolCommand, "Eraser");
         toolMenu.Menu!.Items.Add(state.SelectTool);
+        toolMenu.Menu.Items.Add(state.SubselectTool);
+        toolMenu.Menu.Items.Add(state.LassoTool);
+        toolMenu.Menu.Items.Add(state.HandTool);
+        toolMenu.Menu.Items.Add(state.ZoomTool);
+        toolMenu.Menu.Items.Add(state.RotateViewTool);
+        toolMenu.Menu.Items.Add(state.EyedropperTool);
+        toolMenu.Menu.Items.Add(state.PaintBucketTool);
+        toolMenu.Menu.Items.Add(state.InkBottleTool);
+        toolMenu.Menu.Items.Add(state.WidthTool);
+        toolMenu.Menu.Items.Add(state.WarpTool);
+        toolMenu.Menu.Items.Add(state.RigTool);
         toolMenu.Menu.Items.Add(state.RectangleTool);
         toolMenu.Menu.Items.Add(state.EllipseTool);
+        toolMenu.Menu.Items.Add(state.PolyStarTool);
         toolMenu.Menu.Items.Add(state.TextTool);
         toolMenu.Menu.Items.Add(state.LineTool);
         toolMenu.Menu.Items.Add(state.PenTool);
         toolMenu.Menu.Items.Add(state.BrushTool);
+        toolMenu.Menu.Items.Add(state.PencilTool);
+        toolMenu.Menu.Items.Add(state.EraserTool);
 
         viewMenu.Menu.Items.Add(focusMenu);
         viewMenu.Menu.Items.Add(toolMenu);
@@ -317,12 +353,26 @@ public sealed class MainWindowNativeMenuFactory
         SetChecked(state.FramesView, viewModel.IsFramesTimelineViewActive);
         SetChecked(state.CurvesView, viewModel.IsCurvesTimelineViewActive);
         SetChecked(state.SelectTool, viewModel.IsSelectToolActive);
+        SetChecked(state.SubselectTool, viewModel.IsSubselectToolActive);
+        SetChecked(state.LassoTool, viewModel.IsLassoToolActive);
+        SetChecked(state.HandTool, viewModel.IsHandToolActive);
+        SetChecked(state.ZoomTool, viewModel.IsZoomToolActive);
+        SetChecked(state.RotateViewTool, viewModel.IsRotateViewToolActive);
+        SetChecked(state.EyedropperTool, viewModel.IsEyedropperToolActive);
+        SetChecked(state.PaintBucketTool, viewModel.IsPaintBucketToolActive);
+        SetChecked(state.InkBottleTool, viewModel.IsInkBottleToolActive);
+        SetChecked(state.WidthTool, viewModel.IsWidthToolActive);
+        SetChecked(state.WarpTool, viewModel.IsWarpToolActive);
+        SetChecked(state.RigTool, viewModel.IsRigToolActive);
         SetChecked(state.RectangleTool, viewModel.IsRectangleToolActive);
         SetChecked(state.EllipseTool, viewModel.IsEllipseToolActive);
+        SetChecked(state.PolyStarTool, viewModel.IsPolyStarToolActive);
         SetChecked(state.TextTool, viewModel.IsTextToolActive);
         SetChecked(state.LineTool, viewModel.IsLineToolActive);
         SetChecked(state.PenTool, viewModel.IsPenToolActive);
         SetChecked(state.BrushTool, viewModel.IsBrushToolActive);
+        SetChecked(state.PencilTool, viewModel.IsPencilToolActive);
+        SetChecked(state.EraserTool, viewModel.IsEraserToolActive);
         SetChecked(state.TextToolMenuItem, viewModel.IsTextToolActive);
         SetChecked(state.PrototypeMode, viewModel.IsPrototypeMode);
         SetChecked(state.LoopPlayback, viewModel.LoopPlayback);
@@ -482,12 +532,26 @@ public sealed class MainWindowNativeMenuFactory
         public NativeMenuItem? FramesView { get; set; }
         public NativeMenuItem? CurvesView { get; set; }
         public NativeMenuItem? SelectTool { get; set; }
+        public NativeMenuItem? SubselectTool { get; set; }
+        public NativeMenuItem? LassoTool { get; set; }
+        public NativeMenuItem? HandTool { get; set; }
+        public NativeMenuItem? ZoomTool { get; set; }
+        public NativeMenuItem? RotateViewTool { get; set; }
+        public NativeMenuItem? EyedropperTool { get; set; }
+        public NativeMenuItem? PaintBucketTool { get; set; }
+        public NativeMenuItem? InkBottleTool { get; set; }
+        public NativeMenuItem? WidthTool { get; set; }
+        public NativeMenuItem? WarpTool { get; set; }
+        public NativeMenuItem? RigTool { get; set; }
         public NativeMenuItem? RectangleTool { get; set; }
         public NativeMenuItem? EllipseTool { get; set; }
+        public NativeMenuItem? PolyStarTool { get; set; }
         public NativeMenuItem? TextTool { get; set; }
         public NativeMenuItem? LineTool { get; set; }
         public NativeMenuItem? PenTool { get; set; }
         public NativeMenuItem? BrushTool { get; set; }
+        public NativeMenuItem? PencilTool { get; set; }
+        public NativeMenuItem? EraserTool { get; set; }
         public NativeMenuItem? ToggleMute { get; set; }
         public NativeMenuItem? ToggleSolo { get; set; }
         public NativeMenuItem? TextToolMenuItem { get; set; }
@@ -504,6 +568,10 @@ public sealed class MainWindowNativeMenuFactory
 public sealed record MainWindowNativeMenuActions(
     Func<Task> OpenDocumentAsync,
     Func<Task> SaveDocumentAsync,
+    Func<Task> OpenFlashXflFolderAsync,
+    Func<Task> SaveFlashXflFolderAsync,
+    Func<Task> ConvertFlashFlaToXflFolderAsync,
+    Func<Task> ConvertFlashXflFolderToFlaAsync,
     Func<AnimationExchangeFormat, Task> ImportAnimationFormatAsync,
     Func<AnimationExchangeFormat, Task> ExportAnimationFormatAsync,
     Func<Task> ImportAudioAsync,

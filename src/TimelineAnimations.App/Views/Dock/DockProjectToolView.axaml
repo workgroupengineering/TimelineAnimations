@@ -14,7 +14,7 @@
                     HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="6">
           <Border Classes="panel">
-            <StackPanel Spacing="8"
+            <StackPanel Spacing="6"
                         IsEnabled="{Binding CanEditScenes}">
               <TextBlock Classes="eyebrow"
                          Text="Composition" />
@@ -34,21 +34,21 @@
                          Text="{Binding SelectedSceneSummary}"
                          TextWrapping="Wrap" />
               <WrapPanel Classes="panel-command-row">
-                <Button Classes="panel-command"
+                <Button Classes="panel-command compact"
                         Content="+ Scene"
                         Command="{Binding AddSceneCommand}" />
-                <Button Classes="panel-command"
+                <Button Classes="panel-command compact"
                         Content="Copy"
                         Command="{Binding DuplicateSceneCommand}" />
-                <Button Classes="panel-command"
+                <Button Classes="panel-command compact"
                         Content="Back"
                         Command="{Binding MoveSceneBackwardCommand}"
                         IsEnabled="{Binding CanMoveSceneBackward}" />
-                <Button Classes="panel-command"
+                <Button Classes="panel-command compact"
                         Content="Next"
                         Command="{Binding MoveSceneForwardCommand}"
                         IsEnabled="{Binding CanMoveSceneForward}" />
-                <Button Classes="panel-command warm"
+                <Button Classes="panel-command compact warm"
                         Content="Remove"
                         Command="{Binding DeleteSceneCommand}"
                         IsEnabled="{Binding CanDeleteScene}" />
@@ -59,18 +59,18 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="appVm:SceneViewModel">
                     <Border Classes="layer-row">
-                      <Grid ColumnDefinitions="82,*,Auto"
-                            ColumnSpacing="12">
-                        <Border Width="82"
-                                Height="46"
-                                CornerRadius="10"
+                      <Grid ColumnDefinitions="70,*,Auto"
+                            ColumnSpacing="10">
+                        <Border Width="70"
+                                Height="40"
+                                CornerRadius="8"
                                 Background="{Binding PreviewBrush}">
-                          <Border Margin="8"
+                          <Border Margin="6"
                                   HorizontalAlignment="Left"
                                   VerticalAlignment="Top"
-                                  Padding="8,4"
+                                  Padding="6,3"
                                   Background="#44000000"
-                                  CornerRadius="8">
+                                  CornerRadius="6">
                             <TextBlock Classes="micro-label"
                                        Text="{Binding Name}" />
                           </Border>
@@ -118,8 +118,8 @@
           </Border>
 
           <Border Classes="panel">
-            <StackPanel Spacing="10">
-              <StackPanel Spacing="8">
+            <StackPanel Spacing="8">
+              <StackPanel Spacing="6">
                 <StackPanel Spacing="4">
                   <TextBlock Classes="eyebrow"
                              Text="Layers" />
@@ -127,27 +127,30 @@
                              Text="Composition stack" />
                 </StackPanel>
                 <WrapPanel Classes="panel-command-row">
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="+ Folder"
                           Command="{Binding AddFolderCommand}" />
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="+ Rect"
                           Command="{Binding AddRectangleCommand}" />
-                  <Button Classes="panel-command warm"
+                  <Button Classes="panel-command compact warm"
                           Content="+ Orb"
                           Command="{Binding AddEllipseCommand}" />
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
+                          Content="+ Star"
+                          Command="{Binding AddPolyStarCommand}" />
+                  <Button Classes="panel-command compact"
                           Content="+ Text"
                           Command="{Binding AddTextCommand}" />
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="+ Camera"
                           Command="{Binding AddCameraLayerCommand}"
                           IsEnabled="{Binding CanAddCameraLayer}" />
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="Group"
                           Command="{Binding GroupSelectionIntoFolderCommand}"
                           IsEnabled="{Binding CanGroupSelectionIntoFolder}" />
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="Copy"
                           Command="{Binding DuplicateSelectionCommand}" />
                 </WrapPanel>
@@ -173,6 +176,10 @@
                                      Text="{Binding Name}" />
                           <TextBlock Classes="micro-label"
                                      Text="{Binding Subtitle}" />
+                          <TextBlock Classes="micro-label"
+                                     IsVisible="{Binding HasShapeAuthoringSummary}"
+                                     Text="{Binding ShapeAuthoringSummary}"
+                                     TextWrapping="Wrap" />
                           <TextBlock Classes="micro-label"
                                      IsVisible="{Binding HasLibraryLink}"
                                      Text="{Binding LibraryLinkLabel}" />
@@ -285,15 +292,15 @@
                              Text="Reusable symbols" />
                 </StackPanel>
                 <WrapPanel Classes="panel-command-row">
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="Edit"
                           Command="{Binding EnterSelectedSymbolEditCommand}"
                           IsEnabled="{Binding CanEnterSymbolEdit}" />
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="Place"
                           Command="{Binding InsertSelectedLibraryItemCommand}"
                           IsEnabled="{Binding CanInsertFromLibrary}" />
-                  <Button Classes="panel-command warm"
+                  <Button Classes="panel-command compact warm"
                           Content="Relink"
                           Command="{Binding RelinkSelectionToSelectedLibraryItemCommand}"
                           IsEnabled="{Binding CanRelinkSelectionToSelectedLibraryItem}" />
@@ -499,11 +506,11 @@
                              Text="Interactive building blocks" />
                 </StackPanel>
                 <WrapPanel Classes="panel-command-row">
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="Capture"
                           Command="{Binding CreateComponentFromSelectionCommand}"
                           IsEnabled="{Binding CanCreateComponentFromSelection}" />
-                  <Button Classes="panel-command warm"
+                  <Button Classes="panel-command compact warm"
                           Content="Place"
                           Command="{Binding InsertSelectedComponentCommand}"
                           IsEnabled="{Binding CanInsertSelectedComponent}" />
@@ -545,6 +552,102 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
+
+              <Border Classes="panel-soft"
+                      IsEnabled="{Binding CanEditSelectedComponentParameters}">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto,Auto"
+                        ColumnSpacing="8">
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="eyebrow"
+                                 Text="Parameters" />
+                      <TextBlock Classes="section-title"
+                                 Text="Reusable component inputs" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="+ Param"
+                            Command="{Binding AddComponentParameterCommand}"
+                            IsEnabled="{Binding CanEditSelectedComponentParameters}" />
+                    <Button Grid.Column="2"
+                            Content="Remove"
+                            Classes="warm"
+                            Command="{Binding RemoveSelectedComponentParameterCommand}"
+                            IsEnabled="{Binding CanRemoveSelectedComponentParameter}" />
+                  </Grid>
+
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding SelectedComponentParameterSummary}"
+                             TextWrapping="Wrap" />
+
+                  <ListBox Classes="dense-list"
+                           MaxHeight="184"
+                           ItemsSource="{Binding SelectedComponentParameters}"
+                           SelectedItem="{Binding SelectedComponentParameter, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="appVm:ComponentParameterDefinitionViewModel">
+                        <Border Classes="layer-row">
+                          <StackPanel Spacing="2">
+                            <TextBlock Classes="strong-label"
+                                       Text="{Binding Name}" />
+                            <TextBlock Classes="micro-label"
+                                       Text="{Binding Subtitle}" />
+                            <TextBlock Classes="micro-label"
+                                       Text="{Binding DefaultValue}" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Parameter name" />
+                      <TextBox Text="{Binding ComponentParameterNameEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Kind" />
+                      <ComboBox ItemsSource="{Binding AvailableComponentParameterKinds}"
+                                SelectedItem="{Binding ComponentParameterKindEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Target" />
+                      <ComboBox ItemsSource="{Binding AvailableComponentParameterBindingTargets}"
+                                SelectedItem="{Binding ComponentParameterBindingTargetEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Target layer" />
+                      <TextBox Watermark="Optional named layer"
+                               Text="{Binding ComponentParameterTargetLayerNameEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Default value" />
+                    <TextBox Text="{Binding ComponentParameterDefaultValueEditor, Mode=TwoWay}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Description" />
+                    <TextBox AcceptsReturn="True"
+                             Height="68"
+                             TextWrapping="Wrap"
+                             Text="{Binding ComponentParameterDescriptionEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
             </StackPanel>
           </Border>
 
@@ -558,13 +661,13 @@
                              Text="Audio and video clips" />
                 </StackPanel>
                 <WrapPanel Classes="panel-command-row">
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="Import Audio"
                           Click="ImportAudioClick" />
-                  <Button Classes="panel-command"
+                  <Button Classes="panel-command compact"
                           Content="Import Video"
                           Click="ImportVideoClick" />
-                  <Button Classes="panel-command warm"
+                  <Button Classes="panel-command compact warm"
                           Content="Place"
                           Command="{Binding InsertSelectedMediaAssetCommand}"
                           IsEnabled="{Binding CanInsertSelectedMediaAsset}" />

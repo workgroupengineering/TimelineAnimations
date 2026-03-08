@@ -54,7 +54,7 @@ public static class AudioMixService
 
     public static double GetEffectiveGain(TimelineLayer layer, MediaAsset? asset, double sceneTime)
     {
-        var clipDuration = MediaTimelineService.GetClipDuration(layer, asset);
+        var clipDuration = MediaTimelineService.GetPlaybackDuration(layer, asset);
         var clipRelativeTime = sceneTime - layer.Media.StartTime;
         if (clipRelativeTime < 0d || clipRelativeTime > clipDuration)
         {

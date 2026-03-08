@@ -6,12 +6,15 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using TimelineAnimations.App.Helpers;
 using TimelineAnimations.App.Models;
 using TimelineAnimations.App.Services;
 using TimelineAnimations.App.ViewModels;
 using TimelineAnimations.Core.Models;
 using TimelineAnimations.Core.Services;
+using TimelineAnimations.Rendering.Models;
+using TimelineAnimations.Rendering.Services;
 
 namespace TimelineAnimations.App.Controls;
 
@@ -28,6 +31,11 @@ public sealed class SceneCanvasControl : Control
     private InteractionMode _interactionMode;
     private Guid? _activeLayerId;
     private int? _activePathPointIndex;
+    private VectorHandleKind? _activePathHandleKind;
+    private double _pathWidthScaleOrigin = 1d;
+    private Guid? _activeWarpPinId;
+    private Guid? _activeRigBoneId;
+    private RigBoneHandleKind? _activeRigBoneHandleKind;
     private Point _pointerOrigin;
     private Rect _originalBounds;
     private double? _verticalGuide;
@@ -41,7 +49,15 @@ public sealed class SceneCanvasControl : Control
     private Vector _viewportPanOrigin;
     private Size _originalCanvasSize;
     private double _canvasResizeScaleOrigin = 1d;
+    private double _viewRotationOrigin;
     private bool _isSpacePressed;
+    private SceneRenderRequest? _cachedSceneState;
+    private WriteableBitmap? _cachedSceneBitmap;
+    private double _cachedSceneStateTime = double.NaN;
+    private double _cachedSceneBitmapTime = double.NaN;
+    private RenderingEngineKind _cachedSceneBitmapEngine = RenderingEngineKind.Avalonia;
+    private bool _isSceneStateDirty = true;
+    private bool _isSceneBitmapDirty = true;
 
     public static readonly StyledProperty<IReadOnlyList<LayerViewModel>?> LayersProperty =
         AvaloniaProperty.Register<SceneCanvasControl, IReadOnlyList<LayerViewModel>?>(nameof(Layers));
@@ -55,6 +71,9 @@ public sealed class SceneCanvasControl : Control
     public static readonly StyledProperty<double> CanvasZoomProperty =
         AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CanvasZoom), 1d);
 
+    public static readonly StyledProperty<double> CanvasViewRotationProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CanvasViewRotation));
+
     public static readonly StyledProperty<double> DocumentWidthProperty =
         AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(DocumentWidth), 1280d);
 
@@ -64,11 +83,17 @@ public sealed class SceneCanvasControl : Control
     public static readonly StyledProperty<double> DurationProperty =
         AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(Duration), 6d);
 
-    public static readonly StyledProperty<string> BackgroundFromProperty =
-        AvaloniaProperty.Register<SceneCanvasControl, string>(nameof(BackgroundFrom), "#09111F");
+    public static readonly StyledProperty<string> StageBackgroundColorProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, string>(nameof(StageBackgroundColor), "#FFFFFF");
 
-    public static readonly StyledProperty<string> BackgroundToProperty =
-        AvaloniaProperty.Register<SceneCanvasControl, string>(nameof(BackgroundTo), "#182748");
+    public static readonly StyledProperty<bool> TransparentStageBackgroundProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(TransparentStageBackground));
+
+    public static readonly StyledProperty<string> PasteboardColorProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, string>(nameof(PasteboardColor), "#B9BEC7");
+
+    public static readonly StyledProperty<bool> MatchPasteboardToStageColorProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(MatchPasteboardToStageColor));
 
     public static readonly StyledProperty<bool> SnapToGridProperty =
         AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(SnapToGrid), true);
@@ -76,14 +101,38 @@ public sealed class SceneCanvasControl : Control
     public static readonly StyledProperty<double> CurrentTimeProperty =
         AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CurrentTime));
 
+    public static readonly StyledProperty<RenderingEngineKind> RenderingEngineProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, RenderingEngineKind>(nameof(RenderingEngine), RenderingEngineKind.Avalonia);
+
     public static readonly StyledProperty<DrawingTool> DrawingToolProperty =
         AvaloniaProperty.Register<SceneCanvasControl, DrawingTool>(nameof(DrawingTool), DrawingTool.Select);
+
+    public static readonly StyledProperty<ZoomToolMode> ZoomToolModeProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, ZoomToolMode>(nameof(ZoomToolMode), ZoomToolMode.In);
+
+    public static readonly StyledProperty<LassoToolMode> LassoToolModeProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, LassoToolMode>(nameof(LassoToolMode), LassoToolMode.Freeform);
+
+    public static readonly StyledProperty<bool> LassoContactSensitiveProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(LassoContactSensitive), true);
+
+    public static readonly StyledProperty<PencilToolMode> PencilToolModeProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, PencilToolMode>(nameof(PencilToolMode), PencilToolMode.Smooth);
+
+    public static readonly StyledProperty<EraserToolMode> EraserToolModeProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, EraserToolMode>(nameof(EraserToolMode), EraserToolMode.Object);
+
+    public static readonly StyledProperty<double> EraserSizeProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(EraserSize), 42d);
 
     public static readonly StyledProperty<double> FrameRateProperty =
         AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(FrameRate), 24d);
 
     public static readonly StyledProperty<int> TotalFramesProperty =
         AvaloniaProperty.Register<SceneCanvasControl, int>(nameof(TotalFrames), 1);
+
+    public static readonly StyledProperty<int> SelectedPathPointIndexProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, int>(nameof(SelectedPathPointIndex), -1);
 
     public static readonly StyledProperty<bool> OnionSkinEnabledProperty =
         AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(OnionSkinEnabled), true);
@@ -94,11 +143,47 @@ public sealed class SceneCanvasControl : Control
     public static readonly StyledProperty<int> OnionSkinAfterProperty =
         AvaloniaProperty.Register<SceneCanvasControl, int>(nameof(OnionSkinAfter), 2);
 
+    public static readonly StyledProperty<bool> OnionSkinKeyframesOnlyProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(OnionSkinKeyframesOnly));
+
+    public static readonly StyledProperty<double> OnionSkinBaseOpacityProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(OnionSkinBaseOpacity), 0.14d);
+
+    public static readonly StyledProperty<double> OnionSkinOpacityFalloffProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(OnionSkinOpacityFalloff), 0.06d);
+
     public static readonly StyledProperty<bool> PrototypeModeProperty =
         AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(PrototypeMode));
 
     public static readonly StyledProperty<bool> CanResizeCanvasProperty =
         AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(CanResizeCanvas), true);
+
+    public static readonly StyledProperty<double> CornerRadiusTopLeftProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CornerRadiusTopLeft), 28d);
+
+    public static readonly StyledProperty<double> CornerRadiusTopRightProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CornerRadiusTopRight), 28d);
+
+    public static readonly StyledProperty<double> CornerRadiusBottomRightProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CornerRadiusBottomRight), 28d);
+
+    public static readonly StyledProperty<double> CornerRadiusBottomLeftProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(CornerRadiusBottomLeft), 28d);
+
+    public static readonly StyledProperty<double> EllipseStartAngleProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(EllipseStartAngle));
+
+    public static readonly StyledProperty<double> EllipseSweepAngleProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(EllipseSweepAngle), 360d);
+
+    public static readonly StyledProperty<int> PolyStarSidesProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, int>(nameof(PolyStarSides), 5);
+
+    public static readonly StyledProperty<double> PolyStarInnerRadiusProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, double>(nameof(PolyStarInnerRadius), 0.46d);
+
+    public static readonly StyledProperty<bool> PolyStarIsStarProperty =
+        AvaloniaProperty.Register<SceneCanvasControl, bool>(nameof(PolyStarIsStar), true);
 
     static SceneCanvasControl()
     {
@@ -107,21 +192,44 @@ public sealed class SceneCanvasControl : Control
             SelectedLayerProperty,
             DocumentProperty,
             CanvasZoomProperty,
+            CanvasViewRotationProperty,
             DocumentWidthProperty,
             DocumentHeightProperty,
             DurationProperty,
-            BackgroundFromProperty,
-            BackgroundToProperty,
+            StageBackgroundColorProperty,
+            TransparentStageBackgroundProperty,
+            PasteboardColorProperty,
+            MatchPasteboardToStageColorProperty,
             SnapToGridProperty,
             CurrentTimeProperty,
+            RenderingEngineProperty,
             DrawingToolProperty,
+            ZoomToolModeProperty,
+            LassoToolModeProperty,
+            LassoContactSensitiveProperty,
+            PencilToolModeProperty,
+            EraserToolModeProperty,
+            EraserSizeProperty,
             FrameRateProperty,
             TotalFramesProperty,
+            SelectedPathPointIndexProperty,
             OnionSkinEnabledProperty,
             OnionSkinBeforeProperty,
             OnionSkinAfterProperty,
+            OnionSkinKeyframesOnlyProperty,
+            OnionSkinBaseOpacityProperty,
+            OnionSkinOpacityFalloffProperty,
             PrototypeModeProperty,
-            CanResizeCanvasProperty);
+            CanResizeCanvasProperty,
+            CornerRadiusTopLeftProperty,
+            CornerRadiusTopRightProperty,
+            CornerRadiusBottomRightProperty,
+            CornerRadiusBottomLeftProperty,
+            EllipseStartAngleProperty,
+            EllipseSweepAngleProperty,
+            PolyStarSidesProperty,
+            PolyStarInnerRadiusProperty,
+            PolyStarIsStarProperty);
     }
 
     public SceneCanvasControl()
@@ -141,7 +249,25 @@ public sealed class SceneCanvasControl : Control
 
     public event EventHandler<CanvasDrawingRequestedEventArgs>? DrawingRequested;
 
+    public event EventHandler<CanvasLayerStyleSampleRequestedEventArgs>? LayerStyleSampleRequested;
+
+    public event EventHandler<CanvasLayerStyleApplyRequestedEventArgs>? LayerStyleApplyRequested;
+
     public event EventHandler<CanvasPathPointMoveRequestedEventArgs>? PathPointMoveRequested;
+
+    public event EventHandler<CanvasPathPointSelectionRequestedEventArgs>? PathPointSelectionRequested;
+
+    public event EventHandler<CanvasPathHandleMoveRequestedEventArgs>? PathHandleMoveRequested;
+
+    public event EventHandler<CanvasPathPointWidthScaleRequestedEventArgs>? PathPointWidthScaleRequested;
+
+    public event EventHandler<CanvasLassoSelectionRequestedEventArgs>? LassoSelectionRequested;
+
+    public event EventHandler<CanvasWarpPinMoveRequestedEventArgs>? WarpPinMoveRequested;
+
+    public event EventHandler<CanvasRigBoneMoveRequestedEventArgs>? RigBoneMoveRequested;
+
+    public event EventHandler<CanvasLayerEraseRequestedEventArgs>? LayerEraseRequested;
 
     public event EventHandler<CanvasResizeRequestedEventArgs>? CanvasResizeRequested;
 
@@ -173,6 +299,12 @@ public sealed class SceneCanvasControl : Control
         set => SetValue(CanvasZoomProperty, value);
     }
 
+    public double CanvasViewRotation
+    {
+        get => GetValue(CanvasViewRotationProperty);
+        set => SetValue(CanvasViewRotationProperty, value);
+    }
+
     public double DocumentWidth
     {
         get => GetValue(DocumentWidthProperty);
@@ -191,16 +323,28 @@ public sealed class SceneCanvasControl : Control
         set => SetValue(DurationProperty, value);
     }
 
-    public string BackgroundFrom
+    public string StageBackgroundColor
     {
-        get => GetValue(BackgroundFromProperty);
-        set => SetValue(BackgroundFromProperty, value);
+        get => GetValue(StageBackgroundColorProperty);
+        set => SetValue(StageBackgroundColorProperty, value);
     }
 
-    public string BackgroundTo
+    public bool TransparentStageBackground
     {
-        get => GetValue(BackgroundToProperty);
-        set => SetValue(BackgroundToProperty, value);
+        get => GetValue(TransparentStageBackgroundProperty);
+        set => SetValue(TransparentStageBackgroundProperty, value);
+    }
+
+    public string PasteboardColor
+    {
+        get => GetValue(PasteboardColorProperty);
+        set => SetValue(PasteboardColorProperty, value);
+    }
+
+    public bool MatchPasteboardToStageColor
+    {
+        get => GetValue(MatchPasteboardToStageColorProperty);
+        set => SetValue(MatchPasteboardToStageColorProperty, value);
     }
 
     public bool SnapToGrid
@@ -215,10 +359,52 @@ public sealed class SceneCanvasControl : Control
         set => SetValue(CurrentTimeProperty, value);
     }
 
+    public RenderingEngineKind RenderingEngine
+    {
+        get => GetValue(RenderingEngineProperty);
+        set => SetValue(RenderingEngineProperty, value);
+    }
+
     public DrawingTool DrawingTool
     {
         get => GetValue(DrawingToolProperty);
         set => SetValue(DrawingToolProperty, value);
+    }
+
+    public ZoomToolMode ZoomToolMode
+    {
+        get => GetValue(ZoomToolModeProperty);
+        set => SetValue(ZoomToolModeProperty, value);
+    }
+
+    public LassoToolMode LassoToolMode
+    {
+        get => GetValue(LassoToolModeProperty);
+        set => SetValue(LassoToolModeProperty, value);
+    }
+
+    public bool LassoContactSensitive
+    {
+        get => GetValue(LassoContactSensitiveProperty);
+        set => SetValue(LassoContactSensitiveProperty, value);
+    }
+
+    public PencilToolMode PencilToolMode
+    {
+        get => GetValue(PencilToolModeProperty);
+        set => SetValue(PencilToolModeProperty, value);
+    }
+
+    public EraserToolMode EraserToolMode
+    {
+        get => GetValue(EraserToolModeProperty);
+        set => SetValue(EraserToolModeProperty, value);
+    }
+
+    public double EraserSize
+    {
+        get => GetValue(EraserSizeProperty);
+        set => SetValue(EraserSizeProperty, value);
     }
 
     public double FrameRate
@@ -231,6 +417,12 @@ public sealed class SceneCanvasControl : Control
     {
         get => GetValue(TotalFramesProperty);
         set => SetValue(TotalFramesProperty, value);
+    }
+
+    public int SelectedPathPointIndex
+    {
+        get => GetValue(SelectedPathPointIndexProperty);
+        set => SetValue(SelectedPathPointIndexProperty, value);
     }
 
     public bool OnionSkinEnabled
@@ -251,6 +443,24 @@ public sealed class SceneCanvasControl : Control
         set => SetValue(OnionSkinAfterProperty, value);
     }
 
+    public bool OnionSkinKeyframesOnly
+    {
+        get => GetValue(OnionSkinKeyframesOnlyProperty);
+        set => SetValue(OnionSkinKeyframesOnlyProperty, value);
+    }
+
+    public double OnionSkinBaseOpacity
+    {
+        get => GetValue(OnionSkinBaseOpacityProperty);
+        set => SetValue(OnionSkinBaseOpacityProperty, value);
+    }
+
+    public double OnionSkinOpacityFalloff
+    {
+        get => GetValue(OnionSkinOpacityFalloffProperty);
+        set => SetValue(OnionSkinOpacityFalloffProperty, value);
+    }
+
     public bool PrototypeMode
     {
         get => GetValue(PrototypeModeProperty);
@@ -263,6 +473,60 @@ public sealed class SceneCanvasControl : Control
         set => SetValue(CanResizeCanvasProperty, value);
     }
 
+    public double CornerRadiusTopLeft
+    {
+        get => GetValue(CornerRadiusTopLeftProperty);
+        set => SetValue(CornerRadiusTopLeftProperty, value);
+    }
+
+    public double CornerRadiusTopRight
+    {
+        get => GetValue(CornerRadiusTopRightProperty);
+        set => SetValue(CornerRadiusTopRightProperty, value);
+    }
+
+    public double CornerRadiusBottomRight
+    {
+        get => GetValue(CornerRadiusBottomRightProperty);
+        set => SetValue(CornerRadiusBottomRightProperty, value);
+    }
+
+    public double CornerRadiusBottomLeft
+    {
+        get => GetValue(CornerRadiusBottomLeftProperty);
+        set => SetValue(CornerRadiusBottomLeftProperty, value);
+    }
+
+    public double EllipseStartAngle
+    {
+        get => GetValue(EllipseStartAngleProperty);
+        set => SetValue(EllipseStartAngleProperty, value);
+    }
+
+    public double EllipseSweepAngle
+    {
+        get => GetValue(EllipseSweepAngleProperty);
+        set => SetValue(EllipseSweepAngleProperty, value);
+    }
+
+    public int PolyStarSides
+    {
+        get => GetValue(PolyStarSidesProperty);
+        set => SetValue(PolyStarSidesProperty, value);
+    }
+
+    public double PolyStarInnerRadius
+    {
+        get => GetValue(PolyStarInnerRadiusProperty);
+        set => SetValue(PolyStarInnerRadiusProperty, value);
+    }
+
+    public bool PolyStarIsStar
+    {
+        get => GetValue(PolyStarIsStarProperty);
+        set => SetValue(PolyStarIsStarProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -271,6 +535,7 @@ public sealed class SceneCanvasControl : Control
         {
             DetachLayerListeners(change.GetOldValue<IReadOnlyList<LayerViewModel>?>());
             AttachLayerListeners(change.GetNewValue<IReadOnlyList<LayerViewModel>?>());
+            InvalidateSceneStateCache();
             InvalidateVisual();
         }
 
@@ -286,6 +551,34 @@ public sealed class SceneCanvasControl : Control
         {
             NormalizeViewportPan();
         }
+
+        if (DoesPropertyAffectSceneState(change.Property))
+        {
+            InvalidateSceneStateCache();
+        }
+        else if (DoesPropertyAffectSceneBitmap(change.Property))
+        {
+            InvalidateSceneBitmapCache();
+        }
+
+        if (change.Property == DrawingToolProperty && _interactionMode is not InteractionMode.None and not InteractionMode.PanViewport)
+        {
+            _interactionMode = InteractionMode.None;
+            _activeLayerId = null;
+            _activePathPointIndex = null;
+            _activePathHandleKind = null;
+            _activeWarpPinId = null;
+            _activeRigBoneId = null;
+            _activeRigBoneHandleKind = null;
+            ClearDraft();
+            ClearGuides();
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        DisposeSceneBitmapCache();
+        base.OnDetachedFromVisualTree(e);
     }
 
     public void ResetViewport()
@@ -313,59 +606,53 @@ public sealed class SceneCanvasControl : Control
         base.Render(context);
 
         var hostRect = new Rect(Bounds.Size);
-        var shellBrush = new LinearGradientBrush
-        {
-            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-            EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
-            GradientStops =
-            [
-                new GradientStop(Color.Parse("#07101D"), 0),
-                new GradientStop(Color.Parse("#0B1425"), 0.45),
-                new GradientStop(Color.Parse("#0D182B"), 1)
-            ]
-        };
-
-        context.DrawRectangle(shellBrush, new Pen(new SolidColorBrush(Color.Parse("#223353")), 1), hostRect, 30, 30);
-
-        DrawAmbientGlow(context, hostRect);
+        var pasteboardColor = ResolvePasteboardColor();
+        context.DrawRectangle(
+            new SolidColorBrush(pasteboardColor),
+            new Pen(new SolidColorBrush(Color.Parse("#4A556B")), 1),
+            hostRect,
+            18,
+            18);
 
         var stageRect = GetStageRect();
-        var stageBrush = new LinearGradientBrush
-        {
-            StartPoint = new RelativePoint(0.2, 0, RelativeUnit.Relative),
-            EndPoint = new RelativePoint(0.9, 1, RelativeUnit.Relative),
-            GradientStops =
-            [
-                new GradientStop(ColorHelpers.Parse(BackgroundFrom, "#09111F"), 0),
-                new GradientStop(ColorHelpers.Parse(BackgroundTo, "#182748"), 1)
-            ]
-        };
 
-        context.DrawRectangle(stageBrush, new Pen(new SolidColorBrush(Color.Parse("#3B5C8C")), 1.2), stageRect, 28, 28);
-
-        using (context.PushClip(stageRect))
+        using (PushStageViewTransform(context, stageRect))
         {
-            var sceneState = BuildSceneState(CurrentTime);
-            using (var bitmap = CompositeFrameRenderer.RenderBitmap(sceneState, includeBackground: true))
+            context.DrawRectangle(
+                Brushes.Transparent,
+                new Pen(new SolidColorBrush(Color.Parse("#516177")), 1.1),
+                stageRect,
+                4,
+                4);
+
+            using (context.PushClip(stageRect))
             {
-                context.DrawImage(bitmap, stageRect);
+                var sceneState = GetOrBuildSceneState(CurrentTime);
+                context.DrawImage(GetOrRenderSceneBitmap(sceneState), stageRect);
+
+                DrawGrid(context, stageRect);
+                DrawOnionSkin(context, stageRect);
+                DrawRoleOverlays(context, stageRect, sceneState);
+                DrawMotionPath(context, stageRect);
+                DrawDraftLayer(context, stageRect);
+                DrawActiveGuides(context, stageRect);
             }
 
-            DrawGrid(context, stageRect);
-            DrawOnionSkin(context, stageRect);
-            DrawRoleOverlays(context, stageRect, sceneState);
-            DrawMotionPath(context, stageRect);
-            DrawDraftLayer(context, stageRect);
-            DrawActiveGuides(context, stageRect);
-        }
+            DrawFrameLabel(context, stageRect);
+            DrawCanvasResizeHandles(context, stageRect);
 
-        DrawFrameLabel(context, stageRect);
-        DrawCanvasResizeHandles(context, stageRect);
-
-        if (SelectedLayer is not null && SelectedLayer.IsRenderable)
-        {
-            DrawSelection(context, stageRect, SelectedLayer);
+            if (SelectedLayer is not null && SelectedLayer.IsRenderable)
+            {
+                DrawSelection(context, stageRect, SelectedLayer);
+            }
         }
+    }
+
+    private Color ResolvePasteboardColor()
+    {
+        return MatchPasteboardToStageColor
+            ? ColorHelpers.Parse(StageBackgroundColor, "#FFFFFF")
+            : ColorHelpers.Parse(PasteboardColor, "#B9BEC7");
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -375,7 +662,10 @@ public sealed class SceneCanvasControl : Control
 
         var pointer = e.GetPosition(this);
         var stageRect = GetStageRect();
-        if (ShouldStartViewportPan(e, this, _isSpacePressed))
+        var normalizedPointer = NormalizeStagePointer(stageRect, pointer);
+        var pointerProperties = e.GetCurrentPoint(this).Properties;
+        if (ShouldStartViewportPan(e, this, _isSpacePressed) ||
+            (DrawingTool == DrawingTool.Hand && pointerProperties.IsLeftButtonPressed && stageRect.Contains(normalizedPointer)))
         {
             _interactionMode = InteractionMode.PanViewport;
             _pointerOrigin = pointer;
@@ -389,6 +679,9 @@ public sealed class SceneCanvasControl : Control
         _interactionMode = InteractionMode.None;
         _activeLayerId = null;
         _activePathPointIndex = null;
+        _activeWarpPinId = null;
+        _activeRigBoneId = null;
+        _activeRigBoneHandleKind = null;
         ClearGuides();
         ClearDraft();
 
@@ -406,7 +699,7 @@ public sealed class SceneCanvasControl : Control
             return;
         }
 
-        if (!stageRect.Contains(pointer))
+        if (!stageRect.Contains(normalizedPointer))
         {
             return;
         }
@@ -418,7 +711,160 @@ public sealed class SceneCanvasControl : Control
             return;
         }
 
-        if (DrawingTool != DrawingTool.Select)
+        if (DrawingTool == DrawingTool.RotateView)
+        {
+            _interactionMode = InteractionMode.RotateViewport;
+            _viewRotationOrigin = CanvasViewRotation;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Zoom)
+        {
+            _draftOrigin = documentPoint;
+            _draftCurrent = documentPoint;
+            _draftPoints = [documentPoint];
+            _interactionMode = InteractionMode.DrawZoomRegion;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Lasso)
+        {
+            _draftOrigin = documentPoint;
+            _draftCurrent = documentPoint;
+            _draftPoints = [documentPoint];
+            _interactionMode = InteractionMode.DrawLasso;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        var hitLayer = HitTestLayer(stageRect, pointer);
+        if (IsStyleTool(DrawingTool))
+        {
+            if (hitLayer is not null)
+            {
+                LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(hitLayer.Id));
+                if (DrawingTool == DrawingTool.Eyedropper)
+                {
+                    LayerStyleSampleRequested?.Invoke(this, new CanvasLayerStyleSampleRequestedEventArgs(hitLayer.Id));
+                }
+                else
+                {
+                    LayerStyleApplyRequested?.Invoke(
+                        this,
+                        new CanvasLayerStyleApplyRequestedEventArgs(
+                            hitLayer.Id,
+                            DrawingTool == DrawingTool.PaintBucket ? CanvasStyleApplicationKind.Fill : CanvasStyleApplicationKind.Stroke));
+                }
+
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Eraser)
+        {
+            if (hitLayer is not null && !hitLayer.IsLocked)
+            {
+                _interactionMode = InteractionMode.EraseLayer;
+                _activeLayerId = hitLayer.Id;
+                var erasePoint = ToWorldPoint(stageRect, pointer, hitLayer);
+                LayerEraseRequested?.Invoke(this, new CanvasLayerEraseRequestedEventArgs(hitLayer.Id, erasePoint, Math.Max(6d, EraserSize)));
+                TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+                e.Pointer.Capture(this);
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Width &&
+            TryHitAnyPathPoint(stageRect, pointer, out var widthLayer, out var widthPointIndex))
+        {
+            LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(widthLayer.Id));
+            PathPointSelectionRequested?.Invoke(this, new CanvasPathPointSelectionRequestedEventArgs(widthLayer.Id, widthPointIndex));
+            _interactionMode = InteractionMode.AdjustPathPointWidth;
+            _activeLayerId = widthLayer.Id;
+            _activePathPointIndex = widthPointIndex;
+            _pathWidthScaleOrigin = widthLayer.Model.Style.PathPoints[widthPointIndex].StrokeWidthScale;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Warp &&
+            SelectedLayer is not null &&
+            !SelectedLayer.IsLocked &&
+            TryHitWarpPin(stageRect, SelectedLayer, pointer, out var warpPinId))
+        {
+            _interactionMode = InteractionMode.MoveWarpPin;
+            _activeLayerId = SelectedLayer.Id;
+            _activeWarpPinId = warpPinId;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Rig &&
+            SelectedLayer is not null &&
+            !SelectedLayer.IsLocked &&
+            TryHitRigBoneHandle(stageRect, SelectedLayer, pointer, out var rigBoneId, out var rigHandleKind))
+        {
+            _interactionMode = rigHandleKind == RigBoneHandleKind.Start
+                ? InteractionMode.MoveRigBoneStart
+                : InteractionMode.MoveRigBoneEnd;
+            _activeLayerId = SelectedLayer.Id;
+            _activeRigBoneId = rigBoneId;
+            _activeRigBoneHandleKind = rigHandleKind;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Subselect &&
+            SelectedLayer is not null &&
+            !SelectedLayer.IsLocked &&
+            SelectedPathPointIndex >= 0 &&
+            TryHitPathHandle(stageRect, SelectedLayer, pointer, SelectedPathPointIndex, out var selectedHandleKind))
+        {
+            _interactionMode = InteractionMode.MovePathHandle;
+            _activeLayerId = SelectedLayer.Id;
+            _activePathPointIndex = SelectedPathPointIndex;
+            _activePathHandleKind = selectedHandleKind;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Subselect &&
+            TryHitAnyPathPoint(stageRect, pointer, out var subselectLayer, out var subselectPointIndex))
+        {
+            LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(subselectLayer.Id));
+            PathPointSelectionRequested?.Invoke(this, new CanvasPathPointSelectionRequestedEventArgs(subselectLayer.Id, subselectPointIndex));
+            _interactionMode = InteractionMode.MovePathPoint;
+            _activeLayerId = subselectLayer.Id;
+            _activePathPointIndex = subselectPointIndex;
+            TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool != DrawingTool.Select &&
+            DrawingTool != DrawingTool.Subselect &&
+            DrawingTool is not DrawingTool.Warp and not DrawingTool.Rig and not DrawingTool.Eraser)
         {
             _draftOrigin = documentPoint;
             _draftCurrent = documentPoint;
@@ -432,14 +878,29 @@ public sealed class SceneCanvasControl : Control
 
         if (SelectedLayer is not null &&
             !SelectedLayer.IsLocked &&
+            DrawingTool is DrawingTool.Select or DrawingTool.Subselect &&
             TryHitPathPoint(stageRect, SelectedLayer, pointer, out var pointIndex))
         {
+            PathPointSelectionRequested?.Invoke(this, new CanvasPathPointSelectionRequestedEventArgs(SelectedLayer.Id, pointIndex));
             _interactionMode = InteractionMode.MovePathPoint;
             _activeLayerId = SelectedLayer.Id;
             _activePathPointIndex = pointIndex;
             TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(true));
             e.Pointer.Capture(this);
             e.Handled = true;
+            return;
+        }
+
+        if (DrawingTool == DrawingTool.Subselect)
+        {
+            if (hitLayer is not null)
+            {
+                LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(hitLayer.Id));
+                e.Handled = true;
+                return;
+            }
+
+            LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(null));
             return;
         }
 
@@ -456,7 +917,6 @@ public sealed class SceneCanvasControl : Control
             return;
         }
 
-        var hitLayer = HitTestLayer(stageRect, pointer);
         if (hitLayer is not null)
         {
             LayerSelectionRequested?.Invoke(this, new CanvasLayerSelectionRequestedEventArgs(hitLayer.Id));
@@ -502,6 +962,25 @@ public sealed class SceneCanvasControl : Control
             return;
         }
 
+        var stageRect = GetStageRect();
+        if (_interactionMode == InteractionMode.RotateViewport)
+        {
+            var center = stageRect.Center;
+            var originVector = NormalizeStagePointer(stageRect, _pointerOrigin) - center;
+            var currentVector = NormalizeStagePointer(stageRect, e.GetPosition(this)) - center;
+            var originLength = Math.Sqrt((originVector.X * originVector.X) + (originVector.Y * originVector.Y));
+            var currentLength = Math.Sqrt((currentVector.X * currentVector.X) + (currentVector.Y * currentVector.Y));
+            if (originLength > 0.001d && currentLength > 0.001d)
+            {
+                var originAngle = Math.Atan2(originVector.Y, originVector.X);
+                var currentAngle = Math.Atan2(currentVector.Y, currentVector.X);
+                CanvasViewRotation = _viewRotationOrigin + ((currentAngle - originAngle) * 180d / Math.PI);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (IsCanvasResizeInteraction(_interactionMode))
         {
             var delta = e.GetPosition(this) - _pointerOrigin;
@@ -532,7 +1011,6 @@ public sealed class SceneCanvasControl : Control
             return;
         }
 
-        var stageRect = GetStageRect();
         var activeLayer = _activeLayerId is Guid activeLayerId
             ? Layers?.FirstOrDefault(layer => layer.Id == activeLayerId)
             : SelectedLayer;
@@ -541,15 +1019,42 @@ public sealed class SceneCanvasControl : Control
         if (IsDrawingInteraction(_interactionMode))
         {
             _draftCurrent = documentPoint;
-            if (_interactionMode is InteractionMode.DrawPen or InteractionMode.DrawBrush)
+            if (_interactionMode is InteractionMode.DrawPen or InteractionMode.DrawBrush or InteractionMode.DrawPencil)
             {
-                var minimumDistance = _interactionMode == InteractionMode.DrawBrush ? 4d : 9d;
+                var minimumDistance = _interactionMode switch
+                {
+                    InteractionMode.DrawBrush => 4d,
+                    InteractionMode.DrawPencil => 3d,
+                    _ => 9d
+                };
                 if (_draftPoints.Count == 0 || Distance(_draftPoints[^1], documentPoint) >= minimumDistance)
                 {
                     _draftPoints.Add(documentPoint);
                 }
             }
 
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.DrawLasso)
+        {
+            _draftCurrent = documentPoint;
+            var minimumDistance = LassoToolMode == LassoToolMode.Polygon ? 16d : 6d;
+            if (_draftPoints.Count == 0 || Distance(_draftPoints[^1], documentPoint) >= minimumDistance)
+            {
+                _draftPoints.Add(documentPoint);
+            }
+
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.DrawZoomRegion)
+        {
+            _draftCurrent = documentPoint;
             InvalidateVisual();
             e.Handled = true;
             return;
@@ -568,6 +1073,86 @@ public sealed class SceneCanvasControl : Control
                     ResolveLibraryItem(activeLayer.Model.SourceLibraryItemId));
                 PathPointMoveRequested?.Invoke(this, new CanvasPathPointMoveRequestedEventArgs(pathLayerId, pointIndex, localPoint));
             }
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.MovePathHandle &&
+            _activeLayerId is Guid handleLayerId &&
+            _activePathPointIndex is int handlePointIndex &&
+            _activePathHandleKind is VectorHandleKind pathHandleKind)
+        {
+            if (activeLayer is not null)
+            {
+                var snapshot = GetDisplaySnapshot(activeLayer, CurrentTime);
+                var bounds = new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height);
+                var localPoint = LayerTransformHelper.InverseTransformPoint(
+                    documentPoint,
+                    bounds,
+                    snapshot,
+                    ResolveLibraryItem(activeLayer.Model.SourceLibraryItemId));
+                PathHandleMoveRequested?.Invoke(this, new CanvasPathHandleMoveRequestedEventArgs(handleLayerId, handlePointIndex, pathHandleKind, localPoint));
+            }
+
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.AdjustPathPointWidth &&
+            _activeLayerId is Guid widthLayerId &&
+            _activePathPointIndex is int widthPointIndex)
+        {
+            var normalizedPointer = NormalizeStagePointer(stageRect, e.GetPosition(this));
+            var normalizedOrigin = NormalizeStagePointer(stageRect, _pointerOrigin);
+            var deltaScale = (normalizedPointer.X - normalizedOrigin.X) / 72d;
+            var targetScale = Math.Clamp(_pathWidthScaleOrigin + deltaScale, 0.2d, 4d);
+            PathPointWidthScaleRequested?.Invoke(this, new CanvasPathPointWidthScaleRequestedEventArgs(widthLayerId, widthPointIndex, targetScale));
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.MoveWarpPin && _activeLayerId is Guid warpLayerId && _activeWarpPinId is Guid pinId)
+        {
+            if (activeLayer is not null)
+            {
+                var normalizedPoint = ToNormalizedLayerPoint(activeLayer, documentPoint);
+                WarpPinMoveRequested?.Invoke(this, new CanvasWarpPinMoveRequestedEventArgs(warpLayerId, pinId, normalizedPoint));
+            }
+
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if ((_interactionMode == InteractionMode.MoveRigBoneStart || _interactionMode == InteractionMode.MoveRigBoneEnd) &&
+            _activeLayerId is Guid rigLayerId &&
+            _activeRigBoneId is Guid boneId &&
+            _activeRigBoneHandleKind is RigBoneHandleKind handleKind)
+        {
+            if (activeLayer is not null)
+            {
+                var normalizedPoint = ToNormalizedLayerPoint(activeLayer, documentPoint);
+                RigBoneMoveRequested?.Invoke(this, new CanvasRigBoneMoveRequestedEventArgs(rigLayerId, boneId, handleKind, normalizedPoint));
+            }
+
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.EraseLayer)
+        {
+            var hitLayer = HitTestLayer(stageRect, e.GetPosition(this));
+            if (hitLayer is not null && !hitLayer.IsLocked)
+            {
+                _activeLayerId = hitLayer.Id;
+                var erasePoint = ToWorldPoint(stageRect, e.GetPosition(this), hitLayer);
+                LayerEraseRequested?.Invoke(this, new CanvasLayerEraseRequestedEventArgs(hitLayer.Id, erasePoint, Math.Max(6d, EraserSize)));
+            }
+
             InvalidateVisual();
             e.Handled = true;
             return;
@@ -662,9 +1247,46 @@ public sealed class SceneCanvasControl : Control
                 completionMessage = "Layer drawn";
             }
         }
+        else if (interactionMode == InteractionMode.DrawLasso)
+        {
+            var layerIds = BuildLassoSelection();
+            ClearDraft();
+            LassoSelectionRequested?.Invoke(this, new CanvasLassoSelectionRequestedEventArgs(layerIds));
+            completionMessage = layerIds.Count == 0 ? "Lasso selection cleared" : "Lasso selection applied";
+        }
+        else if (interactionMode == InteractionMode.DrawZoomRegion)
+        {
+            ApplyZoomRegion(GetStageRect(), e.GetPosition(this));
+            ClearDraft();
+            completionMessage = "Viewport zoom updated";
+        }
+        else if (interactionMode == InteractionMode.RotateViewport)
+        {
+            completionMessage = "Stage view rotated";
+        }
+        else if (interactionMode == InteractionMode.EraseLayer)
+        {
+            completionMessage = "Erase applied";
+        }
         else if (interactionMode == InteractionMode.MovePathPoint)
         {
             completionMessage = "Vector point moved";
+        }
+        else if (interactionMode == InteractionMode.MovePathHandle)
+        {
+            completionMessage = "Bezier handle moved";
+        }
+        else if (interactionMode == InteractionMode.AdjustPathPointWidth)
+        {
+            completionMessage = "Stroke width adjusted";
+        }
+        else if (interactionMode == InteractionMode.MoveWarpPin)
+        {
+            completionMessage = "Warp pin moved";
+        }
+        else if (interactionMode is InteractionMode.MoveRigBoneStart or InteractionMode.MoveRigBoneEnd)
+        {
+            completionMessage = "Rig bone moved";
         }
         else if (IsCanvasResizeInteraction(interactionMode))
         {
@@ -674,7 +1296,12 @@ public sealed class SceneCanvasControl : Control
         _interactionMode = InteractionMode.None;
         _activeLayerId = null;
         _activePathPointIndex = null;
+        _activePathHandleKind = null;
+        _activeWarpPinId = null;
+        _activeRigBoneId = null;
+        _activeRigBoneHandleKind = null;
         ClearGuides();
+        ClearDraft();
         if (wasInteracting && interactionMode != InteractionMode.PanViewport)
         {
             TransformInteractionStateChanged?.Invoke(this, new CanvasInteractionStateChangedEventArgs(false, completionMessage));
@@ -845,7 +1472,7 @@ public sealed class SceneCanvasControl : Control
     private void DrawLayer(DrawingContext context, Rect stageRect, LayerViewModel layer)
     {
         var snapshot = GetDisplaySnapshot(layer, CurrentTime);
-        DrawLayerSnapshot(context, stageRect, layer.Kind, snapshot, tint: null, opacityScale: 1, layer.Model.SourceLibraryItemId);
+        DrawLayerSnapshot(context, stageRect, layer.Kind, snapshot, tint: null, opacityScale: 1, CurrentTime, layer.Model.SourceLibraryItemId, layer.Model.Warp, layer.Model.Rig);
     }
 
     private void DrawOnionSkin(DrawingContext context, Rect stageRect)
@@ -877,7 +1504,7 @@ public sealed class SceneCanvasControl : Control
             }
 
             var time = FrameTimelineService.FrameToTime(frame, FrameRate);
-            var opacityScale = 0.08 + (((count - offset) + 1) * 0.06);
+            var opacityScale = Math.Max(0.02d, OnionSkinBaseOpacity - ((offset - 1) * OnionSkinOpacityFalloff));
 
             foreach (var sample in GetRenderSamples(time))
             {
@@ -886,18 +1513,24 @@ public sealed class SceneCanvasControl : Control
                     continue;
                 }
 
-                var displaySnapshot = CompositeFrameRenderer.TransformSnapshot(
+                if (OnionSkinKeyframesOnly && !HasRenderableKeyframeAtFrame(sample.SourceLayerId, frame))
+                {
+                    continue;
+                }
+
+                var displaySnapshot = SceneRenderTransformService.TransformSnapshot(
                     sample.Snapshot,
                     activeCamera,
+                    Document?.Animate,
                     DocumentWidth,
                     DocumentHeight,
                     sample.ParallaxDepth);
-                DrawLayerSnapshot(context, stageRect, sample.Kind, displaySnapshot, tint, opacityScale, sample.SourceLibraryItemId);
+                DrawLayerSnapshot(context, stageRect, sample.Kind, displaySnapshot, tint, opacityScale, time, sample.SourceLibraryItemId, sample.Warp, sample.Rig);
             }
         }
     }
 
-    private void DrawLayerSnapshot(DrawingContext context, Rect stageRect, LayerKind kind, LayerSnapshot snapshot, Color? tint, double opacityScale, Guid? sourceLibraryItemId = null)
+    private void DrawLayerSnapshot(DrawingContext context, Rect stageRect, LayerKind kind, LayerSnapshot snapshot, Color? tint, double opacityScale, double sampleTime, Guid? sourceLibraryItemId = null, LayerWarpSettings? warp = null, LayerRigSettings? rig = null, bool drawEffectPasses = true)
     {
         var rect = ToScreenRect(stageRect, new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height));
         var sourceLibraryItem = ResolveLibraryItem(sourceLibraryItemId);
@@ -931,17 +1564,23 @@ public sealed class SceneCanvasControl : Control
             : CreateFillBrush(snapshot, rect, fillColor, gradientFrom, gradientTo, opacity);
         var strokeBrush = new SolidColorBrush(ApplyAlpha(strokeBase, (byte)(opacity * 220)));
         var strokePen = LayerStyleRenderHelper.CreateStrokePen(snapshot, strokeBrush, Math.Max(1, snapshot.StrokeThickness * GetStageScale()));
+        if (drawEffectPasses)
+        {
+            DrawEffectPasses(context, stageRect, kind, snapshot, opacityScale, sampleTime, sourceLibraryItemId, warp, rig);
+        }
 
         switch (kind)
         {
             case LayerKind.Rectangle:
+                var roundedRect = LayerStyleRenderHelper.CreateRoundedRect(snapshot, rect);
+                var maxCornerRadius = LayerStyleRenderHelper.GetMaxCornerRadius(snapshot);
                 if (!isOutlineMode)
                 {
-                    context.DrawRectangle(glowBrush, null, rect.Inflate(10), snapshot.CornerRadius + 10, snapshot.CornerRadius + 10);
+                    context.DrawRectangle(glowBrush, null, rect.Inflate(10), maxCornerRadius + 10, maxCornerRadius + 10);
                 }
                 using (PushLayerTransform(context, rect, snapshot, sourceLibraryItem))
                 {
-                    context.DrawRectangle(fillBrush, strokePen, rect, snapshot.CornerRadius, snapshot.CornerRadius);
+                    context.DrawRectangle(fillBrush, strokePen, roundedRect);
                 }
 
                 return;
@@ -952,12 +1591,20 @@ public sealed class SceneCanvasControl : Control
                 }
                 using (PushLayerTransform(context, rect, snapshot, sourceLibraryItem))
                 {
-                    context.DrawEllipse(fillBrush, strokePen, rect.Center, rect.Width / 2, rect.Height / 2);
+                    var primitiveEllipseGeometry = LayerStyleRenderHelper.CreateEllipseGeometry(rect, snapshot, includeCenterForFill: snapshot.HasFill && !isOutlineMode);
+                    if (primitiveEllipseGeometry is not null)
+                    {
+                        context.DrawGeometry(snapshot.HasFill && !isOutlineMode ? fillBrush : null, strokePen, primitiveEllipseGeometry);
+                    }
+                    else
+                    {
+                        context.DrawEllipse(fillBrush, strokePen, rect.Center, rect.Width / 2, rect.Height / 2);
+                    }
                 }
 
                 return;
             case LayerKind.Path:
-                DrawPathSnapshot(context, stageRect, rect, snapshot, fillBrush, strokeBrush, strokePen, tint, opacityScale, sourceLibraryItem);
+                DrawPathSnapshot(context, stageRect, rect, snapshot, fillBrush, strokeBrush, strokePen, tint, opacityScale, sourceLibraryItem, warp, rig, sampleTime);
                 return;
             case LayerKind.AvaloniaControl:
                 DrawAvaloniaControlSnapshot(context, rect, snapshot, fillBrush, strokePen, fillColor, strokeBase, opacity, sourceLibraryItem);
@@ -1011,6 +1658,214 @@ public sealed class SceneCanvasControl : Control
         using (PushLayerTransform(context, rect, snapshot, sourceLibraryItem))
         {
             DrawTextBlock(context, rect, snapshot.Text, fillBrush, snapshot.FontSize * GetStageScale(), snapshot.TextSettings);
+        }
+    }
+
+    private void DrawEffectPasses(
+        DrawingContext context,
+        Rect stageRect,
+        LayerKind kind,
+        LayerSnapshot snapshot,
+        double opacityScale,
+        double sampleTime,
+        Guid? sourceLibraryItemId,
+        LayerWarpSettings? warp,
+        LayerRigSettings? rig)
+    {
+        var compositing = snapshot.Compositing;
+        if (compositing.ShadowOpacity > 0d &&
+            (Math.Abs(compositing.ShadowOffsetX) > 0.01d ||
+             Math.Abs(compositing.ShadowOffsetY) > 0.01d ||
+             compositing.ShadowBlur > 0.1d))
+        {
+            DrawDirectionalEffectSnapshotPass(
+                context,
+                stageRect,
+                kind,
+                snapshot,
+                ColorHelpers.Parse(compositing.ShadowColor, "#09111F"),
+                opacityScale * Math.Max(0.12d, compositing.ShadowOpacity),
+                compositing.ShadowOffsetX,
+                compositing.ShadowOffsetY,
+                Math.Max(0d, compositing.ShadowBlur),
+                sampleTime,
+                sourceLibraryItemId,
+                warp,
+                rig);
+        }
+
+        if (compositing.GlowOpacity > 0d && compositing.GlowSize > 0.1d)
+        {
+            DrawColorRingEffectSnapshotPass(
+                context,
+                stageRect,
+                kind,
+                snapshot,
+                ColorHelpers.Parse(compositing.GlowColor, snapshot.Fill),
+                opacityScale * compositing.GlowOpacity,
+                compositing.GlowSize,
+                sampleTime,
+                sourceLibraryItemId,
+                warp,
+                rig);
+        }
+
+        if (compositing.GradientGlowStrength > 0.001d && compositing.GradientGlowSize > 0.1d)
+        {
+            DrawGradientGlowSnapshotPass(context, stageRect, kind, snapshot, opacityScale, sampleTime, sourceLibraryItemId, warp, rig);
+        }
+
+        if (compositing.BevelStrength > 0.001d && compositing.BevelSize > 0.1d)
+        {
+            DrawDirectionalEffectSnapshotPass(
+                context,
+                stageRect,
+                kind,
+                snapshot,
+                ColorHelpers.Parse(compositing.BevelHighlightColor, "#FFFFFF"),
+                opacityScale * compositing.BevelStrength,
+                CreateDirectionalOffset(compositing.BevelAngle + 180d, compositing.BevelDistance).X,
+                CreateDirectionalOffset(compositing.BevelAngle + 180d, compositing.BevelDistance).Y,
+                compositing.BevelSize,
+                sampleTime,
+                sourceLibraryItemId,
+                warp,
+                rig);
+            DrawDirectionalEffectSnapshotPass(
+                context,
+                stageRect,
+                kind,
+                snapshot,
+                ColorHelpers.Parse(compositing.BevelShadowColor, "#09111F"),
+                opacityScale * compositing.BevelStrength,
+                CreateDirectionalOffset(compositing.BevelAngle, compositing.BevelDistance).X,
+                CreateDirectionalOffset(compositing.BevelAngle, compositing.BevelDistance).Y,
+                compositing.BevelSize,
+                sampleTime,
+                sourceLibraryItemId,
+                warp,
+                rig);
+        }
+
+        if (compositing.GradientBevelStrength > 0.001d && compositing.GradientBevelSize > 0.1d)
+        {
+            DrawDirectionalEffectSnapshotPass(
+                context,
+                stageRect,
+                kind,
+                snapshot,
+                ColorHelpers.Parse(compositing.GradientBevelFrom, "#FFFFFF"),
+                opacityScale * compositing.GradientBevelStrength,
+                CreateDirectionalOffset(compositing.GradientBevelAngle + 180d, compositing.GradientBevelDistance).X,
+                CreateDirectionalOffset(compositing.GradientBevelAngle + 180d, compositing.GradientBevelDistance).Y,
+                compositing.GradientBevelSize,
+                sampleTime,
+                sourceLibraryItemId,
+                warp,
+                rig);
+            DrawDirectionalEffectSnapshotPass(
+                context,
+                stageRect,
+                kind,
+                snapshot,
+                ColorHelpers.Parse(compositing.GradientBevelTo, "#09111F"),
+                opacityScale * compositing.GradientBevelStrength,
+                CreateDirectionalOffset(compositing.GradientBevelAngle, compositing.GradientBevelDistance).X,
+                CreateDirectionalOffset(compositing.GradientBevelAngle, compositing.GradientBevelDistance).Y,
+                compositing.GradientBevelSize,
+                sampleTime,
+                sourceLibraryItemId,
+                warp,
+                rig);
+        }
+    }
+
+    private void DrawColorRingEffectSnapshotPass(
+        DrawingContext context,
+        Rect stageRect,
+        LayerKind kind,
+        LayerSnapshot snapshot,
+        Color color,
+        double opacityScale,
+        double radius,
+        double sampleTime,
+        Guid? sourceLibraryItemId,
+        LayerWarpSettings? warp,
+        LayerRigSettings? rig)
+    {
+        foreach (var offset in GetEffectOffsets(radius))
+        {
+            var passSnapshot = snapshot with
+            {
+                X = snapshot.X + offset.X,
+                Y = snapshot.Y + offset.Y
+            };
+            DrawLayerSnapshot(context, stageRect, kind, passSnapshot, color, Math.Clamp(opacityScale / Math.Max(1, GetEffectOffsets(radius).Count), 0d, 0.22d), sampleTime, sourceLibraryItemId, warp, rig, false);
+        }
+    }
+
+    private void DrawDirectionalEffectSnapshotPass(
+        DrawingContext context,
+        Rect stageRect,
+        LayerKind kind,
+        LayerSnapshot snapshot,
+        Color color,
+        double opacityScale,
+        double offsetX,
+        double offsetY,
+        double radius,
+        double sampleTime,
+        Guid? sourceLibraryItemId,
+        LayerWarpSettings? warp,
+        LayerRigSettings? rig)
+    {
+        var offsets = GetEffectOffsets(radius);
+        if (offsets.Count == 0)
+        {
+            offsets = [new Point(0, 0)];
+        }
+
+        foreach (var offset in offsets)
+        {
+            var passSnapshot = snapshot with
+            {
+                X = snapshot.X + offsetX + (offset.X * 0.45d),
+                Y = snapshot.Y + offsetY + (offset.Y * 0.45d)
+            };
+            DrawLayerSnapshot(context, stageRect, kind, passSnapshot, color, Math.Clamp(opacityScale / offsets.Count, 0d, 0.18d), sampleTime, sourceLibraryItemId, warp, rig, false);
+        }
+    }
+
+    private void DrawGradientGlowSnapshotPass(
+        DrawingContext context,
+        Rect stageRect,
+        LayerKind kind,
+        LayerSnapshot snapshot,
+        double opacityScale,
+        double sampleTime,
+        Guid? sourceLibraryItemId,
+        LayerWarpSettings? warp,
+        LayerRigSettings? rig)
+    {
+        var compositing = snapshot.Compositing;
+        var offsets = GetEffectOffsets(compositing.GradientGlowSize);
+        if (offsets.Count == 0)
+        {
+            offsets = [new Point(0, 0)];
+        }
+
+        var directional = CreateDirectionalOffset(compositing.GradientGlowAngle, compositing.GradientGlowDistance);
+        var from = ColorHelpers.Parse(compositing.GradientGlowFrom, snapshot.Fill);
+        var to = ColorHelpers.Parse(compositing.GradientGlowTo, snapshot.Stroke);
+        foreach (var offset in offsets)
+        {
+            var passSnapshot = snapshot with
+            {
+                X = snapshot.X + directional.X + offset.X,
+                Y = snapshot.Y + directional.Y + offset.Y
+            };
+            var gradientColor = InterpolateDirectionalEffectColor(offset, compositing.GradientGlowAngle, from, to);
+            DrawLayerSnapshot(context, stageRect, kind, passSnapshot, gradientColor, Math.Clamp((opacityScale * compositing.GradientGlowStrength) / offsets.Count, 0d, 0.22d), sampleTime, sourceLibraryItemId, warp, rig, false);
         }
     }
 
@@ -1476,6 +2331,16 @@ public sealed class SceneCanvasControl : Control
             DrawPathPointHandles(context, stageRect, layer, snapshot, borderColor);
         }
 
+        if (layer.Kind == LayerKind.Path && layer.Model.Warp.IsEnabled)
+        {
+            DrawWarpPinHandles(context, stageRect, snapshot, layer.Model.Warp);
+        }
+
+        if (layer.Kind == LayerKind.Path && layer.Model.Rig.IsEnabled)
+        {
+            DrawRigHandles(context, stageRect, snapshot, layer.Model.Rig);
+        }
+
         foreach (var handle in GetHandleRects(transformedCorners))
         {
             context.DrawRectangle(new SolidColorBrush(Color.Parse("#09101C")), new Pen(new SolidColorBrush(Color.Parse("#9BFFF0")), 1.2), handle, 4, 4);
@@ -1499,11 +2364,11 @@ public sealed class SceneCanvasControl : Control
         for (var sampleIndex = 0; sampleIndex <= samples; sampleIndex++)
         {
             var time = Math.Min(Duration, Duration * (sampleIndex / (double)samples));
-            var snapshot = FrameTimelineService.SampleLayer(SelectedLayer.Model, time, FrameRate, TotalFrames)
-                ?? TimelineInterpolationService.SampleLayer(SelectedLayer.Model, time);
-            snapshot = CompositeFrameRenderer.TransformSnapshot(
+            var snapshot = SampleWorldSnapshot(SelectedLayer.Model, time);
+            snapshot = SceneRenderTransformService.TransformSnapshot(
                 snapshot,
                 activeCamera,
+                Document?.Animate,
                 DocumentWidth,
                 DocumentHeight,
                 SelectedLayer.Model.Compositing.ParallaxDepth);
@@ -1529,11 +2394,11 @@ public sealed class SceneCanvasControl : Control
 
         foreach (var time in GetMotionKeyTimes(SelectedLayer.Model))
         {
-            var snapshot = FrameTimelineService.SampleLayer(SelectedLayer.Model, time, FrameRate, TotalFrames)
-                ?? TimelineInterpolationService.SampleLayer(SelectedLayer.Model, time);
-            snapshot = CompositeFrameRenderer.TransformSnapshot(
+            var snapshot = SampleWorldSnapshot(SelectedLayer.Model, time);
+            snapshot = SceneRenderTransformService.TransformSnapshot(
                 snapshot,
                 activeCamera,
+                Document?.Animate,
                 DocumentWidth,
                 DocumentHeight,
                 SelectedLayer.Model.Compositing.ParallaxDepth);
@@ -1542,11 +2407,11 @@ public sealed class SceneCanvasControl : Control
             context.DrawEllipse(new SolidColorBrush(Color.Parse("#09101C")), new Pen(new SolidColorBrush(Color.Parse("#FFB685")), 1.5), center, 4.8, 4.8);
         }
 
-        var currentSnapshot = FrameTimelineService.SampleLayer(SelectedLayer.Model, CurrentTime, FrameRate, TotalFrames)
-            ?? TimelineInterpolationService.SampleLayer(SelectedLayer.Model, CurrentTime);
-        currentSnapshot = CompositeFrameRenderer.TransformSnapshot(
+        var currentSnapshot = SampleWorldSnapshot(SelectedLayer.Model, CurrentTime);
+        currentSnapshot = SceneRenderTransformService.TransformSnapshot(
             currentSnapshot,
             activeCamera,
+            Document?.Animate,
             DocumentWidth,
             DocumentHeight,
             SelectedLayer.Model.Compositing.ParallaxDepth);
@@ -1626,6 +2491,7 @@ public sealed class SceneCanvasControl : Control
             return false;
         }
 
+        var normalizedPointer = NormalizeStagePointer(stageRect, pointer);
         var snapshot = GetDisplaySnapshot(layer, CurrentTime);
         var bounds = new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height);
         var sourceLibraryItem = ResolveLibraryItem(layer.Model.SourceLibraryItemId);
@@ -1639,7 +2505,7 @@ public sealed class SceneCanvasControl : Control
                 sourceLibraryItem);
             var screenPoint = ToScreenPoint(stageRect, new VectorPointModel { X = transformedPoint.X, Y = transformedPoint.Y });
             var hitRect = new Rect(screenPoint.X - 8, screenPoint.Y - 8, 16, 16);
-            if (hitRect.Contains(pointer))
+            if (hitRect.Contains(normalizedPointer))
             {
                 pointIndex = index;
                 return true;
@@ -1650,8 +2516,128 @@ public sealed class SceneCanvasControl : Control
         return false;
     }
 
+    private bool TryHitPathHandle(Rect stageRect, LayerViewModel layer, Point pointer, int pointIndex, out VectorHandleKind handleKind)
+    {
+        handleKind = VectorHandleKind.Out;
+        if (layer.Kind != LayerKind.Path || !layer.IsRenderable || layer.Model.SourceLibraryItemId is not null)
+        {
+            return false;
+        }
+
+        var normalizedPointer = NormalizeStagePointer(stageRect, pointer);
+        var snapshot = GetDisplaySnapshot(layer, CurrentTime);
+        var bounds = new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height);
+        var sourceLibraryItem = ResolveLibraryItem(layer.Model.SourceLibraryItemId);
+        var points = VectorPathService.GetAbsolutePoints(snapshot);
+        if (pointIndex < 0 || pointIndex >= points.Count)
+        {
+            return false;
+        }
+
+        var point = points[pointIndex];
+        foreach (var candidate in new[] { VectorHandleKind.In, VectorHandleKind.Out })
+        {
+            var handlePoint = VectorPathService.GetAbsoluteHandle(snapshot, point, candidate);
+            if (Math.Abs(handlePoint.X - point.X) < 0.0001d && Math.Abs(handlePoint.Y - point.Y) < 0.0001d)
+            {
+                continue;
+            }
+
+            var transformedHandle = LayerTransformHelper.TransformPoint(
+                new Point(handlePoint.X, handlePoint.Y),
+                bounds,
+                snapshot,
+                sourceLibraryItem);
+            var screenHandle = ToScreenPoint(stageRect, new VectorPointModel { X = transformedHandle.X, Y = transformedHandle.Y });
+            if (Distance(screenHandle, normalizedPointer) <= 8d)
+            {
+                handleKind = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryHitWarpPin(Rect stageRect, LayerViewModel layer, Point pointer, out Guid pinId)
+    {
+        if (layer.Kind != LayerKind.Path || !layer.IsRenderable || !layer.Model.Warp.IsEnabled)
+        {
+            pinId = Guid.Empty;
+            return false;
+        }
+
+        var normalizedPointer = NormalizeStagePointer(stageRect, pointer);
+        var snapshot = GetDisplaySnapshot(layer, CurrentTime);
+        foreach (var pin in LayerDeformationService.ResolveWarpPins(snapshot, layer.Model.Warp))
+        {
+            var screenPoint = ToScreenPoint(stageRect, new VectorPointModel { X = pin.CurrentPoint.X, Y = pin.CurrentPoint.Y });
+            var hitRect = new Rect(screenPoint.X - 9d, screenPoint.Y - 9d, 18d, 18d);
+            if (!hitRect.Contains(normalizedPointer))
+            {
+                continue;
+            }
+
+            pinId = pin.Pin.Id;
+            return true;
+        }
+
+        pinId = Guid.Empty;
+        return false;
+    }
+
+    private bool TryHitRigBoneHandle(Rect stageRect, LayerViewModel layer, Point pointer, out Guid boneId, out RigBoneHandleKind handleKind)
+    {
+        if (layer.Kind != LayerKind.Path || !layer.IsRenderable || !layer.Model.Rig.IsEnabled)
+        {
+            boneId = Guid.Empty;
+            handleKind = RigBoneHandleKind.End;
+            return false;
+        }
+
+        var normalizedPointer = NormalizeStagePointer(stageRect, pointer);
+        var snapshot = GetDisplaySnapshot(layer, CurrentTime);
+        foreach (var bone in LayerDeformationService.ResolveRigBones(snapshot, layer.Model.Rig, CurrentTime))
+        {
+            var startPoint = ToScreenPoint(stageRect, new VectorPointModel { X = bone.StartPoint.X, Y = bone.StartPoint.Y });
+            var endPoint = ToScreenPoint(stageRect, new VectorPointModel { X = bone.EndPoint.X, Y = bone.EndPoint.Y });
+            if (new Rect(startPoint.X - 9d, startPoint.Y - 9d, 18d, 18d).Contains(normalizedPointer))
+            {
+                boneId = bone.Bone.Id;
+                handleKind = RigBoneHandleKind.Start;
+                return true;
+            }
+
+            if (new Rect(endPoint.X - 9d, endPoint.Y - 9d, 18d, 18d).Contains(normalizedPointer))
+            {
+                boneId = bone.Bone.Id;
+                handleKind = RigBoneHandleKind.End;
+                return true;
+            }
+        }
+
+        boneId = Guid.Empty;
+        handleKind = RigBoneHandleKind.End;
+        return false;
+    }
+
+    private Point ToNormalizedLayerPoint(LayerViewModel layer, Point documentPoint)
+    {
+        var snapshot = GetDisplaySnapshot(layer, CurrentTime);
+        var bounds = new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height);
+        var localPoint = LayerTransformHelper.InverseTransformPoint(
+            documentPoint,
+            bounds,
+            snapshot,
+            ResolveLibraryItem(layer.Model.SourceLibraryItemId));
+        var normalizedX = bounds.Width < 0.0001d ? 0d : (localPoint.X - bounds.X) / bounds.Width;
+        var normalizedY = bounds.Height < 0.0001d ? 0d : (localPoint.Y - bounds.Y) / bounds.Height;
+        return new Point(TimelineMath.Clamp(normalizedX, 0d, 1d), TimelineMath.Clamp(normalizedY, 0d, 1d));
+    }
+
     private bool TryHitResizeHandle(Rect stageRect, LayerViewModel layer, Point point, out InteractionMode mode)
     {
+        var normalizedPoint = NormalizeStagePointer(stageRect, point);
         var snapshot = GetDisplaySnapshot(layer, CurrentTime);
         var rect = ToScreenRect(stageRect, new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height));
         var handles = GetHandleRects(
@@ -1660,25 +2646,25 @@ public sealed class SceneCanvasControl : Control
                 snapshot,
                 ResolveLibraryItem(layer.Model.SourceLibraryItemId))).ToArray();
 
-        if (handles[0].Contains(point))
+        if (handles[0].Contains(normalizedPoint))
         {
             mode = InteractionMode.ResizeTopLeft;
             return true;
         }
 
-        if (handles[1].Contains(point))
+        if (handles[1].Contains(normalizedPoint))
         {
             mode = InteractionMode.ResizeTopRight;
             return true;
         }
 
-        if (handles[2].Contains(point))
+        if (handles[2].Contains(normalizedPoint))
         {
             mode = InteractionMode.ResizeBottomLeft;
             return true;
         }
 
-        if (handles[3].Contains(point))
+        if (handles[3].Contains(normalizedPoint))
         {
             mode = InteractionMode.ResizeBottomRight;
             return true;
@@ -1690,20 +2676,21 @@ public sealed class SceneCanvasControl : Control
 
     private bool TryHitCanvasResizeHandle(Rect stageRect, Point point, out InteractionMode mode)
     {
+        var normalizedPoint = NormalizeStagePointer(stageRect, point);
         var handles = GetCanvasResizeHandleRects(stageRect).ToArray();
-        if (handles[0].Contains(point))
+        if (handles[0].Contains(normalizedPoint))
         {
             mode = InteractionMode.ResizeCanvasBottomRight;
             return true;
         }
 
-        if (handles[1].Contains(point))
+        if (handles[1].Contains(normalizedPoint))
         {
             mode = InteractionMode.ResizeCanvasRight;
             return true;
         }
 
-        if (handles[2].Contains(point))
+        if (handles[2].Contains(normalizedPoint))
         {
             mode = InteractionMode.ResizeCanvasBottom;
             return true;
@@ -1772,9 +2759,10 @@ public sealed class SceneCanvasControl : Control
     private Point ToViewportPoint(Rect stageRect, Point point)
     {
         var scale = GetStageScale();
+        var normalizedPoint = NormalizeStagePointer(stageRect, point);
         return new Point(
-            TimelineAnimations.Core.Services.TimelineMath.Clamp((point.X - stageRect.X) / scale, 0, DocumentWidth),
-            TimelineAnimations.Core.Services.TimelineMath.Clamp((point.Y - stageRect.Y) / scale, 0, DocumentHeight));
+            TimelineAnimations.Core.Services.TimelineMath.Clamp((normalizedPoint.X - stageRect.X) / scale, 0, DocumentWidth),
+            TimelineAnimations.Core.Services.TimelineMath.Clamp((normalizedPoint.Y - stageRect.Y) / scale, 0, DocumentHeight));
     }
 
     private Point ToWorldPoint(Rect stageRect, Point point, LayerViewModel? layer = null)
@@ -1785,8 +2773,8 @@ public sealed class SceneCanvasControl : Control
             return viewportPoint;
         }
 
-        var worldPoint = CompositeFrameRenderer.InverseTransformPoint(
-            viewportPoint,
+        var worldPoint = SceneRenderTransformService.InverseTransformPoint(
+            new RenderPoint(viewportPoint.X, viewportPoint.Y),
             GetActiveCameraSnapshot(CurrentTime),
             DocumentWidth,
             DocumentHeight,
@@ -1838,6 +2826,22 @@ public sealed class SceneCanvasControl : Control
         _draftPoints = [];
     }
 
+    private IDisposable PushStageViewTransform(DrawingContext context, Rect stageRect)
+    {
+        if (Math.Abs(CanvasViewRotation) < 0.0001d)
+        {
+            return Disposable.Empty;
+        }
+
+        var center = stageRect.Center;
+        var radians = CanvasViewRotation * Math.PI / 180d;
+        var matrix =
+            Matrix.CreateTranslation(-center.X, -center.Y) *
+            Matrix.CreateRotation(radians) *
+            Matrix.CreateTranslation(center.X, center.Y);
+        return context.PushTransform(matrix);
+    }
+
     private IDisposable PushLayerTransform(DrawingContext context, Rect rect, LayerSnapshot snapshot, LibraryItem? sourceLibraryItem)
     {
         if (!LayerTransformHelper.TryCreateMatrix(rect, snapshot, sourceLibraryItem, out var matrix))
@@ -1846,6 +2850,27 @@ public sealed class SceneCanvasControl : Control
         }
 
         return context.PushTransform(matrix);
+    }
+
+    private Point NormalizeStagePointer(Rect stageRect, Point point)
+    {
+        if (Math.Abs(CanvasViewRotation) < 0.0001d)
+        {
+            return point;
+        }
+
+        return RotateAround(point, stageRect.Center, -CanvasViewRotation * Math.PI / 180d);
+    }
+
+    private static Point RotateAround(Point point, Point center, double radians)
+    {
+        var cos = Math.Cos(radians);
+        var sin = Math.Sin(radians);
+        var translatedX = point.X - center.X;
+        var translatedY = point.Y - center.Y;
+        return new Point(
+            center.X + (translatedX * cos) - (translatedY * sin),
+            center.Y + (translatedX * sin) + (translatedY * cos));
     }
 
     private void DrawPathSnapshot(
@@ -1858,9 +2883,23 @@ public sealed class SceneCanvasControl : Control
         IPen strokePen,
         Color? tint,
         double opacityScale,
-        LibraryItem? sourceLibraryItem)
+        LibraryItem? sourceLibraryItem,
+        LayerWarpSettings? warp,
+        LayerRigSettings? rig,
+        double sampleTime)
     {
-        var geometry = BuildPathGeometry(stageRect, snapshot);
+        var renderablePoints = GetRenderablePathPoints(snapshot, warp, rig, sampleTime)
+            .ToList();
+        var geometry = VectorPathRenderHelper.BuildGeometry(
+            renderablePoints,
+            snapshot.IsClosed,
+            point => ToScreenPoint(stageRect, new VectorPointModel { X = point.X, Y = point.Y }),
+            (point, handleKind) =>
+            {
+                var handleX = handleKind == VectorHandleKind.In ? point.InHandleX ?? point.X : point.OutHandleX ?? point.X;
+                var handleY = handleKind == VectorHandleKind.In ? point.InHandleY ?? point.Y : point.OutHandleY ?? point.Y;
+                return ToScreenPoint(stageRect, new VectorPointModel { X = handleX, Y = handleY });
+            });
         if (geometry is null)
         {
             return;
@@ -1882,13 +2921,30 @@ public sealed class SceneCanvasControl : Control
                 context.DrawGeometry(null, glowPen, geometry);
             }
 
-            context.DrawGeometry(snapshot.IsClosed ? fillBrush : null, strokePen, geometry);
+            context.DrawGeometry(snapshot.IsClosed ? fillBrush : null, VectorPathRenderHelper.HasVariableWidth(renderablePoints) ? null : strokePen, geometry);
+            if (snapshot.HasStroke && VectorPathRenderHelper.HasVariableWidth(renderablePoints))
+            {
+                VectorPathRenderHelper.DrawVariableStroke(
+                    context,
+                    renderablePoints,
+                    snapshot.IsClosed,
+                    point => new Point(point.X, point.Y),
+                    (point, handleKind) =>
+                    {
+                        var handleX = handleKind == VectorHandleKind.In ? point.InHandleX ?? point.X : point.OutHandleX ?? point.X;
+                        var handleY = handleKind == VectorHandleKind.In ? point.InHandleY ?? point.Y : point.OutHandleY ?? point.Y;
+                        return new Point(handleX, handleY);
+                    },
+                    strokeBrush,
+                    snapshot.StrokeCapStyle,
+                    snapshot.StrokeThickness);
+            }
         }
     }
 
     private void DrawDraftLayer(DrawingContext context, Rect stageRect)
     {
-        if (!IsDrawingInteraction(_interactionMode))
+        if (_interactionMode == InteractionMode.None)
         {
             return;
         }
@@ -1897,16 +2953,71 @@ public sealed class SceneCanvasControl : Control
         var previewFill = new SolidColorBrush(Color.FromArgb(42, accent.R, accent.G, accent.B));
         var previewPen = new Pen(new SolidColorBrush(accent), 1.8, dashStyle: new DashStyle([7, 5], 0), lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
 
-        if (_interactionMode is InteractionMode.DrawRectangle or InteractionMode.DrawEllipse or InteractionMode.DrawText)
+        if (_interactionMode == InteractionMode.DrawZoomRegion)
+        {
+            var rect = ToScreenRect(stageRect, GetDraftBounds());
+            context.DrawRectangle(new SolidColorBrush(Color.FromArgb(22, accent.R, accent.G, accent.B)), previewPen, rect, 8d, 8d);
+            return;
+        }
+
+        if (_interactionMode == InteractionMode.DrawLasso)
+        {
+            var lassoPoints = GetDraftDocumentPoints();
+            if (lassoPoints.Count < 2)
+            {
+                return;
+            }
+
+            var lassoGeometry = BuildPathGeometry(stageRect, lassoPoints, isClosed: true);
+            if (lassoGeometry is null)
+            {
+                return;
+            }
+
+            context.DrawGeometry(previewFill, previewPen, lassoGeometry);
+            return;
+        }
+
+        if (!IsDrawingInteraction(_interactionMode))
+        {
+            return;
+        }
+
+        if (_interactionMode is InteractionMode.DrawRectangle or InteractionMode.DrawEllipse or InteractionMode.DrawPolyStar or InteractionMode.DrawText)
         {
             var rect = ToScreenRect(stageRect, GetDraftBounds());
             if (_interactionMode == InteractionMode.DrawEllipse)
             {
-                context.DrawEllipse(previewFill, previewPen, rect.Center, rect.Width / 2, rect.Height / 2);
+                var ellipseGeometry = BuildDraftEllipseGeometry(rect);
+                if (ellipseGeometry is null)
+                {
+                    context.DrawEllipse(previewFill, previewPen, rect.Center, rect.Width / 2, rect.Height / 2);
+                }
+                else
+                {
+                    context.DrawGeometry(previewFill, previewPen, ellipseGeometry);
+                }
+
                 return;
             }
 
-            context.DrawRectangle(previewFill, previewPen, rect, 22, 22);
+            if (_interactionMode == InteractionMode.DrawPolyStar)
+            {
+                var polyStarGeometry = BuildDraftPolyStarGeometry(stageRect, GetDraftBounds());
+                if (polyStarGeometry is not null)
+                {
+                    context.DrawGeometry(previewFill, previewPen, polyStarGeometry);
+                }
+
+                return;
+            }
+
+            context.DrawRectangle(
+                previewFill,
+                previewPen,
+                rect,
+                Math.Max(0d, CornerRadiusTopLeft),
+                Math.Max(0d, CornerRadiusTopLeft));
             if (_interactionMode == InteractionMode.DrawText)
             {
                 DrawTextBlock(context, rect, "TEXT", new SolidColorBrush(accent), 24);
@@ -1939,15 +3050,103 @@ public sealed class SceneCanvasControl : Control
     {
         var bounds = new Rect(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height);
         var sourceLibraryItem = ResolveLibraryItem(layer.Model.SourceLibraryItemId);
-        foreach (var point in VectorPathService.GetAbsolutePoints(snapshot))
+        var absolutePoints = VectorPathService.GetAbsolutePoints(snapshot);
+        for (var index = 0; index < absolutePoints.Count; index++)
         {
+            var point = absolutePoints[index];
             var transformedPoint = LayerTransformHelper.TransformPoint(
                 new Point(point.X, point.Y),
                 bounds,
                 snapshot,
                 sourceLibraryItem);
             var screenPoint = ToScreenPoint(stageRect, new VectorPointModel { X = transformedPoint.X, Y = transformedPoint.Y });
-            context.DrawEllipse(new SolidColorBrush(Color.Parse("#09101C")), new Pen(new SolidColorBrush(borderColor), 1.4), screenPoint, 5.5, 5.5);
+            var isSelectedPoint = SelectedPathPointIndex == index;
+            var pointPen = new Pen(new SolidColorBrush(isSelectedPoint ? Color.Parse("#9BFFF0") : borderColor), isSelectedPoint ? 1.9d : 1.4d);
+            var pointRadius = isSelectedPoint && DrawingTool == DrawingTool.Width
+                ? Math.Max(6.2d, 4.8d + (point.StrokeWidthScale * 2.8d))
+                : isSelectedPoint ? 6.2d : 5.5d;
+            context.DrawEllipse(new SolidColorBrush(Color.Parse("#09101C")), pointPen, screenPoint, pointRadius, pointRadius);
+
+            if (!isSelectedPoint)
+            {
+                continue;
+            }
+
+            if (DrawingTool == DrawingTool.Width)
+            {
+                var guideRadius = Math.Max(pointRadius + 4d, 9.4d);
+                context.DrawEllipse(
+                    null,
+                    new Pen(new SolidColorBrush(Color.Parse("#FFB685")), 1.2d, dashStyle: new DashStyle([3, 3], 0)),
+                    screenPoint,
+                    guideRadius,
+                    guideRadius);
+            }
+
+            DrawBezierHandle(context, stageRect, bounds, snapshot, sourceLibraryItem, point, VectorHandleKind.In);
+            DrawBezierHandle(context, stageRect, bounds, snapshot, sourceLibraryItem, point, VectorHandleKind.Out);
+        }
+    }
+
+    private void DrawBezierHandle(
+        DrawingContext context,
+        Rect stageRect,
+        Rect bounds,
+        LayerSnapshot snapshot,
+        LibraryItem? sourceLibraryItem,
+        VectorPointModel point,
+        VectorHandleKind handleKind)
+    {
+        var absoluteHandle = VectorPathService.GetAbsoluteHandle(snapshot, point, handleKind);
+        if (Math.Abs(absoluteHandle.X - point.X) < 0.0001d && Math.Abs(absoluteHandle.Y - point.Y) < 0.0001d)
+        {
+            return;
+        }
+
+        var transformedPoint = LayerTransformHelper.TransformPoint(
+            new Point(point.X, point.Y),
+            bounds,
+            snapshot,
+            sourceLibraryItem);
+        var transformedHandle = LayerTransformHelper.TransformPoint(
+            new Point(absoluteHandle.X, absoluteHandle.Y),
+            bounds,
+            snapshot,
+            sourceLibraryItem);
+        var screenPoint = ToScreenPoint(stageRect, new VectorPointModel { X = transformedPoint.X, Y = transformedPoint.Y });
+        var screenHandle = ToScreenPoint(stageRect, new VectorPointModel { X = transformedHandle.X, Y = transformedHandle.Y });
+        var guidePen = new Pen(new SolidColorBrush(Color.Parse("#7BC3FF")), 1.2d, dashStyle: new DashStyle([4d, 3d], 0d));
+        var handlePen = new Pen(new SolidColorBrush(Color.Parse("#9BFFF0")), 1.2d);
+        context.DrawLine(guidePen, screenPoint, screenHandle);
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#09101C")), handlePen, new Rect(screenHandle.X - 4.5d, screenHandle.Y - 4.5d, 9d, 9d));
+    }
+
+    private void DrawWarpPinHandles(DrawingContext context, Rect stageRect, LayerSnapshot snapshot, LayerWarpSettings warp)
+    {
+        var activeFill = new SolidColorBrush(Color.Parse("#9BFFF0"));
+        var activePen = new Pen(new SolidColorBrush(Color.Parse("#09101C")), 1.2d);
+        foreach (var pin in LayerDeformationService.ResolveWarpPins(snapshot, warp))
+        {
+            var screenPoint = ToScreenPoint(stageRect, new VectorPointModel { X = pin.CurrentPoint.X, Y = pin.CurrentPoint.Y });
+            context.DrawEllipse(activeFill, activePen, screenPoint, 6.5d, 6.5d);
+        }
+    }
+
+    private void DrawRigHandles(DrawingContext context, Rect stageRect, LayerSnapshot snapshot, LayerRigSettings rig)
+    {
+        var bonePen = new Pen(new SolidColorBrush(Color.Parse("#FFD166")), 2d, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+        var startFill = new SolidColorBrush(Color.Parse("#09101C"));
+        var startPen = new Pen(new SolidColorBrush(Color.Parse("#FFD166")), 1.2d);
+        var endFill = new SolidColorBrush(Color.Parse("#FFD166"));
+        var endPen = new Pen(new SolidColorBrush(Color.Parse("#09101C")), 1.1d);
+
+        foreach (var bone in LayerDeformationService.ResolveRigBones(snapshot, rig, CurrentTime))
+        {
+            var startPoint = ToScreenPoint(stageRect, new VectorPointModel { X = bone.StartPoint.X, Y = bone.StartPoint.Y });
+            var endPoint = ToScreenPoint(stageRect, new VectorPointModel { X = bone.EndPoint.X, Y = bone.EndPoint.Y });
+            context.DrawLine(bonePen, startPoint, endPoint);
+            context.DrawEllipse(startFill, startPen, startPoint, 5.5d, 5.5d);
+            context.DrawEllipse(endFill, endPen, endPoint, 6.3d, 6.3d);
         }
     }
 
@@ -1956,12 +3155,20 @@ public sealed class SceneCanvasControl : Control
         return LayerStyleRenderHelper.CreateFillBrush(snapshot, solidFill, gradientFrom, gradientTo, opacity);
     }
 
-    private StreamGeometry? BuildPathGeometry(Rect stageRect, LayerSnapshot snapshot)
+    private StreamGeometry? BuildPathGeometry(Rect stageRect, LayerSnapshot snapshot, LayerWarpSettings? warp, LayerRigSettings? rig, double sampleTime)
     {
-        var points = VectorPathService.GetAbsolutePoints(snapshot)
-            .Select(point => ToScreenPoint(stageRect, point))
+        var points = GetRenderablePathPoints(snapshot, warp, rig, sampleTime)
             .ToList();
-        return BuildPathGeometry(points, snapshot.IsClosed);
+        return VectorPathRenderHelper.BuildGeometry(
+            points,
+            snapshot.IsClosed,
+            point => ToScreenPoint(stageRect, new VectorPointModel { X = point.X, Y = point.Y }),
+            (point, handleKind) =>
+            {
+                var handleX = handleKind == VectorHandleKind.In ? point.InHandleX ?? point.X : point.OutHandleX ?? point.X;
+                var handleY = handleKind == VectorHandleKind.In ? point.InHandleY ?? point.Y : point.OutHandleY ?? point.Y;
+                return ToScreenPoint(stageRect, new VectorPointModel { X = handleX, Y = handleY });
+            });
     }
 
     private StreamGeometry? BuildPathGeometry(Rect stageRect, IReadOnlyList<Point> documentPoints, bool isClosed)
@@ -1997,6 +3204,41 @@ public sealed class SceneCanvasControl : Control
         return Math.Sqrt((delta.X * delta.X) + (delta.Y * delta.Y));
     }
 
+    private static List<Point> GetEffectOffsets(double radius)
+    {
+        var normalized = Math.Clamp(radius, 0d, 32d);
+        if (normalized <= 0.1d)
+        {
+            return [];
+        }
+
+        const int sampleCount = 16;
+        var points = new List<Point>(sampleCount);
+        for (var sample = 0; sample < sampleCount; sample++)
+        {
+            var angle = (Math.PI * 2d * sample) / sampleCount;
+            points.Add(new Point(Math.Cos(angle) * normalized, Math.Sin(angle) * normalized));
+        }
+
+        return points;
+    }
+
+    private static Point CreateDirectionalOffset(double angle, double distance)
+    {
+        var radians = angle * Math.PI / 180d;
+        return new Point(Math.Cos(radians) * distance, Math.Sin(radians) * distance);
+    }
+
+    private static Color InterpolateDirectionalEffectColor(Point offset, double angle, Color from, Color to)
+    {
+        var radians = angle * Math.PI / 180d;
+        var directionX = Math.Cos(radians);
+        var directionY = Math.Sin(radians);
+        var magnitude = Math.Max(0.0001d, Math.Sqrt((offset.X * offset.X) + (offset.Y * offset.Y)));
+        var normalized = ((offset.X / magnitude) * directionX) + ((offset.Y / magnitude) * directionY);
+        return Blend(from, to, (normalized + 1d) / 2d);
+    }
+
     private LayerSnapshot CreateLayerSnapshot(LayerViewModel layer)
     {
         var style = layer.Model.Style;
@@ -2010,8 +3252,15 @@ public sealed class SceneCanvasControl : Control
             layer.SkewX,
             layer.SkewY,
             layer.Rotation,
+            layer.RotationX,
+            layer.RotationY,
+            layer.ZDepth,
             layer.Opacity,
             layer.CornerRadius,
+            style.CornerRadiusTopLeft,
+            style.CornerRadiusTopRight,
+            style.CornerRadiusBottomRight,
+            style.CornerRadiusBottomLeft,
             layer.FillHex,
             layer.StrokeHex,
             layer.TextContent,
@@ -2020,10 +3269,17 @@ public sealed class SceneCanvasControl : Control
             style.UseGradient,
             style.GradientFrom,
             style.GradientTo,
+            style.DrawingMode,
+            style.PrimitiveShape,
             style.IsClosed,
+            style.EllipseStartAngle,
+            style.EllipseSweepAngle,
             layer.Model.ShowAsOutline,
             layer.Model.OutlineColor,
             VectorPathService.ClonePoints(style.PathPoints),
+            style.PolyStarSides,
+            style.PolyStarInnerRadius,
+            style.PolyStarIsStar,
             style.AvaloniaControl.Clone(),
             layer.Model.Compositing.Clone(),
             style.TextSettings.Clone());
@@ -2038,12 +3294,78 @@ public sealed class SceneCanvasControl : Control
         return ClampToDocument(new Rect(left, top, width, height));
     }
 
+    private Geometry? BuildDraftEllipseGeometry(Rect rect)
+    {
+        if (Math.Abs(Math.Abs(EllipseSweepAngle) - 360d) < 0.1d)
+        {
+            return null;
+        }
+
+        var geometry = new StreamGeometry();
+        using var context = geometry.Open();
+        var startAngle = EllipseStartAngle * Math.PI / 180d;
+        var sweepAngle = EllipseSweepAngle * Math.PI / 180d;
+        var endAngle = startAngle + sweepAngle;
+        var center = rect.Center;
+        var radiusX = rect.Width / 2d;
+        var radiusY = rect.Height / 2d;
+        var startPoint = new Point(center.X + (Math.Cos(startAngle) * radiusX), center.Y + (Math.Sin(startAngle) * radiusY));
+        var endPoint = new Point(center.X + (Math.Cos(endAngle) * radiusX), center.Y + (Math.Sin(endAngle) * radiusY));
+        context.BeginFigure(center, isFilled: true);
+        context.LineTo(startPoint);
+        context.ArcTo(
+            endPoint,
+            new Size(radiusX, radiusY),
+            rotationAngle: 0d,
+            isLargeArc: Math.Abs(EllipseSweepAngle) > 180d,
+            sweepDirection: EllipseSweepAngle >= 0d ? SweepDirection.Clockwise : SweepDirection.CounterClockwise);
+        context.LineTo(center);
+        context.EndFigure(isClosed: true);
+        return geometry;
+    }
+
+    private IReadOnlyList<Point> BuildDraftPolyStarPoints(Rect bounds)
+    {
+        var normalizedPoints = PrimitiveShapeService.CreatePolyStarPoints(PolyStarSides, PolyStarInnerRadius, PolyStarIsStar);
+        return
+        [
+            .. normalizedPoints.Select(point => new Point(
+                bounds.X + (point.X * bounds.Width),
+                bounds.Y + (point.Y * bounds.Height)))
+        ];
+    }
+
+    private StreamGeometry? BuildDraftPolyStarGeometry(Rect stageRect, Rect bounds)
+    {
+        return BuildPathGeometry(stageRect, BuildDraftPolyStarPoints(bounds), isClosed: true);
+    }
+
+    private bool HasRenderableKeyframeAtFrame(Guid layerId, int frame)
+    {
+        if (Layers is null)
+        {
+            return false;
+        }
+
+        var layer = Layers.FirstOrDefault(item => item.Id == layerId)?.Model;
+        if (layer is null)
+        {
+            return false;
+        }
+
+        return layer.Tracks.Any(track => track.Keyframes.Any(keyframe =>
+                   FrameTimelineService.TimeToFrame(keyframe.Time, FrameRate, TotalFrames) == frame))
+               || layer.ShapeKeyframes.Any(keyframe =>
+                   FrameTimelineService.TimeToFrame(keyframe.Time, FrameRate, TotalFrames) == frame);
+    }
+
     private IReadOnlyList<Point> GetDraftDocumentPoints()
     {
         return _interactionMode switch
         {
             InteractionMode.DrawLine => [_draftOrigin, _draftCurrent],
-            InteractionMode.DrawPen or InteractionMode.DrawBrush => _draftPoints.Count > 1 ? [.. _draftPoints] : [_draftOrigin, _draftCurrent],
+            InteractionMode.DrawPolyStar => BuildDraftPolyStarPoints(GetDraftBounds()),
+            InteractionMode.DrawPen or InteractionMode.DrawBrush or InteractionMode.DrawPencil or InteractionMode.DrawLasso => _draftPoints.Count > 1 ? [.. _draftPoints] : [_draftOrigin, _draftCurrent],
             _ => [_draftOrigin, _draftCurrent]
         };
     }
@@ -2060,7 +3382,7 @@ public sealed class SceneCanvasControl : Control
         var rawWidth = Math.Abs(_draftCurrent.X - _draftOrigin.X);
         var rawHeight = Math.Abs(_draftCurrent.Y - _draftOrigin.Y);
 
-        if (_interactionMode is InteractionMode.DrawPen or InteractionMode.DrawBrush)
+        if (_interactionMode is InteractionMode.DrawPen or InteractionMode.DrawBrush or InteractionMode.DrawPencil)
         {
             if (points.Count < 2)
             {
@@ -2093,14 +3415,114 @@ public sealed class SceneCanvasControl : Control
         return new CanvasDrawingRequestedEventArgs(DrawingTool, bounds, points);
     }
 
+    private IReadOnlyList<Guid> BuildLassoSelection()
+    {
+        if (Layers is null)
+        {
+            return [];
+        }
+
+        var polygon = GetDraftDocumentPoints()
+            .Select(point => new VectorPointModel { X = point.X, Y = point.Y })
+            .ToList();
+        if (polygon.Count < 3)
+        {
+            return [];
+        }
+
+        if (LassoToolMode == LassoToolMode.Polygon)
+        {
+            polygon = VectorPathService.SimplifyStroke(polygon, 18d);
+        }
+
+        var matches = new List<Guid>();
+        foreach (var layer in Layers.OrderByDescending(item => item.ZIndex))
+        {
+            if (!layer.IsRenderable || layer.Model.Compositing.Role == LayerCompositeRole.Camera)
+            {
+                continue;
+            }
+
+            var snapshot = GetDisplaySnapshot(layer, CurrentTime);
+            if (ToolAuthoringService.LayerIntersectsLasso(layer.Kind, snapshot, polygon, LassoContactSensitive))
+            {
+                matches.Add(layer.Id);
+            }
+        }
+
+        return matches;
+    }
+
+    private void ApplyZoomRegion(Rect stageRect, Point releasedPoint)
+    {
+        var documentEnd = ToViewportPoint(stageRect, releasedPoint);
+        var documentRect = new Rect(
+            Math.Min(_draftOrigin.X, documentEnd.X),
+            Math.Min(_draftOrigin.Y, documentEnd.Y),
+            Math.Abs(documentEnd.X - _draftOrigin.X),
+            Math.Abs(documentEnd.Y - _draftOrigin.Y));
+
+        if (documentRect.Width < 12d || documentRect.Height < 12d)
+        {
+            var viewportPoint = ToViewportPoint(stageRect, releasedPoint);
+            var factor = ZoomToolMode == ZoomToolMode.Out ? (1d / 1.2d) : 1.2d;
+            var nextZoom = Math.Clamp(CanvasZoom * factor, MinZoomFactor, MaxZoomFactor);
+            ZoomAround(releasedPoint, viewportPoint, nextZoom);
+            return;
+        }
+
+        var hostWidth = Math.Max(120d, Bounds.Width - (SurfacePadding * 2d));
+        var hostHeight = Math.Max(120d, Bounds.Height - (SurfacePadding * 2d));
+        var scaleX = hostWidth / Math.Max(1d, documentRect.Width);
+        var scaleY = hostHeight / Math.Max(1d, documentRect.Height);
+        var fitScale = GetFitScale();
+        var nextScale = Math.Max(0.05d, Math.Min(scaleX, scaleY));
+        CanvasZoom = Math.Clamp(nextScale / Math.Max(0.05d, fitScale), MinZoomFactor, MaxZoomFactor);
+
+        var centeredRect = GetCenteredStageRect(GetStageScale());
+        var nextPan = new Vector(
+            (Bounds.Width / 2d) - centeredRect.X - ((documentRect.X + (documentRect.Width / 2d)) * GetStageScale()),
+            (Bounds.Height / 2d) - centeredRect.Y - ((documentRect.Y + (documentRect.Height / 2d)) * GetStageScale()));
+        ApplyViewportPan(nextPan);
+    }
+
+    private bool TryHitAnyPathPoint(Rect stageRect, Point pointer, out LayerViewModel layer, out int pointIndex)
+    {
+        layer = null!;
+        pointIndex = -1;
+
+        if (Layers is null)
+        {
+            return false;
+        }
+
+        foreach (var candidate in Layers.OrderByDescending(item => item.ZIndex))
+        {
+            if (candidate.Kind != LayerKind.Path || !candidate.IsRenderable || candidate.IsLocked)
+            {
+                continue;
+            }
+
+            if (TryHitPathPoint(stageRect, candidate, pointer, out pointIndex))
+            {
+                layer = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool IsDrawingInteraction(InteractionMode mode)
     {
         return mode is InteractionMode.DrawRectangle or
             InteractionMode.DrawEllipse or
+            InteractionMode.DrawPolyStar or
             InteractionMode.DrawText or
             InteractionMode.DrawLine or
             InteractionMode.DrawPen or
-            InteractionMode.DrawBrush;
+            InteractionMode.DrawBrush or
+            InteractionMode.DrawPencil;
     }
 
     private static bool IsCanvasResizeInteraction(InteractionMode mode)
@@ -2116,12 +3538,19 @@ public sealed class SceneCanvasControl : Control
         {
             DrawingTool.Rectangle => InteractionMode.DrawRectangle,
             DrawingTool.Ellipse => InteractionMode.DrawEllipse,
+            DrawingTool.PolyStar => InteractionMode.DrawPolyStar,
             DrawingTool.Text => InteractionMode.DrawText,
             DrawingTool.Line => InteractionMode.DrawLine,
             DrawingTool.Pen => InteractionMode.DrawPen,
             DrawingTool.Brush => InteractionMode.DrawBrush,
+            DrawingTool.Pencil => InteractionMode.DrawPencil,
             _ => InteractionMode.None
         };
+    }
+
+    private static bool IsStyleTool(DrawingTool tool)
+    {
+        return tool is DrawingTool.Eyedropper or DrawingTool.PaintBucket or DrawingTool.InkBottle;
     }
 
     private double NormalizeCanvasExtent(double extent)
@@ -2347,12 +3776,32 @@ public sealed class SceneCanvasControl : Control
             }
         }
 
+        InvalidateSceneStateCache();
         InvalidateVisual();
     }
 
     private void HandleLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        InvalidateSceneStateCache();
         InvalidateVisual();
+    }
+
+    private static bool DoesPropertyAffectSceneState(AvaloniaProperty property)
+    {
+        return property == DocumentProperty ||
+               property == CurrentTimeProperty ||
+               property == DocumentWidthProperty ||
+               property == DocumentHeightProperty ||
+               property == DurationProperty ||
+               property == StageBackgroundColorProperty ||
+               property == TransparentStageBackgroundProperty ||
+               property == FrameRateProperty ||
+               property == TotalFramesProperty;
+    }
+
+    private static bool DoesPropertyAffectSceneBitmap(AvaloniaProperty property)
+    {
+        return property == RenderingEngineProperty;
     }
 
     private static Color ApplyAlpha(Color color, byte alpha)
@@ -2399,8 +3848,15 @@ public sealed class SceneCanvasControl : Control
                             layer.SkewX,
                             layer.SkewY,
                             layer.Rotation,
+                            layer.RotationX,
+                            layer.RotationY,
+                            layer.ZDepth,
                             layer.Opacity,
                             layer.CornerRadius,
+                            layer.Model.Style.CornerRadiusTopLeft,
+                            layer.Model.Style.CornerRadiusTopRight,
+                            layer.Model.Style.CornerRadiusBottomRight,
+                            layer.Model.Style.CornerRadiusBottomLeft,
                             layer.FillHex,
                             layer.StrokeHex,
                             layer.TextContent,
@@ -2409,10 +3865,17 @@ public sealed class SceneCanvasControl : Control
                             layer.Model.Style.UseGradient,
                             layer.Model.Style.GradientFrom,
                             layer.Model.Style.GradientTo,
+                            layer.Model.Style.DrawingMode,
+                            layer.Model.Style.PrimitiveShape,
                             layer.Model.Style.IsClosed,
+                            layer.Model.Style.EllipseStartAngle,
+                            layer.Model.Style.EllipseSweepAngle,
                             layer.Model.ShowAsOutline,
                             layer.Model.OutlineColor,
                             VectorPathService.ClonePoints(layer.Model.Style.PathPoints),
+                            layer.Model.Style.PolyStarSides,
+                            layer.Model.Style.PolyStarInnerRadius,
+                            layer.Model.Style.PolyStarIsStar,
                             layer.Model.Style.AvaloniaControl.Clone(),
                             layer.Model.Compositing.Clone(),
                             layer.Model.Style.TextSettings.Clone())
@@ -2428,32 +3891,114 @@ public sealed class SceneCanvasControl : Control
             FrameRate);
     }
 
-    private CompositeSceneState BuildSceneState(double time)
+    private SceneRenderRequest GetOrBuildSceneState(double time)
     {
-        var samples = GetRenderSamples(time);
-        return new CompositeSceneState(
+        if (!_isSceneStateDirty &&
+            _cachedSceneState is not null &&
+            Math.Abs(_cachedSceneStateTime - time) < 0.0001d)
+        {
+            return _cachedSceneState;
+        }
+
+        _cachedSceneState = BuildSceneState(time);
+        _cachedSceneStateTime = time;
+        _isSceneStateDirty = false;
+        _isSceneBitmapDirty = true;
+        return _cachedSceneState;
+    }
+
+    private WriteableBitmap GetOrRenderSceneBitmap(SceneRenderRequest sceneState)
+    {
+        if (!_isSceneBitmapDirty &&
+            _cachedSceneBitmap is not null &&
+            _cachedSceneBitmapEngine == RenderingEngine &&
+            Math.Abs(_cachedSceneBitmapTime - sceneState.Time) < 0.0001d)
+        {
+            return _cachedSceneBitmap;
+        }
+
+        DisposeSceneBitmapCache();
+        _cachedSceneBitmap = RenderingEngineHostService.RenderBitmap(sceneState, RenderingEngine, includeBackground: true);
+        _cachedSceneBitmapTime = sceneState.Time;
+        _cachedSceneBitmapEngine = RenderingEngine;
+        _isSceneBitmapDirty = false;
+        return _cachedSceneBitmap;
+    }
+
+    private void InvalidateSceneStateCache()
+    {
+        _cachedSceneState = null;
+        _cachedSceneStateTime = double.NaN;
+        _isSceneStateDirty = true;
+        InvalidateSceneBitmapCache();
+    }
+
+    private void InvalidateSceneBitmapCache()
+    {
+        _isSceneBitmapDirty = true;
+        _cachedSceneBitmapTime = double.NaN;
+        DisposeSceneBitmapCache();
+    }
+
+    private void DisposeSceneBitmapCache()
+    {
+        _cachedSceneBitmap?.Dispose();
+        _cachedSceneBitmap = null;
+    }
+
+    private SceneRenderRequest BuildSceneState(double time)
+    {
+        var document = Document;
+        if (document is null)
+        {
+            var samples = GetRenderSamples(time);
+            return new SceneRenderRequest(
+                time,
+                DocumentWidth,
+                DocumentHeight,
+                TransparentStageBackground,
+                StageBackgroundColor,
+                StageBackgroundColor,
+                new AnimateDocumentSettings(),
+                new Dictionary<Guid, LibraryItem>(),
+                new Dictionary<Guid, MediaAsset>(),
+                samples,
+                SceneRenderTransformService.ResolveActiveCamera(samples));
+        }
+
+        var renderLayers = Layers?.Select(layer => layer.Model).ToList() ?? [];
+        return RenderingEngineHostService.BuildRequest(
+            document,
+            renderLayers,
+            time,
+            Duration,
+            FrameRate,
             DocumentWidth,
             DocumentHeight,
-            BackgroundFrom,
-            BackgroundTo,
-            Document?.LibraryItems.ToDictionary(item => item.Id) ?? new Dictionary<Guid, LibraryItem>(),
-            Document?.MediaAssets.ToDictionary(item => item.Id) ?? new Dictionary<Guid, MediaAsset>(),
-            samples,
-            CompositeFrameRenderer.ResolveActiveCamera(samples));
+            TransparentStageBackground,
+            StageBackgroundColor,
+            StageBackgroundColor);
     }
 
     private LayerSnapshot? GetActiveCameraSnapshot(double time)
     {
-        return BuildSceneState(time).ActiveCamera;
+        return GetOrBuildSceneState(time).ActiveCamera;
     }
 
     private LayerSnapshot GetDisplaySnapshot(LayerViewModel layer, double time)
     {
         var snapshot = time == CurrentTime
             ? CreateLayerSnapshot(layer)
-            : FrameTimelineService.SampleLayer(layer.Model, time, FrameRate, TotalFrames)
-                ?? TimelineInterpolationService.SampleLayer(layer.Model, time);
+            : SampleWorldSnapshot(layer.Model, time);
         return TransformSnapshotForStage(layer.Model, snapshot, time);
+    }
+
+    private LayerSnapshot SampleWorldSnapshot(TimelineLayer layer, double time)
+    {
+        var sourceLayers = Document?.Layers ?? Layers?.Select(item => item.Model).ToList() ?? [];
+        return LayerParentingService.SampleWorldSnapshot(sourceLayers, layer, time, FrameRate, TotalFrames)
+               ?? (FrameTimelineService.SampleLayer(layer, time, FrameRate, TotalFrames)
+                   ?? TimelineInterpolationService.SampleLayer(layer, time));
     }
 
     private LayerSnapshot TransformSnapshotForStage(TimelineLayer layer, LayerSnapshot snapshot, double time)
@@ -2463,9 +4008,10 @@ public sealed class SceneCanvasControl : Control
             return snapshot;
         }
 
-        return CompositeFrameRenderer.TransformSnapshot(
+        return SceneRenderTransformService.TransformSnapshot(
             snapshot,
             GetActiveCameraSnapshot(time),
+            Document?.Animate,
             DocumentWidth,
             DocumentHeight,
             layer.Compositing.ParallaxDepth);
@@ -2473,8 +4019,8 @@ public sealed class SceneCanvasControl : Control
 
     private Point WorldToScreenPoint(Rect stageRect, Point point, double parallaxDepth)
     {
-        var viewport = CompositeFrameRenderer.TransformPoint(
-            point,
+        var viewport = SceneRenderTransformService.TransformPoint(
+            new RenderPoint(point.X, point.Y),
             GetActiveCameraSnapshot(CurrentTime),
             DocumentWidth,
             DocumentHeight,
@@ -2487,23 +4033,39 @@ public sealed class SceneCanvasControl : Control
         return SelectedLayer?.Model.Compositing.ParallaxDepth ?? 1d;
     }
 
-    private void DrawRoleOverlays(DrawingContext context, Rect stageRect, CompositeSceneState sceneState)
+    private void DrawRoleOverlays(DrawingContext context, Rect stageRect, SceneRenderRequest sceneState)
     {
         foreach (var sample in sceneState.Samples)
         {
             if (sample.Role == LayerCompositeRole.Guide)
             {
-                var snapshot = CompositeFrameRenderer.TransformSnapshot(sample.Snapshot, sceneState.ActiveCamera, DocumentWidth, DocumentHeight, sample.ParallaxDepth);
-                DrawLayerSnapshot(context, stageRect, sample.Kind, snapshot, Color.Parse("#61E6FF"), 0.28d, sample.SourceLibraryItemId);
+                var snapshot = SceneRenderTransformService.TransformSnapshot(sample.Snapshot, sceneState.ActiveCamera, sceneState.Animate, DocumentWidth, DocumentHeight, sample.ParallaxDepth);
+                DrawLayerSnapshot(context, stageRect, sample.Kind, snapshot, Color.Parse("#61E6FF"), 0.28d, CurrentTime, sample.SourceLibraryItemId, sample.Warp, sample.Rig);
                 continue;
             }
 
             if (sample.Role == LayerCompositeRole.Mask)
             {
-                var snapshot = CompositeFrameRenderer.TransformSnapshot(sample.Snapshot, sceneState.ActiveCamera, DocumentWidth, DocumentHeight, sample.ParallaxDepth);
-                DrawLayerSnapshot(context, stageRect, sample.Kind, snapshot, Color.Parse("#FFD166"), 0.24d, sample.SourceLibraryItemId);
+                var snapshot = SceneRenderTransformService.TransformSnapshot(sample.Snapshot, sceneState.ActiveCamera, sceneState.Animate, DocumentWidth, DocumentHeight, sample.ParallaxDepth);
+                DrawLayerSnapshot(context, stageRect, sample.Kind, snapshot, Color.Parse("#FFD166"), 0.24d, CurrentTime, sample.SourceLibraryItemId, sample.Warp, sample.Rig);
             }
         }
+    }
+
+    private IReadOnlyList<VectorPointModel> GetRenderablePathPoints(LayerSnapshot snapshot, LayerWarpSettings? warp, LayerRigSettings? rig, double sampleTime)
+    {
+        if ((warp?.IsEnabled != true || warp.Pins.Count == 0) &&
+            (rig?.IsEnabled != true || rig.Bones.Count == 0))
+        {
+            return VectorPathService.GetAbsolutePoints(snapshot);
+        }
+
+        var layer = new TimelineLayer
+        {
+            Warp = warp ?? new LayerWarpSettings(),
+            Rig = rig ?? new LayerRigSettings()
+        };
+        return LayerDeformationService.GetDeformedPathPoints(snapshot, layer, sampleTime);
     }
 
     private static Color GetRoleColor(LayerCompositeRole role, bool isLocked)
@@ -2534,8 +4096,14 @@ public sealed class SceneCanvasControl : Control
     {
         None,
         PanViewport,
+        RotateViewport,
         Move,
         MovePathPoint,
+        MovePathHandle,
+        AdjustPathPointWidth,
+        MoveWarpPin,
+        MoveRigBoneStart,
+        MoveRigBoneEnd,
         ResizeTopLeft,
         ResizeTopRight,
         ResizeBottomLeft,
@@ -2543,12 +4111,17 @@ public sealed class SceneCanvasControl : Control
         ResizeCanvasRight,
         ResizeCanvasBottom,
         ResizeCanvasBottomRight,
+        DrawLasso,
+        DrawZoomRegion,
+        EraseLayer,
         DrawRectangle,
         DrawEllipse,
+        DrawPolyStar,
         DrawText,
         DrawLine,
         DrawPen,
-        DrawBrush
+        DrawBrush,
+        DrawPencil
     }
 
     private sealed class Disposable(Action? dispose) : IDisposable

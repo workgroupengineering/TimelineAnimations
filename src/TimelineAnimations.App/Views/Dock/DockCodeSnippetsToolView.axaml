@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
+             xmlns:appVm="using:TimelineAnimations.App.ViewModels"
+             x:Class="TimelineAnimations.App.Views.Dock.DockCodeSnippetsToolView"
+             x:DataType="vm:DockCodeSnippetsToolViewModel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                DataContext="{Binding Host}"
+                x:DataType="appVm:MainWindowViewModel">
+    <StackPanel Spacing="6">
+      <Border Classes="panel">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Code Snippets" />
+          <TextBlock Classes="section-title"
+                     Text="Frame scripts and behavior snippets" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedActionScriptSnippetSummary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsEnabled="{Binding CanEditCurrentFrameActionScript}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Current Frame Action" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding CurrentFrameActionSummary}"
+                     TextWrapping="Wrap" />
+          <TextBox AcceptsReturn="True"
+                   Height="132"
+                   TextWrapping="Wrap"
+                   Text="{Binding FrameActionScriptEditor, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft"
+              IsEnabled="{Binding CanEditSelectedBehaviorScript}">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Selected Behavior Script" />
+          <TextBlock Classes="micro-label"
+                     Text="{Binding SelectedBehaviorScriptSummary}"
+                     TextWrapping="Wrap" />
+          <TextBox AcceptsReturn="True"
+                   Height="132"
+                   TextWrapping="Wrap"
+                   Text="{Binding SelectedBehaviorScriptEditor, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="panel-soft">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="eyebrow"
+                     Text="Snippet Browser" />
+          <ComboBox ItemsSource="{Binding ActionScriptSnippets}"
+                    SelectedItem="{Binding SelectedActionScriptSnippet, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="appVm:ActionScriptSnippetViewModel">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Name}" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding CategoryLabel}" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBox AcceptsReturn="True"
+                   Height="104"
+                   IsReadOnly="True"
+                   TextWrapping="Wrap"
+                   Text="{Binding SelectedActionScriptSnippet.Script, Mode=OneWay}" />
+          <Grid ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+            <Button Content="Insert Into Frame"
+                    Command="{Binding InsertSelectedSnippetIntoFrameActionCommand}"
+                    IsEnabled="{Binding CanInsertActionScriptSnippetIntoFrame}" />
+            <Button Grid.Column="1"
+                    Content="Insert Into Behavior"
+                    Command="{Binding InsertSelectedSnippetIntoBehaviorScriptCommand}"
+                    IsEnabled="{Binding CanInsertActionScriptSnippetIntoBehavior}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

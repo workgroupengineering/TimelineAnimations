@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
              xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
              x:Class="TimelineAnimations.App.Views.Dock.DockTimelineToolView"
              x:DataType="vm:DockTimelineToolViewModel">
@@ -23,12 +24,24 @@
                       CommandParameter="Curves" />
         <Button Grid.Column="2"
                 Classes="timeline-action accent"
-                Content="Play"
-                Command="{Binding Host.TogglePlaybackCommand}" />
+                Command="{Binding Host.TogglePlaybackCommand}"
+                ToolTip.Tip="Play or pause timeline playback">
+          <StackPanel Classes="icon-label-content">
+            <PathIcon Classes="command-icon"
+                      Data="{x:Static helpers:FluentIconData.Play20Regular}" />
+            <TextBlock Text="Play" />
+          </StackPanel>
+        </Button>
         <Button Grid.Column="3"
                 Classes="timeline-action"
-                Content="Stop"
-                Command="{Binding Host.StopPlaybackCommand}" />
+                Command="{Binding Host.StopPlaybackCommand}"
+                ToolTip.Tip="Stop timeline playback">
+          <StackPanel Classes="icon-label-content">
+            <PathIcon Classes="command-icon"
+                      Data="{x:Static helpers:FluentIconData.Stop20Regular}" />
+            <TextBlock Text="Stop" />
+          </StackPanel>
+        </Button>
         <Button Grid.Column="4"
                 Classes="timeline-action"
                 Content="Razor"
@@ -131,23 +144,60 @@
 
         <ScrollViewer Grid.Row="1"
                       HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto">
-          <controls:FrameTimelineControl x:Name="FrameTimeline"
-                                         Width="{Binding Host.FrameTimelineSurfaceWidth}"
-                                         Height="{Binding Host.FrameTimelineSurfaceHeight}"
-                                         Rows="{Binding Host.FrameRows}"
-                                         Labels="{Binding Host.SceneFrameLabels}"
-                                         Markers="{Binding Host.SceneMarkers}"
-                                         CurrentFrame="{Binding Host.CurrentFrame}"
-                                         TotalFrames="{Binding Host.TotalFrames}"
-                                         PixelsPerFrame="{Binding Host.FrameTimelineZoom}"
-                                         SelectedLayerId="{Binding Host.SelectedLayerId}"
-                                         SelectionStartFrame="{Binding Host.SelectionStartFrame}"
-                                         SelectionEndFrame="{Binding Host.SelectionEndFrame}"
-                                         InFrame="{Binding Host.CurrentSceneInFrame}"
-                                         OutFrame="{Binding Host.CurrentSceneOutFrame}"
-                                         WorkAreaStartFrame="{Binding Host.CurrentSceneWorkAreaStartFrame}"
-                                         WorkAreaEndFrame="{Binding Host.CurrentSceneWorkAreaEndFrame}" />
+                      VerticalScrollBarVisibility="Disabled">
+          <Grid RowDefinitions="Auto,*">
+            <controls:FrameTimelineControl x:Name="FrameTimelineHeader"
+                                           Width="{Binding Host.FrameTimelineSurfaceWidth}"
+                                           Height="64"
+                                           Rows="{Binding Host.FrameRows}"
+                                           Labels="{Binding Host.SceneFrameLabels}"
+                                           Markers="{Binding Host.SceneMarkers}"
+                                           CurrentFrame="{Binding Host.CurrentFrame}"
+                                           TotalFrames="{Binding Host.TotalFrames}"
+                                           FrameRate="{Binding Host.SceneFrameRate}"
+                                           PixelsPerFrame="{Binding Host.FrameTimelineZoom}"
+                                           SelectedLayerId="{Binding Host.SelectedLayerId}"
+                                           SelectionStartFrame="{Binding Host.SelectionStartFrame}"
+                                           SelectionEndFrame="{Binding Host.SelectionEndFrame}"
+                                           InFrame="{Binding Host.CurrentSceneInFrame}"
+                                           OutFrame="{Binding Host.CurrentSceneOutFrame}"
+                                           WorkAreaStartFrame="{Binding Host.CurrentSceneWorkAreaStartFrame}"
+                                           WorkAreaEndFrame="{Binding Host.CurrentSceneWorkAreaEndFrame}"
+                                           OnionSkinEnabled="{Binding Host.OnionSkinEnabled}"
+                                           OnionSkinBefore="{Binding Host.OnionSkinBefore}"
+                                           OnionSkinAfter="{Binding Host.OnionSkinAfter}"
+                                           EditMultipleFramesEnabled="{Binding Host.EditMultipleFramesEnabled}"
+                                           ShowHeader="True"
+                                           ShowBody="False" />
+
+            <ScrollViewer Grid.Row="1"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+              <controls:FrameTimelineControl x:Name="FrameTimelineBody"
+                                             Width="{Binding Host.FrameTimelineSurfaceWidth}"
+                                             Height="{Binding Host.FrameTimelineSurfaceBodyHeight}"
+                                             Rows="{Binding Host.FrameRows}"
+                                             Labels="{Binding Host.SceneFrameLabels}"
+                                             Markers="{Binding Host.SceneMarkers}"
+                                             CurrentFrame="{Binding Host.CurrentFrame}"
+                                             TotalFrames="{Binding Host.TotalFrames}"
+                                             FrameRate="{Binding Host.SceneFrameRate}"
+                                             PixelsPerFrame="{Binding Host.FrameTimelineZoom}"
+                                             SelectedLayerId="{Binding Host.SelectedLayerId}"
+                                             SelectionStartFrame="{Binding Host.SelectionStartFrame}"
+                                             SelectionEndFrame="{Binding Host.SelectionEndFrame}"
+                                             InFrame="{Binding Host.CurrentSceneInFrame}"
+                                             OutFrame="{Binding Host.CurrentSceneOutFrame}"
+                                             WorkAreaStartFrame="{Binding Host.CurrentSceneWorkAreaStartFrame}"
+                                             WorkAreaEndFrame="{Binding Host.CurrentSceneWorkAreaEndFrame}"
+                                             OnionSkinEnabled="{Binding Host.OnionSkinEnabled}"
+                                             OnionSkinBefore="{Binding Host.OnionSkinBefore}"
+                                             OnionSkinAfter="{Binding Host.OnionSkinAfter}"
+                                             EditMultipleFramesEnabled="{Binding Host.EditMultipleFramesEnabled}"
+                                             ShowHeader="False"
+                                             ShowBody="True" />
+            </ScrollViewer>
+          </Grid>
         </ScrollViewer>
       </Grid>
 
@@ -196,16 +246,38 @@
 
         <ScrollViewer Grid.Row="1"
                       HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto">
-          <controls:TimelineEditorControl x:Name="TimelineEditor"
-                                          Width="{Binding Host.TimelineSurfaceWidth}"
-                                          Height="{Binding Host.TimelineSurfaceHeight}"
-                                          Rows="{Binding Host.TimelineRows}"
-                                          CurrentTime="{Binding Host.CurrentTime}"
-                                          Duration="{Binding Host.Duration}"
-                                          SelectedProperty="{Binding Host.SelectedProperty}"
-                                          SelectedKeyframeId="{Binding Host.SelectedKeyframeId}"
-                                          PixelsPerSecond="{Binding Host.TimelineZoom}" />
+                      VerticalScrollBarVisibility="Disabled">
+          <Grid RowDefinitions="Auto,*">
+            <controls:TimelineEditorControl x:Name="TimelineEditorHeader"
+                                            Width="{Binding Host.TimelineSurfaceWidth}"
+                                            Height="52"
+                                            Rows="{Binding Host.TimelineRows}"
+                                            CurrentTime="{Binding Host.CurrentTime}"
+                                            Duration="{Binding Host.Duration}"
+                                            FrameRate="{Binding Host.SceneFrameRate}"
+                                            SelectedProperty="{Binding Host.SelectedProperty}"
+                                            SelectedKeyframeId="{Binding Host.SelectedKeyframeId}"
+                                            PixelsPerSecond="{Binding Host.TimelineZoom}"
+                                            ShowHeader="True"
+                                            ShowBody="False" />
+
+            <ScrollViewer Grid.Row="1"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+              <controls:TimelineEditorControl x:Name="TimelineEditorBody"
+                                              Width="{Binding Host.TimelineSurfaceWidth}"
+                                              Height="{Binding Host.TimelineSurfaceBodyHeight}"
+                                              Rows="{Binding Host.TimelineRows}"
+                                              CurrentTime="{Binding Host.CurrentTime}"
+                                              Duration="{Binding Host.Duration}"
+                                              FrameRate="{Binding Host.SceneFrameRate}"
+                                              SelectedProperty="{Binding Host.SelectedProperty}"
+                                              SelectedKeyframeId="{Binding Host.SelectedKeyframeId}"
+                                              PixelsPerSecond="{Binding Host.TimelineZoom}"
+                                              ShowHeader="False"
+                                              ShowBody="True" />
+            </ScrollViewer>
+          </Grid>
         </ScrollViewer>
       </Grid>
     </Grid>

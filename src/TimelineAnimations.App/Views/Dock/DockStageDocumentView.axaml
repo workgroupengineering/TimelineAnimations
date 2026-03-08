@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:TimelineAnimations.App.Controls"
+             xmlns:helpers="using:TimelineAnimations.App.Helpers"
              xmlns:vm="using:TimelineAnimations.App.ViewModels.Dock"
              x:Class="TimelineAnimations.App.Views.Dock.DockStageDocumentView"
              x:DataType="vm:DockStageDocumentViewModel">
@@ -8,57 +9,208 @@
         RowSpacing="6">
     <Border Classes="chrome-group"
             Padding="4,3">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto"
-            ColumnSpacing="8">
-        <StackPanel Spacing="1">
-          <TextBlock Classes="section-title"
-                     Text="{Binding Host.SelectionHeadline}" />
-          <TextBlock Classes="micro-label"
-                     Text="{Binding Host.SelectedSceneSummary}" />
-          <TextBlock Classes="micro-label"
-                     Text="{Binding Host.CanvasViewportHint}"
-                     TextTrimming="CharacterEllipsis" />
-        </StackPanel>
-        <StackPanel Grid.Column="1"
-                    Orientation="Horizontal"
-                    Spacing="4"
-                    VerticalAlignment="Center">
-          <Button Classes="toolbar compact accent"
-                  Content="Play"
-                  Command="{Binding Host.TogglePlaybackCommand}" />
-          <Button Classes="toolbar compact"
-                  Content="Stop"
-                  Command="{Binding Host.StopPlaybackCommand}"
-                  IsEnabled="{Binding Host.CanStopPlayback}" />
-        </StackPanel>
-        <StackPanel Grid.Column="2"
-                    Orientation="Horizontal"
-                    Spacing="6">
-          <CheckBox Content="Snap"
-                    IsChecked="{Binding Host.SnapToGrid, Mode=TwoWay}" />
-          <CheckBox Content="Onion"
-                    IsChecked="{Binding Host.OnionSkinEnabled, Mode=TwoWay}" />
-        </StackPanel>
-        <StackPanel Grid.Column="3"
-                    Orientation="Horizontal"
-                    Spacing="6">
-          <Border Classes="metric-chip compact">
-            <TextBlock Classes="strong-label"
-                       Text="{Binding Host.CanvasSizeLabel}" />
+      <Grid RowDefinitions="Auto,Auto"
+            RowSpacing="4">
+        <Grid ColumnDefinitions="*,Auto,Auto"
+              ColumnSpacing="8">
+          <StackPanel Spacing="1">
+            <TextBlock Classes="section-title"
+                       Text="{Binding Host.SelectionHeadline}" />
+            <TextBlock Classes="micro-label"
+                       Text="{Binding Host.SelectedSceneSummary}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1"
+                      Orientation="Horizontal"
+                      Spacing="4"
+                      VerticalAlignment="Center">
+            <Button Classes="toolbar compact accent"
+                    Command="{Binding Host.TogglePlaybackCommand}"
+                    ToolTip.Tip="Play or pause playback">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.Play20Regular}" />
+                <TextBlock Text="Play" />
+              </StackPanel>
+            </Button>
+            <Button Classes="toolbar compact"
+                    Command="{Binding Host.StopPlaybackCommand}"
+                    IsEnabled="{Binding Host.CanStopPlayback}"
+                    ToolTip.Tip="Stop playback">
+              <StackPanel Classes="icon-label-content">
+                <PathIcon Classes="command-icon"
+                          Data="{x:Static helpers:FluentIconData.Stop20Regular}" />
+                <TextBlock Text="Stop" />
+              </StackPanel>
+            </Button>
+            <CheckBox Content="Snap"
+                      IsChecked="{Binding Host.SnapToGrid, Mode=TwoWay}" />
+            <CheckBox Content="Onion"
+                      IsChecked="{Binding Host.OnionSkinEnabled, Mode=TwoWay}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2"
+                      Orientation="Horizontal"
+                      Spacing="6">
+            <Border Classes="metric-chip compact">
+              <TextBlock Classes="strong-label"
+                         Text="{Binding Host.CanvasSizeLabel}" />
+            </Border>
+            <Border Classes="metric-chip compact">
+              <TextBlock Classes="strong-label"
+                         Text="{Binding Host.CurrentFrameLabel}" />
+            </Border>
+            <Border Classes="metric-chip compact">
+              <TextBlock Classes="strong-label"
+                         Text="{Binding Host.CurrentTimeLabel}" />
+            </Border>
+            <Border Classes="metric-chip compact">
+              <TextBlock Classes="strong-label"
+                         Text="{Binding Host.DurationLabel}" />
+            </Border>
+            <Border Classes="metric-chip compact">
+              <TextBlock Classes="strong-label"
+                         Text="{Binding Host.CanvasViewRotationLabel}" />
+            </Border>
+          </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,300"
+              ColumnSpacing="8">
+          <Border Classes="panel-soft"
+                  Padding="6,5">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+              <WrapPanel ItemWidth="NaN"
+                         Orientation="Horizontal"
+                         VerticalAlignment="Center">
+                <Border Classes="metric-chip compact">
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding Host.CanvasViewportHint}"
+                             TextTrimming="CharacterEllipsis" />
+                </Border>
+                <ComboBox Width="156"
+                          ItemsSource="{Binding Host.AvailableShapeDrawingModes}"
+                          SelectedItem="{Binding Host.ShapeDrawingModeEditor, Mode=TwoWay}"
+                          IsEnabled="{Binding Host.CanUseShapeQuickControls}" />
+                <TextBox Width="58"
+                         Watermark="TL"
+                         Text="{Binding Host.CornerRadiusTopLeftEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsRectangleOptions}" />
+                <TextBox Width="58"
+                         Watermark="TR"
+                         Text="{Binding Host.CornerRadiusTopRightEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsRectangleOptions}" />
+                <TextBox Width="58"
+                         Watermark="BR"
+                         Text="{Binding Host.CornerRadiusBottomRightEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsRectangleOptions}" />
+                <TextBox Width="58"
+                         Watermark="BL"
+                         Text="{Binding Host.CornerRadiusBottomLeftEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsRectangleOptions}" />
+                <TextBox Width="68"
+                         Watermark="Sides"
+                         Text="{Binding Host.PolyStarSidesEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsPolyStarOptions}" />
+                <TextBox Width="78"
+                         Watermark="Inner"
+                         Text="{Binding Host.PolyStarInnerRadiusEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsPolyStarOptions}" />
+                <CheckBox Content="Star"
+                          IsChecked="{Binding Host.PolyStarIsStarEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShapeAuthoringShowsPolyStarOptions}" />
+                <TextBox Width="76"
+                         Watermark="Start"
+                         Text="{Binding Host.EllipseStartAngleEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsEllipseOptions}" />
+                <TextBox Width="76"
+                         Watermark="Sweep"
+                         Text="{Binding Host.EllipseSweepAngleEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShapeAuthoringShowsEllipseOptions}" />
+                <ComboBox Width="118"
+                          ItemsSource="{Binding Host.AvailableZoomToolModes}"
+                          SelectedItem="{Binding Host.ZoomToolModeEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowZoomToolOptions}" />
+                <Slider Width="118"
+                        Minimum="-180"
+                        Maximum="180"
+                        Value="{Binding Host.CanvasViewRotation, Mode=TwoWay}"
+                        IsVisible="{Binding Host.ShowRotateViewToolOptions}" />
+                <Button Classes="toolbar compact"
+                        Content="Reset"
+                        Command="{Binding Host.ResetCanvasViewRotationCommand}"
+                        IsVisible="{Binding Host.ShowRotateViewToolOptions}" />
+                <ComboBox Width="118"
+                          ItemsSource="{Binding Host.AvailableLassoToolModes}"
+                          SelectedItem="{Binding Host.LassoToolModeEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowLassoToolOptions}" />
+                <CheckBox Content="Touch"
+                          IsChecked="{Binding Host.LassoContactSensitiveSelection, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowLassoToolOptions}" />
+                <ComboBox Width="118"
+                          ItemsSource="{Binding Host.AvailablePencilToolModes}"
+                          SelectedItem="{Binding Host.PencilToolModeEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowPencilToolOptions}" />
+                <ComboBox Width="124"
+                          ItemsSource="{Binding Host.AvailablePaintBucketGapSizes}"
+                          SelectedItem="{Binding Host.PaintBucketGapSizeEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowPaintBucketToolOptions}" />
+                <CheckBox Content="Lock Fill"
+                          IsChecked="{Binding Host.PaintBucketLockFillEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowPaintBucketToolOptions}" />
+                <ComboBox Width="136"
+                          ItemsSource="{Binding Host.AvailableVectorStrokeProfiles}"
+                          SelectedItem="{Binding Host.VectorStrokeProfilePresetEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowStrokeProfileToolOptions}" />
+                <Slider Width="110"
+                        Minimum="0.2"
+                        Maximum="1.6"
+                        Value="{Binding Host.VectorStrokeProfileStrengthEditor, Mode=TwoWay}"
+                        IsVisible="{Binding Host.ShowStrokeProfileToolOptions}" />
+                <Button Classes="toolbar compact"
+                        Content="Apply Width"
+                        Command="{Binding Host.ApplySelectedStrokeProfileCommand}"
+                        IsEnabled="{Binding Host.CanApplySelectedStrokeProfile}"
+                        IsVisible="{Binding Host.ShowStrokeProfileToolOptions}" />
+                <ComboBox Width="118"
+                          ItemsSource="{Binding Host.AvailableEraserToolModes}"
+                          SelectedItem="{Binding Host.EraserToolModeEditor, Mode=TwoWay}"
+                          IsVisible="{Binding Host.ShowEraserToolOptions}" />
+                <TextBox Width="64"
+                         Watermark="Radius"
+                         Text="{Binding Host.EraserSizeEditor, Mode=TwoWay}"
+                         IsVisible="{Binding Host.ShowEraserToolOptions}" />
+              </WrapPanel>
+            </ScrollViewer>
           </Border>
-          <Border Classes="metric-chip compact">
-            <TextBlock Classes="strong-label"
-                       Text="{Binding Host.CurrentFrameLabel}" />
+
+          <Border Grid.Column="1"
+                  Classes="panel-soft"
+                  Padding="6,5">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="eyebrow"
+                         Text="Motion Preset" />
+              <ComboBox Width="288"
+                        ItemsSource="{Binding Host.MotionPresets}"
+                        SelectedItem="{Binding Host.SelectedMotionPreset, Mode=TwoWay}"
+                        IsEnabled="{Binding Host.CanEditPropertyTracks}" />
+              <WrapPanel>
+                <Button Classes="toolbar compact"
+                        Content="Capture"
+                        Command="{Binding Host.CaptureMotionPresetCommand}"
+                        IsEnabled="{Binding Host.CanCaptureMotionPreset}" />
+                <Button Classes="toolbar compact"
+                        Content="Apply"
+                        Command="{Binding Host.ApplySelectedMotionPresetCommand}"
+                        IsEnabled="{Binding Host.CanApplySelectedMotionPreset}" />
+                <Button Classes="toolbar compact warm"
+                        Content="Delete"
+                        Command="{Binding Host.DeleteSelectedMotionPresetCommand}"
+                        IsEnabled="{Binding Host.CanDeleteSelectedMotionPreset}" />
+              </WrapPanel>
+            </StackPanel>
           </Border>
-          <Border Classes="metric-chip compact">
-            <TextBlock Classes="strong-label"
-                       Text="{Binding Host.CurrentTimeLabel}" />
-          </Border>
-          <Border Classes="metric-chip compact">
-            <TextBlock Classes="strong-label"
-                       Text="{Binding Host.DurationLabel}" />
-          </Border>
-        </StackPanel>
+        </Grid>
       </Grid>
     </Border>
 
@@ -69,48 +221,54 @@
                                      Document="{Binding Host.Document}"
                                      Layers="{Binding Host.Layers}"
                                      SelectedLayer="{Binding Host.SelectedLayer}"
+                                     RenderingEngine="{Binding Host.SelectedRenderingEngine}"
                                      CanvasZoom="{Binding Host.CanvasZoom}"
+                                     CanvasViewRotation="{Binding Host.CanvasViewRotation, Mode=TwoWay}"
                                      DrawingTool="{Binding Host.SelectedDrawingTool}"
+                                     ZoomToolMode="{Binding Host.ZoomToolModeEditor}"
+                                     LassoToolMode="{Binding Host.LassoToolModeEditor}"
+                                     LassoContactSensitive="{Binding Host.LassoContactSensitiveSelection}"
+                                     PencilToolMode="{Binding Host.PencilToolModeEditor}"
+                                     EraserToolMode="{Binding Host.EraserToolModeEditor}"
+                                     EraserSize="{Binding Host.EraserSizeEditor}"
                                      CurrentTime="{Binding Host.CurrentTime}"
                                      FrameRate="{Binding Host.SceneFrameRate}"
                                      TotalFrames="{Binding Host.TotalFrames}"
+                                     SelectedPathPointIndex="{Binding Host.SelectedPathPointIndexEditor}"
                                      Duration="{Binding Host.Duration}"
                                      SnapToGrid="{Binding Host.SnapToGrid}"
                                      OnionSkinEnabled="{Binding Host.OnionSkinEnabled}"
                                      OnionSkinBefore="{Binding Host.OnionSkinBefore}"
                                      OnionSkinAfter="{Binding Host.OnionSkinAfter}"
+                                     OnionSkinKeyframesOnly="{Binding Host.OnionSkinKeyframesOnly}"
+                                     OnionSkinBaseOpacity="{Binding Host.OnionSkinBaseOpacity}"
+                                     OnionSkinOpacityFalloff="{Binding Host.OnionSkinOpacityFalloff}"
+                                     CornerRadiusTopLeft="{Binding Host.CornerRadiusTopLeftEditor}"
+                                     CornerRadiusTopRight="{Binding Host.CornerRadiusTopRightEditor}"
+                                     CornerRadiusBottomRight="{Binding Host.CornerRadiusBottomRightEditor}"
+                                     CornerRadiusBottomLeft="{Binding Host.CornerRadiusBottomLeftEditor}"
+                                     EllipseStartAngle="{Binding Host.EllipseStartAngleEditor}"
+                                     EllipseSweepAngle="{Binding Host.EllipseSweepAngleEditor}"
+                                     PolyStarSides="{Binding Host.PolyStarSidesEditor}"
+                                     PolyStarInnerRadius="{Binding Host.PolyStarInnerRadiusEditor}"
+                                     PolyStarIsStar="{Binding Host.PolyStarIsStarEditor}"
                                      PrototypeMode="{Binding Host.IsPrototypeMode}"
                                      CanResizeCanvas="{Binding Host.CanEditCanvasProperties}"
                                      DocumentWidth="{Binding Host.CanvasWidth}"
                                      DocumentHeight="{Binding Host.CanvasHeight}"
-                                     BackgroundFrom="{Binding Host.BackgroundFrom}"
-                                     BackgroundTo="{Binding Host.BackgroundTo}" />
+                                     StageBackgroundColor="{Binding Host.BackgroundFrom}"
+                                     TransparentStageBackground="{Binding Host.TransparentStageBackground}"
+                                     PasteboardColor="{Binding Host.PasteboardColor}"
+                                     MatchPasteboardToStageColor="{Binding Host.MatchPasteboardToStageColor}" />
 
-        <Border Classes="canvas-overlay"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Margin="0,0,10,10">
-          <Grid ColumnDefinitions="Auto,Auto,Auto,180"
-                ColumnSpacing="8">
-            <Button Content="Fit"
-                    Classes="toolbar compact"
-                    Click="CanvasFitClick" />
-            <Button Grid.Column="1"
-                    Content="1:1"
-                    Classes="toolbar compact"
-                    Click="CanvasActualSizeClick" />
-            <Border Grid.Column="2"
-                    Classes="metric-chip compact">
-              <TextBlock Classes="strong-label"
-                         Text="{Binding Host.CanvasZoomLabel}" />
-            </Border>
-            <Slider Grid.Column="3"
-                    Classes="monitor-slider"
-                    Minimum="0.25"
-                    Maximum="8"
-                    Value="{Binding Host.CanvasZoom, Mode=TwoWay}" />
-          </Grid>
-        </Border>
+        <controls:StageZoomOverlayControl x:Name="StageZoomOverlay"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Bottom"
+                                          Margin="0,0,10,10"
+                                          Zoom="{Binding Host.CanvasZoom, Mode=TwoWay}"
+                                          ZoomLabel="{Binding Host.CanvasZoomLabel}"
+                                          Minimum="0.25"
+                                          Maximum="8" />
       </Grid>
     </Border>
   </Grid>

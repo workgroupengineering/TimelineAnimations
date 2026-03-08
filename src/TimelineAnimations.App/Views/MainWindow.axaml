@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:TimelineAnimations.App.Controls"
         xmlns:dockViews="using:TimelineAnimations.App.Views.Dock"
+        xmlns:helpers="using:TimelineAnimations.App.Helpers"
         xmlns:models="using:TimelineAnimations.Core.Models"
         xmlns:vm="using:TimelineAnimations.App.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -93,6 +94,18 @@
                       Click="OpenDocumentClick" />
             <MenuItem Header="Save..."
                       Click="SaveDocumentClick" />
+            <Separator />
+            <MenuItem Header="Flash Authoring">
+              <MenuItem Header="Open XFL Folder..."
+                        Click="OpenFlashXflFolderClick" />
+              <MenuItem Header="Save XFL Folder..."
+                        Click="SaveFlashXflFolderClick" />
+              <Separator />
+              <MenuItem Header="Convert FLA to XFL Folder..."
+                        Click="ConvertFlashFlaToXflFolderClick" />
+              <MenuItem Header="Convert XFL Folder to FLA..."
+                        Click="ConvertFlashXflFolderToFlaClick" />
+            </MenuItem>
             <Separator />
             <MenuItem Header="Import">
               <MenuItem Header="Avalonia XAML..."
@@ -272,6 +285,72 @@
                         IsChecked="{Binding IsSelectToolActive, Mode=OneWay}"
                         Command="{Binding SelectDrawingToolCommand}"
                         CommandParameter="Select" />
+              <MenuItem Header="Subselect"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsSubselectToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Subselect" />
+              <MenuItem Header="Lasso"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsLassoToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Lasso" />
+              <MenuItem Header="Hand"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsHandToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Hand" />
+              <MenuItem Header="Zoom"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsZoomToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Zoom" />
+              <MenuItem Header="Rotate View"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsRotateViewToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="RotateView" />
+              <MenuItem Header="Eyedropper"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsEyedropperToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Eyedropper" />
+              <MenuItem Header="Paint Bucket"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsPaintBucketToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="PaintBucket" />
+              <MenuItem Header="Ink Bottle"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsInkBottleToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="InkBottle" />
+              <MenuItem Header="Width"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsWidthToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Width" />
+              <MenuItem Header="Warp"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsWarpToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Warp" />
+              <MenuItem Header="Rig"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsRigToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Rig" />
               <MenuItem Header="Rectangle"
                         ToggleType="Radio"
                         GroupName="activeTool"
@@ -284,6 +363,12 @@
                         IsChecked="{Binding IsEllipseToolActive, Mode=OneWay}"
                         Command="{Binding SelectDrawingToolCommand}"
                         CommandParameter="Ellipse" />
+              <MenuItem Header="PolyStar"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsPolyStarToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="PolyStar" />
               <MenuItem Header="Text"
                         ToggleType="Radio"
                         GroupName="activeTool"
@@ -308,6 +393,18 @@
                         IsChecked="{Binding IsBrushToolActive, Mode=OneWay}"
                         Command="{Binding SelectDrawingToolCommand}"
                         CommandParameter="Brush" />
+              <MenuItem Header="Pencil"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsPencilToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Pencil" />
+              <MenuItem Header="Eraser"
+                        ToggleType="Radio"
+                        GroupName="activeTool"
+                        IsChecked="{Binding IsEraserToolActive, Mode=OneWay}"
+                        Command="{Binding SelectDrawingToolCommand}"
+                        CommandParameter="Eraser" />
             </MenuItem>
           </MenuItem>
 
@@ -322,6 +419,9 @@
                       IsEnabled="{Binding CanInsertStageItems}" />
             <MenuItem Header="Ellipse"
                       Command="{Binding AddEllipseCommand}"
+                      IsEnabled="{Binding CanInsertStageItems}" />
+            <MenuItem Header="PolyStar"
+                      Command="{Binding AddPolyStarCommand}"
                       IsEnabled="{Binding CanInsertStageItems}" />
             <MenuItem Header="Text"
                       Command="{Binding AddTextCommand}"
@@ -761,7 +861,7 @@
                             CommandParameter="CurvesTimelineTool" />
                 </MenuItem>
               </MenuItem>
-              <MenuItem Header="Side panels">
+              <MenuItem Header="Assets">
                 <MenuItem Header="{Binding DockWorkspace.ProjectSurfaceMenuLabel}">
                   <MenuItem Header="Show / focus"
                             Command="{Binding DockWorkspace.FocusSurfaceCommand}"
@@ -773,6 +873,41 @@
                             Command="{Binding DockWorkspace.HideSurfaceCommand}"
                             CommandParameter="ProjectTool" />
                 </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.LibrarySurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="LibraryTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="LibraryTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="LibraryTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.ComponentsSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="ComponentsTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="ComponentsTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="ComponentsTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.MovieExplorerSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="MovieExplorerTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="MovieExplorerTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="MovieExplorerTool" />
+                </MenuItem>
+              </MenuItem>
+              <MenuItem Header="Design">
                 <MenuItem Header="{Binding DockWorkspace.InspectorSurfaceMenuLabel}">
                   <MenuItem Header="Show / focus"
                             Command="{Binding DockWorkspace.FocusSurfaceCommand}"
@@ -784,6 +919,98 @@
                             Command="{Binding DockWorkspace.HideSurfaceCommand}"
                             CommandParameter="InspectorTool" />
                 </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.ColorSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="ColorTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="ColorTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="ColorTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.SwatchesSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="SwatchesTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="SwatchesTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="SwatchesTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.AlignSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="AlignTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="AlignTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="AlignTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.TransformSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="TransformTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="TransformTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="TransformTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.InfoSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="InfoTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="InfoTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="InfoTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.HistorySurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="HistoryTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="HistoryTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="HistoryTool" />
+                </MenuItem>
+              </MenuItem>
+              <MenuItem Header="Animation">
+                <MenuItem Header="{Binding DockWorkspace.MotionPresetsSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="MotionPresetsTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="MotionPresetsTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="MotionPresetsTool" />
+                </MenuItem>
+                <MenuItem Header="{Binding DockWorkspace.CodeSnippetsSurfaceMenuLabel}">
+                  <MenuItem Header="Show / focus"
+                            Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                            CommandParameter="CodeSnippetsTool" />
+                  <MenuItem Header="Overlay"
+                            Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                            CommandParameter="CodeSnippetsTool" />
+                  <MenuItem Header="Hide"
+                            Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                            CommandParameter="CodeSnippetsTool" />
+                </MenuItem>
+              </MenuItem>
+              <MenuItem Header="Output">
                 <MenuItem Header="{Binding DockWorkspace.OutputSurfaceMenuLabel}">
                   <MenuItem Header="Show / focus"
                             Command="{Binding DockWorkspace.FocusSurfaceCommand}"
@@ -859,40 +1086,83 @@
               <CheckBox Content="Dock"
                         IsChecked="{Binding UseDockWorkspace, Mode=TwoWay}" />
               <Button Classes="toolbar"
-                      Content="Reset Dock"
                       Command="{Binding DockWorkspace.ResetLayoutCommand}"
-                      IsVisible="{Binding IsDockWorkspaceVisible}" />
+                      IsVisible="{Binding IsDockWorkspaceVisible}"
+                      ToolTip.Tip="Reset the docked workspace to the selected preset">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.ArrowClockwise20Regular}" />
+                  <TextBlock Text="Reset Dock" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Edit Symbol"
                       Command="{Binding EnterSelectedSymbolEditCommand}"
                       IsVisible="{Binding CanEnterSymbolEdit}"
-                      IsEnabled="{Binding CanEnterSymbolEdit}" />
+                      IsEnabled="{Binding CanEnterSymbolEdit}"
+                      ToolTip.Tip="Open the selected symbol for editing">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Edit20Regular}" />
+                  <TextBlock Text="Edit Symbol" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar warm"
                       Content="Exit Symbol"
                       Command="{Binding ExitSymbolEditCommand}"
                       IsVisible="{Binding CanExitSymbolEdit}"
-                      IsEnabled="{Binding CanExitSymbolEdit}" />
+                      IsEnabled="{Binding CanExitSymbolEdit}"
+                      ToolTip.Tip="Exit symbol editing and return to the stage" />
               <ToggleButton Classes="toolbar warm"
-                            Content="Prototype"
                             Command="{Binding TogglePrototypeModeCommand}"
                             IsChecked="{Binding IsPrototypeMode, Mode=OneWay}"
-                            IsEnabled="{Binding CanTogglePrototypeModeMenu}" />
+                            IsEnabled="{Binding CanTogglePrototypeModeMenu}"
+                            ToolTip.Tip="Toggle prototype preview mode">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Target20Regular}" />
+                  <TextBlock Text="Prototype" />
+                </StackPanel>
+              </ToggleButton>
               <Button Classes="toolbar accent"
-                      Content="Save"
-                      Click="SaveDocumentClick" />
+                      Click="SaveDocumentClick"
+                      ToolTip.Tip="Save the current document">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Save20Regular}" />
+                  <TextBlock Text="Save" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Undo"
                       Command="{Binding UndoCommand}"
-                      IsEnabled="{Binding CanUndo}" />
+                      IsEnabled="{Binding CanUndo}"
+                      ToolTip.Tip="Undo the last authoring action">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Undo20Regular}" />
+                  <TextBlock Text="Undo" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Redo"
                       Command="{Binding RedoCommand}"
-                      IsEnabled="{Binding CanRedo}" />
+                      IsEnabled="{Binding CanRedo}"
+                      ToolTip.Tip="Redo the last undone authoring action">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Redo20Regular}" />
+                  <TextBlock Text="Redo" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Reveal"
                       Command="{Binding DockWorkspace.RestoreAllSurfacesCommand}"
                       IsVisible="{Binding DockWorkspace.CanRevealAllSurfaces}"
-                      IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}" />
+                      IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}"
+                      ToolTip.Tip="Restore all hidden or overlayed dock surfaces">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Eye20Regular}" />
+                  <TextBlock Text="Reveal" />
+                </StackPanel>
+              </Button>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -1044,7 +1314,7 @@
                               CommandParameter="CurvesTimelineTool" />
                   </MenuItem>
                 </MenuItem>
-                <MenuItem Header="Side panels">
+                <MenuItem Header="Assets">
                   <MenuItem Header="{Binding DockWorkspace.ProjectSurfaceMenuLabel}">
                     <MenuItem Header="Show / focus"
                               Command="{Binding DockWorkspace.FocusSurfaceCommand}"
@@ -1056,6 +1326,41 @@
                               Command="{Binding DockWorkspace.HideSurfaceCommand}"
                               CommandParameter="ProjectTool" />
                   </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.LibrarySurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="LibraryTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="LibraryTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="LibraryTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.ComponentsSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="ComponentsTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="ComponentsTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="ComponentsTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.MovieExplorerSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="MovieExplorerTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="MovieExplorerTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="MovieExplorerTool" />
+                  </MenuItem>
+                </MenuItem>
+                <MenuItem Header="Design">
                   <MenuItem Header="{Binding DockWorkspace.InspectorSurfaceMenuLabel}">
                     <MenuItem Header="Show / focus"
                               Command="{Binding DockWorkspace.FocusSurfaceCommand}"
@@ -1067,6 +1372,98 @@
                               Command="{Binding DockWorkspace.HideSurfaceCommand}"
                               CommandParameter="InspectorTool" />
                   </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.ColorSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="ColorTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="ColorTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="ColorTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.SwatchesSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="SwatchesTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="SwatchesTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="SwatchesTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.AlignSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="AlignTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="AlignTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="AlignTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.TransformSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="TransformTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="TransformTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="TransformTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.InfoSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="InfoTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="InfoTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="InfoTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.HistorySurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="HistoryTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="HistoryTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="HistoryTool" />
+                  </MenuItem>
+                </MenuItem>
+                <MenuItem Header="Animation">
+                  <MenuItem Header="{Binding DockWorkspace.MotionPresetsSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="MotionPresetsTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="MotionPresetsTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="MotionPresetsTool" />
+                  </MenuItem>
+                  <MenuItem Header="{Binding DockWorkspace.CodeSnippetsSurfaceMenuLabel}">
+                    <MenuItem Header="Show / focus"
+                              Command="{Binding DockWorkspace.FocusSurfaceCommand}"
+                              CommandParameter="CodeSnippetsTool" />
+                    <MenuItem Header="Overlay"
+                              Command="{Binding DockWorkspace.OverlaySurfaceCommand}"
+                              CommandParameter="CodeSnippetsTool" />
+                    <MenuItem Header="Hide"
+                              Command="{Binding DockWorkspace.HideSurfaceCommand}"
+                              CommandParameter="CodeSnippetsTool" />
+                  </MenuItem>
+                </MenuItem>
+                <MenuItem Header="Output">
                   <MenuItem Header="{Binding DockWorkspace.OutputSurfaceMenuLabel}">
                     <MenuItem Header="Show / focus"
                               Command="{Binding DockWorkspace.FocusSurfaceCommand}"
@@ -1116,36 +1513,73 @@
                         Spacing="6"
                         IsVisible="{Binding ShowSecondaryWorkspaceActions}">
               <Button Classes="toolbar"
-                      Content="Edit Symbol"
                       Command="{Binding EnterSelectedSymbolEditCommand}"
                       IsVisible="{Binding CanEnterSymbolEdit}"
-                      IsEnabled="{Binding CanEnterSymbolEdit}" />
+                      IsEnabled="{Binding CanEnterSymbolEdit}"
+                      ToolTip.Tip="Open the selected symbol for editing">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Edit20Regular}" />
+                  <TextBlock Text="Edit Symbol" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar warm"
                       Content="Exit Symbol"
                       Command="{Binding ExitSymbolEditCommand}"
                       IsVisible="{Binding CanExitSymbolEdit}"
-                      IsEnabled="{Binding CanExitSymbolEdit}" />
+                      IsEnabled="{Binding CanExitSymbolEdit}"
+                      ToolTip.Tip="Exit symbol editing and return to the stage" />
               <ToggleButton Classes="toolbar warm"
-                            Content="Prototype"
                             Command="{Binding TogglePrototypeModeCommand}"
                             IsChecked="{Binding IsPrototypeMode, Mode=OneWay}"
-                            IsEnabled="{Binding CanTogglePrototypeModeMenu}" />
+                            IsEnabled="{Binding CanTogglePrototypeModeMenu}"
+                            ToolTip.Tip="Toggle prototype preview mode">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Target20Regular}" />
+                  <TextBlock Text="Prototype" />
+                </StackPanel>
+              </ToggleButton>
               <Button Classes="toolbar accent"
-                      Content="Save"
-                      Click="SaveDocumentClick" />
+                      Click="SaveDocumentClick"
+                      ToolTip.Tip="Save the current document">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Save20Regular}" />
+                  <TextBlock Text="Save" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Undo"
                       Command="{Binding UndoCommand}"
-                      IsEnabled="{Binding CanUndo}" />
+                      IsEnabled="{Binding CanUndo}"
+                      ToolTip.Tip="Undo the last authoring action">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Undo20Regular}" />
+                  <TextBlock Text="Undo" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Redo"
                       Command="{Binding RedoCommand}"
-                      IsEnabled="{Binding CanRedo}" />
+                      IsEnabled="{Binding CanRedo}"
+                      ToolTip.Tip="Redo the last undone authoring action">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Redo20Regular}" />
+                  <TextBlock Text="Redo" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Reveal"
                       Command="{Binding DockWorkspace.RestoreAllSurfacesCommand}"
                       IsVisible="{Binding DockWorkspace.CanRevealAllSurfaces}"
-                      IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}" />
+                      IsEnabled="{Binding DockWorkspace.CanRevealAllSurfaces}"
+                      ToolTip.Tip="Restore all hidden or overlayed dock surfaces">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Eye20Regular}" />
+                  <TextBlock Text="Reveal" />
+                </StackPanel>
+              </Button>
             </StackPanel>
           </StackPanel>
         </Grid>
@@ -1319,29 +1753,54 @@
             <StackPanel Orientation="Horizontal"
                         Spacing="4">
               <Button Classes="toolbar"
-                      Content="Edit Symbol"
                       Command="{Binding EnterSelectedSymbolEditCommand}"
-                      IsEnabled="{Binding CanEnterSymbolEdit}" />
+                      IsEnabled="{Binding CanEnterSymbolEdit}"
+                      ToolTip.Tip="Open the selected symbol for editing">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Edit20Regular}" />
+                  <TextBlock Text="Edit Symbol" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar warm"
                       Content="Exit Symbol"
                       Command="{Binding ExitSymbolEditCommand}"
-                      IsEnabled="{Binding CanExitSymbolEdit}" />
+                      IsEnabled="{Binding CanExitSymbolEdit}"
+                      ToolTip.Tip="Exit symbol editing and return to the stage" />
               <Button Classes="toolbar warm"
-                      Content="Prototype"
-                      Command="{Binding TogglePrototypeModeCommand}" />
+                      Command="{Binding TogglePrototypeModeCommand}"
+                      ToolTip.Tip="Toggle prototype preview mode">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Target20Regular}" />
+                  <TextBlock Text="Prototype" />
+                </StackPanel>
+              </Button>
             </StackPanel>
           </Border>
           <Border Classes="chrome-group">
             <StackPanel Orientation="Horizontal"
                         Spacing="4">
               <Button Classes="toolbar"
-                      Content="Undo"
                       Command="{Binding UndoCommand}"
-                      IsEnabled="{Binding CanUndo}" />
+                      IsEnabled="{Binding CanUndo}"
+                      ToolTip.Tip="Undo the last authoring action">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Undo20Regular}" />
+                  <TextBlock Text="Undo" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
-                      Content="Redo"
                       Command="{Binding RedoCommand}"
-                      IsEnabled="{Binding CanRedo}" />
+                      IsEnabled="{Binding CanRedo}"
+                      ToolTip.Tip="Redo the last undone authoring action">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Redo20Regular}" />
+                  <TextBlock Text="Redo" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
                       Content="Sample"
                       Command="{Binding ResetSampleCommand}" />
@@ -1351,11 +1810,23 @@
             <StackPanel Orientation="Horizontal"
                         Spacing="4">
               <Button Classes="toolbar"
-                      Content="Open"
-                      Click="OpenDocumentClick" />
+                      Click="OpenDocumentClick"
+                      ToolTip.Tip="Open an animation document or interchange file">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.OpenFolder20Regular}" />
+                  <TextBlock Text="Open" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar accent"
-                      Content="Save"
-                      Click="SaveDocumentClick" />
+                      Click="SaveDocumentClick"
+                      ToolTip.Tip="Save the current document">
+                <StackPanel Classes="icon-label-content">
+                  <PathIcon Classes="command-icon"
+                            Data="{x:Static helpers:FluentIconData.Save20Regular}" />
+                  <TextBlock Text="Save" />
+                </StackPanel>
+              </Button>
               <Button Classes="toolbar"
                       Content="Frame"
                       Click="ExportFrameClick" />
@@ -1465,6 +1936,50 @@
                       Command="{Binding SelectDrawingToolCommand}"
                       CommandParameter="Select" />
               <Button Classes="tool-rail"
+                      Content="Sub"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Subselect" />
+              <Button Classes="tool-rail"
+                      Content="Lasso"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Lasso" />
+              <Button Classes="tool-rail"
+                      Content="Hand"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Hand" />
+              <Button Classes="tool-rail"
+                      Content="Zoom"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Zoom" />
+              <Button Classes="tool-rail"
+                      Content="Rotate"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="RotateView" />
+              <Button Classes="tool-rail"
+                      Content="Drop"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Eyedropper" />
+              <Button Classes="tool-rail"
+                      Content="Fill"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="PaintBucket" />
+              <Button Classes="tool-rail"
+                      Content="Ink"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="InkBottle" />
+              <Button Classes="tool-rail"
+                      Content="Width"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Width" />
+              <Button Classes="tool-rail"
+                      Content="Warp"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Warp" />
+              <Button Classes="tool-rail"
+                      Content="Rig"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Rig" />
+              <Button Classes="tool-rail"
                       Content="Rect"
                       Command="{Binding SelectDrawingToolCommand}"
                       CommandParameter="Rectangle" />
@@ -1472,6 +1987,10 @@
                       Content="Ellipse"
                       Command="{Binding SelectDrawingToolCommand}"
                       CommandParameter="Ellipse" />
+              <Button Classes="tool-rail"
+                      Content="Star"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="PolyStar" />
               <Button Classes="tool-rail"
                       Content="Text"
                       Command="{Binding SelectDrawingToolCommand}"
@@ -1488,6 +2007,14 @@
                       Content="Brush"
                       Command="{Binding SelectDrawingToolCommand}"
                       CommandParameter="Brush" />
+              <Button Classes="tool-rail"
+                      Content="Pencil"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Pencil" />
+              <Button Classes="tool-rail"
+                      Content="Erase"
+                      Command="{Binding SelectDrawingToolCommand}"
+                      CommandParameter="Eraser" />
               <Button Classes="tool-rail accent"
                       Content="Play"
                       Command="{Binding TogglePlaybackCommand}" />
@@ -1629,7 +2156,7 @@
 
                 <Border Classes="panel">
                   <StackPanel Spacing="10">
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                           ColumnSpacing="8">
                       <StackPanel Spacing="4">
                         <TextBlock Classes="eyebrow"
@@ -1648,17 +2175,20 @@
                               Classes="warm"
                               Command="{Binding AddEllipseCommand}" />
                       <Button Grid.Column="4"
+                              Content="+ Star"
+                              Command="{Binding AddPolyStarCommand}" />
+                      <Button Grid.Column="5"
                               Content="+ Text"
                               Command="{Binding AddTextCommand}" />
-                      <Button Grid.Column="5"
+                      <Button Grid.Column="6"
                               Content="+ Camera"
                               Command="{Binding AddCameraLayerCommand}"
                               IsEnabled="{Binding CanAddCameraLayer}" />
-                      <Button Grid.Column="6"
+                      <Button Grid.Column="7"
                               Content="Group"
                               Command="{Binding GroupSelectionIntoFolderCommand}"
                               IsEnabled="{Binding CanGroupSelectionIntoFolder}" />
-                      <Button Grid.Column="7"
+                      <Button Grid.Column="8"
                               Content="Copy"
                               Command="{Binding DuplicateSelectionCommand}" />
                     </Grid>
@@ -1682,6 +2212,10 @@
                                            Text="{Binding Name}" />
                                 <TextBlock Classes="micro-label"
                                            Text="{Binding Subtitle}" />
+                                <TextBlock Classes="micro-label"
+                                           IsVisible="{Binding HasShapeAuthoringSummary}"
+                                           Text="{Binding ShapeAuthoringSummary}"
+                                           TextWrapping="Wrap" />
                                 <TextBlock Classes="micro-label"
                                            IsVisible="{Binding HasLibraryLink}"
                                            Text="{Binding LibraryLinkLabel}" />
@@ -2060,6 +2594,101 @@
                         </DataTemplate>
                       </ListBox.ItemTemplate>
                     </ListBox>
+
+                    <Border Classes="panel-soft"
+                            IsEnabled="{Binding CanEditSelectedComponentParameters}">
+                      <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="8">
+                          <StackPanel Spacing="4">
+                            <TextBlock Classes="eyebrow"
+                                       Text="Parameters" />
+                            <TextBlock Classes="section-title"
+                                       Text="Reusable component inputs" />
+                          </StackPanel>
+                          <Button Grid.Column="1"
+                                  Content="+ Param"
+                                  Command="{Binding AddComponentParameterCommand}"
+                                  IsEnabled="{Binding CanEditSelectedComponentParameters}" />
+                          <Button Grid.Column="2"
+                                  Content="Remove"
+                                  Classes="warm"
+                                  Command="{Binding RemoveSelectedComponentParameterCommand}"
+                                  IsEnabled="{Binding CanRemoveSelectedComponentParameter}" />
+                        </Grid>
+
+                        <TextBlock Classes="micro-label"
+                                   Text="{Binding SelectedComponentParameterSummary}"
+                                   TextWrapping="Wrap" />
+
+                        <ListBox ItemsSource="{Binding SelectedComponentParameters}"
+                                 MaxHeight="184"
+                                 SelectedItem="{Binding SelectedComponentParameter, Mode=TwoWay}">
+                          <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ComponentParameterDefinitionViewModel">
+                              <Border Classes="layer-row">
+                                <StackPanel Spacing="2">
+                                  <TextBlock Classes="strong-label"
+                                             Text="{Binding Name}" />
+                                  <TextBlock Classes="micro-label"
+                                             Text="{Binding Subtitle}" />
+                                  <TextBlock Classes="micro-label"
+                                             Text="{Binding DefaultValue}" />
+                                </StackPanel>
+                              </Border>
+                            </DataTemplate>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                          <StackPanel Spacing="6">
+                            <TextBlock Classes="micro-label"
+                                       Text="Parameter name" />
+                            <TextBox Text="{Binding ComponentParameterNameEditor, Mode=TwoWay}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1"
+                                      Spacing="6">
+                            <TextBlock Classes="micro-label"
+                                       Text="Kind" />
+                            <ComboBox ItemsSource="{Binding AvailableComponentParameterKinds}"
+                                      SelectedItem="{Binding ComponentParameterKindEditor, Mode=TwoWay}" />
+                          </StackPanel>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                          <StackPanel Spacing="6">
+                            <TextBlock Classes="micro-label"
+                                       Text="Target" />
+                            <ComboBox ItemsSource="{Binding AvailableComponentParameterBindingTargets}"
+                                      SelectedItem="{Binding ComponentParameterBindingTargetEditor, Mode=TwoWay}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1"
+                                      Spacing="6">
+                            <TextBlock Classes="micro-label"
+                                       Text="Target layer" />
+                            <TextBox Watermark="Optional named layer"
+                                     Text="{Binding ComponentParameterTargetLayerNameEditor, Mode=TwoWay}" />
+                          </StackPanel>
+                        </Grid>
+
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="micro-label"
+                                     Text="Default value" />
+                          <TextBox Text="{Binding ComponentParameterDefaultValueEditor, Mode=TwoWay}" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="micro-label"
+                                     Text="Description" />
+                          <TextBox AcceptsReturn="True"
+                                   Height="68"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding ComponentParameterDescriptionEditor, Mode=TwoWay}" />
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
                   </StackPanel>
                 </Border>
 
@@ -2278,6 +2907,7 @@
                                                                           PreviewText="{Binding AnimationExchangePreviewCode}"
                                                                           PreviewDocument="{Binding AnimationExchangePreviewDocument}"
                                                                           PreviewTime="{Binding CurrentTime}"
+                                                                          RenderingEngine="{Binding SelectedRenderingEngine}"
                                                                           PreviewSummary="{Binding AnimationExchangePreviewVisualSummary}" />
                         </StackPanel>
                       </Border>
@@ -2519,7 +3149,7 @@
         </Grid.RowDefinitions>
         <Border Classes="panel"
                 Padding="5">
-          <Grid RowDefinitions="Auto,*"
+          <Grid RowDefinitions="Auto,Auto,*"
                 RowSpacing="4">
             <Border Classes="chrome-group"
                     Padding="4,3"
@@ -2550,28 +3180,183 @@
                             IsChecked="{Binding SnapToGrid, Mode=TwoWay}" />
                   <CheckBox Content="Onion"
                             IsChecked="{Binding OnionSkinEnabled, Mode=TwoWay}" />
-                  <Button Classes="toolbar"
-                          Content="Fit"
-                          Click="CanvasFitClick" />
-                  <Button Classes="toolbar"
-                          Content="1:1"
-                          Click="CanvasActualSizeClick" />
                 </StackPanel>
 
-                <Border Grid.Column="2"
-                        Classes="metric-chip"
-                        Padding="7,4">
-                  <StackPanel Spacing="1">
-                    <TextBlock Classes="eyebrow"
-                               Text="Stage" />
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="6">
+                  <Border Classes="metric-chip"
+                          Padding="7,4">
+                    <StackPanel Spacing="1">
+                      <TextBlock Classes="eyebrow"
+                                 Text="Stage" />
+                      <TextBlock Classes="strong-label"
+                                 Text="{Binding CanvasSizeLabel}" />
+                    </StackPanel>
+                  </Border>
+                  <Border Classes="metric-chip compact">
                     <TextBlock Classes="strong-label"
-                               Text="{Binding CanvasSizeLabel}" />
-                  </StackPanel>
-                </Border>
+                               Text="{Binding CanvasViewRotationLabel}" />
+                  </Border>
+                </StackPanel>
               </Grid>
             </Border>
 
-            <Border Grid.Row="1"
+            <ScrollViewer Grid.Row="1"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8">
+                <Border Classes="panel-soft"
+                        Padding="8,6"
+                        IsVisible="{Binding CanUseShapeQuickControls}">
+                  <Grid ColumnDefinitions="170,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                        ColumnSpacing="8">
+                    <ComboBox Width="170"
+                              ItemsSource="{Binding AvailableShapeDrawingModes}"
+                              SelectedItem="{Binding ShapeDrawingModeEditor, Mode=TwoWay}"
+                              IsEnabled="{Binding CanUseShapeQuickControls}" />
+                    <TextBox Grid.Column="1"
+                             Width="68"
+                             Watermark="TL"
+                             Text="{Binding CornerRadiusTopLeftEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsRectangleOptions}" />
+                    <TextBox Grid.Column="2"
+                             Width="68"
+                             Watermark="TR"
+                             Text="{Binding CornerRadiusTopRightEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsRectangleOptions}" />
+                    <TextBox Grid.Column="3"
+                             Width="68"
+                             Watermark="BR"
+                             Text="{Binding CornerRadiusBottomRightEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsRectangleOptions}" />
+                    <TextBox Grid.Column="4"
+                             Width="68"
+                             Watermark="BL"
+                             Text="{Binding CornerRadiusBottomLeftEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsRectangleOptions}" />
+                    <TextBox Grid.Column="5"
+                             Width="72"
+                             Watermark="Sides"
+                             Text="{Binding PolyStarSidesEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsPolyStarOptions}" />
+                    <TextBox Grid.Column="6"
+                             Width="90"
+                             Watermark="Inner"
+                             Text="{Binding PolyStarInnerRadiusEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsPolyStarOptions}" />
+                    <CheckBox Grid.Column="7"
+                              Content="Star"
+                              IsChecked="{Binding PolyStarIsStarEditor, Mode=TwoWay}"
+                              IsVisible="{Binding ShapeAuthoringShowsPolyStarOptions}" />
+                    <TextBox Grid.Column="8"
+                             Width="92"
+                             Watermark="Start"
+                             Text="{Binding EllipseStartAngleEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsEllipseOptions}" />
+                    <TextBox Grid.Column="9"
+                             Width="92"
+                             Watermark="Sweep"
+                             Text="{Binding EllipseSweepAngleEditor, Mode=TwoWay}"
+                             IsVisible="{Binding ShapeAuthoringShowsEllipseOptions}" />
+                  </Grid>
+                </Border>
+
+                <Border Classes="panel-soft"
+                        Padding="8,6">
+                  <Grid ColumnDefinitions="180,Auto,Auto,Auto"
+                        ColumnSpacing="8">
+                    <ComboBox Width="180"
+                              ItemsSource="{Binding MotionPresets}"
+                              SelectedItem="{Binding SelectedMotionPreset, Mode=TwoWay}"
+                              IsEnabled="{Binding CanEditPropertyTracks}" />
+                    <Button Grid.Column="1"
+                            Classes="toolbar compact"
+                            Content="Capture"
+                            Command="{Binding CaptureMotionPresetCommand}"
+                            IsEnabled="{Binding CanCaptureMotionPreset}" />
+                    <Button Grid.Column="2"
+                            Classes="toolbar compact"
+                            Content="Apply"
+                            Command="{Binding ApplySelectedMotionPresetCommand}"
+                            IsEnabled="{Binding CanApplySelectedMotionPreset}" />
+                    <Button Grid.Column="3"
+                            Classes="toolbar compact warm"
+                            Content="Delete"
+                            Command="{Binding DeleteSelectedMotionPresetCommand}"
+                            IsEnabled="{Binding CanDeleteSelectedMotionPreset}" />
+                  </Grid>
+                </Border>
+
+                <Border Classes="panel-soft"
+                        Padding="8,6">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding ToolOptionsSummary}"
+                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="8">
+                      <ComboBox Width="132"
+                                ItemsSource="{Binding AvailableZoomToolModes}"
+                                SelectedItem="{Binding ZoomToolModeEditor, Mode=TwoWay}"
+                                IsVisible="{Binding ShowZoomToolOptions}" />
+                      <Slider Width="140"
+                              Minimum="-180"
+                              Maximum="180"
+                              Value="{Binding CanvasViewRotation, Mode=TwoWay}"
+                              IsVisible="{Binding ShowRotateViewToolOptions}" />
+                      <Button Classes="toolbar compact"
+                              Content="Reset View"
+                              Command="{Binding ResetCanvasViewRotationCommand}"
+                              IsVisible="{Binding ShowRotateViewToolOptions}" />
+                      <ComboBox Width="132"
+                                ItemsSource="{Binding AvailableLassoToolModes}"
+                                SelectedItem="{Binding LassoToolModeEditor, Mode=TwoWay}"
+                                IsVisible="{Binding ShowLassoToolOptions}" />
+                      <CheckBox Content="Touch"
+                                IsChecked="{Binding LassoContactSensitiveSelection, Mode=TwoWay}"
+                                IsVisible="{Binding ShowLassoToolOptions}" />
+                      <ComboBox Width="132"
+                                ItemsSource="{Binding AvailablePencilToolModes}"
+                                SelectedItem="{Binding PencilToolModeEditor, Mode=TwoWay}"
+                                IsVisible="{Binding ShowPencilToolOptions}" />
+                      <ComboBox Width="124"
+                                ItemsSource="{Binding AvailablePaintBucketGapSizes}"
+                                SelectedItem="{Binding PaintBucketGapSizeEditor, Mode=TwoWay}"
+                                IsVisible="{Binding ShowPaintBucketToolOptions}" />
+                      <CheckBox Content="Lock Fill"
+                                IsChecked="{Binding PaintBucketLockFillEditor, Mode=TwoWay}"
+                                IsVisible="{Binding ShowPaintBucketToolOptions}" />
+                      <ComboBox Width="136"
+                                ItemsSource="{Binding AvailableVectorStrokeProfiles}"
+                                SelectedItem="{Binding VectorStrokeProfilePresetEditor, Mode=TwoWay}"
+                                IsVisible="{Binding ShowStrokeProfileToolOptions}" />
+                      <Slider Width="112"
+                              Minimum="0.2"
+                              Maximum="1.6"
+                              Value="{Binding VectorStrokeProfileStrengthEditor, Mode=TwoWay}"
+                              IsVisible="{Binding ShowStrokeProfileToolOptions}" />
+                      <Button Classes="toolbar compact"
+                              Content="Apply Width"
+                              Command="{Binding ApplySelectedStrokeProfileCommand}"
+                              IsEnabled="{Binding CanApplySelectedStrokeProfile}"
+                              IsVisible="{Binding ShowStrokeProfileToolOptions}" />
+                      <ComboBox Width="132"
+                                ItemsSource="{Binding AvailableEraserToolModes}"
+                                SelectedItem="{Binding EraserToolModeEditor, Mode=TwoWay}"
+                                IsVisible="{Binding ShowEraserToolOptions}" />
+                      <TextBox Width="72"
+                               Watermark="Radius"
+                               Text="{Binding EraserSizeEditor, Mode=TwoWay}"
+                               IsVisible="{Binding ShowEraserToolOptions}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2"
                     Classes="stage-workspace"
                     Padding="5">
               <Grid RowDefinitions="Auto,*"
@@ -2703,48 +3488,54 @@
                                                Document="{Binding Document}"
                                                Layers="{Binding Layers}"
                                                SelectedLayer="{Binding SelectedLayer}"
+                                               RenderingEngine="{Binding SelectedRenderingEngine}"
                                                CanvasZoom="{Binding CanvasZoom}"
+                                               CanvasViewRotation="{Binding CanvasViewRotation, Mode=TwoWay}"
                                                DrawingTool="{Binding SelectedDrawingTool}"
+                                               ZoomToolMode="{Binding ZoomToolModeEditor}"
+                                               LassoToolMode="{Binding LassoToolModeEditor}"
+                                               LassoContactSensitive="{Binding LassoContactSensitiveSelection}"
+                                               PencilToolMode="{Binding PencilToolModeEditor}"
+                                               EraserToolMode="{Binding EraserToolModeEditor}"
+                                               EraserSize="{Binding EraserSizeEditor}"
                                                CurrentTime="{Binding CurrentTime}"
                                                FrameRate="{Binding SceneFrameRate}"
                                                TotalFrames="{Binding TotalFrames}"
+                                               SelectedPathPointIndex="{Binding SelectedPathPointIndexEditor}"
                                                Duration="{Binding Duration}"
                                                SnapToGrid="{Binding SnapToGrid}"
                                                OnionSkinEnabled="{Binding OnionSkinEnabled}"
                                                OnionSkinBefore="{Binding OnionSkinBefore}"
                                                OnionSkinAfter="{Binding OnionSkinAfter}"
+                                               OnionSkinKeyframesOnly="{Binding OnionSkinKeyframesOnly}"
+                                               OnionSkinBaseOpacity="{Binding OnionSkinBaseOpacity}"
+                                               OnionSkinOpacityFalloff="{Binding OnionSkinOpacityFalloff}"
+                                               CornerRadiusTopLeft="{Binding CornerRadiusTopLeftEditor}"
+                                               CornerRadiusTopRight="{Binding CornerRadiusTopRightEditor}"
+                                               CornerRadiusBottomRight="{Binding CornerRadiusBottomRightEditor}"
+                                               CornerRadiusBottomLeft="{Binding CornerRadiusBottomLeftEditor}"
+                                               EllipseStartAngle="{Binding EllipseStartAngleEditor}"
+                                               EllipseSweepAngle="{Binding EllipseSweepAngleEditor}"
+                                               PolyStarSides="{Binding PolyStarSidesEditor}"
+                                               PolyStarInnerRadius="{Binding PolyStarInnerRadiusEditor}"
+                                               PolyStarIsStar="{Binding PolyStarIsStarEditor}"
                                                PrototypeMode="{Binding IsPrototypeMode}"
                                                CanResizeCanvas="{Binding CanEditCanvasProperties}"
                                                DocumentWidth="{Binding CanvasWidth}"
                                                DocumentHeight="{Binding CanvasHeight}"
-                                               BackgroundFrom="{Binding BackgroundFrom}"
-                                               BackgroundTo="{Binding BackgroundTo}" />
+                                               StageBackgroundColor="{Binding BackgroundFrom}"
+                                               TransparentStageBackground="{Binding TransparentStageBackground}"
+                                               PasteboardColor="{Binding PasteboardColor}"
+                                               MatchPasteboardToStageColor="{Binding MatchPasteboardToStageColor}" />
 
-                  <Border Classes="canvas-overlay"
-                          HorizontalAlignment="Right"
-                          VerticalAlignment="Bottom"
-                          Margin="0,0,10,10">
-                    <Grid ColumnDefinitions="Auto,Auto,Auto,180"
-                          ColumnSpacing="8">
-                      <Button Content="Fit"
-                              Classes="toolbar"
-                              Click="CanvasFitClick" />
-                      <Button Grid.Column="1"
-                              Content="1:1"
-                              Classes="toolbar"
-                              Click="CanvasActualSizeClick" />
-                      <Border Grid.Column="2"
-                              Classes="metric-chip compact">
-                        <TextBlock Classes="strong-label"
-                                   Text="{Binding CanvasZoomLabel}" />
-                      </Border>
-                      <Slider Grid.Column="3"
-                              Minimum="0.25"
-                              Maximum="8"
-                              VerticalAlignment="Center"
-                              Value="{Binding CanvasZoom, Mode=TwoWay}" />
-                    </Grid>
-                  </Border>
+                  <controls:StageZoomOverlayControl x:Name="ClassicStageZoomOverlay"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Bottom"
+                                                    Margin="0,0,10,10"
+                                                    Zoom="{Binding CanvasZoom, Mode=TwoWay}"
+                                                    ZoomLabel="{Binding CanvasZoomLabel}"
+                                                    Minimum="0.25"
+                                                    Maximum="8" />
                 </Grid>
               </Grid>
             </Border>
@@ -3151,24 +3942,62 @@
                           Padding="0"
                           MinHeight="280">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled"
                                   MinHeight="280">
-                      <controls:FrameTimelineControl x:Name="FrameTimeline"
-                                                     Width="{Binding FrameTimelineSurfaceWidth}"
-                                                     Height="{Binding FrameTimelineSurfaceHeight}"
-                                                     Rows="{Binding FrameRows}"
-                                                     Labels="{Binding SceneFrameLabels}"
-                                                     Markers="{Binding SceneMarkers}"
-                                                     CurrentFrame="{Binding CurrentFrame}"
-                                                     TotalFrames="{Binding TotalFrames}"
-                                                     PixelsPerFrame="{Binding FrameTimelineZoom}"
-                                                     SelectedLayerId="{Binding SelectedLayerId}"
-                                                     SelectionStartFrame="{Binding SelectionStartFrame}"
-                                                     SelectionEndFrame="{Binding SelectionEndFrame}"
-                                                     InFrame="{Binding CurrentSceneInFrame}"
-                                                     OutFrame="{Binding CurrentSceneOutFrame}"
-                                                     WorkAreaStartFrame="{Binding CurrentSceneWorkAreaStartFrame}"
-                                                     WorkAreaEndFrame="{Binding CurrentSceneWorkAreaEndFrame}" />
+                      <Grid RowDefinitions="Auto,*">
+                        <controls:FrameTimelineControl x:Name="FrameTimelineHeader"
+                                                       Width="{Binding FrameTimelineSurfaceWidth}"
+                                                       Height="64"
+                                                       Rows="{Binding FrameRows}"
+                                                       Labels="{Binding SceneFrameLabels}"
+                                                       Markers="{Binding SceneMarkers}"
+                                                       CurrentFrame="{Binding CurrentFrame}"
+                                                       TotalFrames="{Binding TotalFrames}"
+                                                       FrameRate="{Binding SceneFrameRate}"
+                                                       PixelsPerFrame="{Binding FrameTimelineZoom}"
+                                                       SelectedLayerId="{Binding SelectedLayerId}"
+                                                       SelectionStartFrame="{Binding SelectionStartFrame}"
+                                                       SelectionEndFrame="{Binding SelectionEndFrame}"
+                                                       InFrame="{Binding CurrentSceneInFrame}"
+                                                       OutFrame="{Binding CurrentSceneOutFrame}"
+                                                       WorkAreaStartFrame="{Binding CurrentSceneWorkAreaStartFrame}"
+                                                       WorkAreaEndFrame="{Binding CurrentSceneWorkAreaEndFrame}"
+                                                       OnionSkinEnabled="{Binding OnionSkinEnabled}"
+                                                       OnionSkinBefore="{Binding OnionSkinBefore}"
+                                                       OnionSkinAfter="{Binding OnionSkinAfter}"
+                                                       EditMultipleFramesEnabled="{Binding EditMultipleFramesEnabled}"
+                                                       ShowHeader="True"
+                                                       ShowBody="False" />
+
+                        <ScrollViewer Grid.Row="1"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      MinHeight="238">
+                          <controls:FrameTimelineControl x:Name="FrameTimelineBody"
+                                                         Width="{Binding FrameTimelineSurfaceWidth}"
+                                                         Height="{Binding FrameTimelineSurfaceBodyHeight}"
+                                                         Rows="{Binding FrameRows}"
+                                                         Labels="{Binding SceneFrameLabels}"
+                                                         Markers="{Binding SceneMarkers}"
+                                                         CurrentFrame="{Binding CurrentFrame}"
+                                                         TotalFrames="{Binding TotalFrames}"
+                                                         FrameRate="{Binding SceneFrameRate}"
+                                                         PixelsPerFrame="{Binding FrameTimelineZoom}"
+                                                         SelectedLayerId="{Binding SelectedLayerId}"
+                                                         SelectionStartFrame="{Binding SelectionStartFrame}"
+                                                         SelectionEndFrame="{Binding SelectionEndFrame}"
+                                                         InFrame="{Binding CurrentSceneInFrame}"
+                                                         OutFrame="{Binding CurrentSceneOutFrame}"
+                                                         WorkAreaStartFrame="{Binding CurrentSceneWorkAreaStartFrame}"
+                                                         WorkAreaEndFrame="{Binding CurrentSceneWorkAreaEndFrame}"
+                                                         OnionSkinEnabled="{Binding OnionSkinEnabled}"
+                                                         OnionSkinBefore="{Binding OnionSkinBefore}"
+                                                         OnionSkinAfter="{Binding OnionSkinAfter}"
+                                                         EditMultipleFramesEnabled="{Binding EditMultipleFramesEnabled}"
+                                                         ShowHeader="False"
+                                                         ShowBody="True" />
+                        </ScrollViewer>
+                      </Grid>
                     </ScrollViewer>
                   </Border>
                 </Grid>
@@ -3217,17 +4046,40 @@
                           Padding="0"
                           MinHeight="300">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled"
                                   MinHeight="300">
-                      <controls:TimelineEditorControl x:Name="TimelineEditor"
-                                                      Width="{Binding TimelineSurfaceWidth}"
-                                                      Height="{Binding TimelineSurfaceHeight}"
-                                                      Rows="{Binding TimelineRows}"
-                                                      CurrentTime="{Binding CurrentTime}"
-                                                      Duration="{Binding Duration}"
-                                                      SelectedProperty="{Binding SelectedProperty}"
-                                                      SelectedKeyframeId="{Binding SelectedKeyframeId}"
-                                                      PixelsPerSecond="{Binding TimelineZoom}" />
+                      <Grid RowDefinitions="Auto,*">
+                        <controls:TimelineEditorControl x:Name="TimelineEditorHeader"
+                                                        Width="{Binding TimelineSurfaceWidth}"
+                                                        Height="52"
+                                                        Rows="{Binding TimelineRows}"
+                                                        CurrentTime="{Binding CurrentTime}"
+                                                        Duration="{Binding Duration}"
+                                                        FrameRate="{Binding SceneFrameRate}"
+                                                        SelectedProperty="{Binding SelectedProperty}"
+                                                        SelectedKeyframeId="{Binding SelectedKeyframeId}"
+                                                        PixelsPerSecond="{Binding TimelineZoom}"
+                                                        ShowHeader="True"
+                                                        ShowBody="False" />
+
+                        <ScrollViewer Grid.Row="1"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      MinHeight="262">
+                          <controls:TimelineEditorControl x:Name="TimelineEditorBody"
+                                                          Width="{Binding TimelineSurfaceWidth}"
+                                                          Height="{Binding TimelineSurfaceBodyHeight}"
+                                                          Rows="{Binding TimelineRows}"
+                                                          CurrentTime="{Binding CurrentTime}"
+                                                          Duration="{Binding Duration}"
+                                                          FrameRate="{Binding SceneFrameRate}"
+                                                          SelectedProperty="{Binding SelectedProperty}"
+                                                          SelectedKeyframeId="{Binding SelectedKeyframeId}"
+                                                          PixelsPerSecond="{Binding TimelineZoom}"
+                                                          ShowHeader="False"
+                                                          ShowBody="True" />
+                        </ScrollViewer>
+                      </Grid>
                     </ScrollViewer>
                   </Border>
                 </Grid>
@@ -3332,9 +4184,15 @@
               <TextBlock Classes="section-title"
                          Text="{Binding SelectionHeadline}" />
               <Border Classes="panel-soft">
-                <TextBlock Classes="micro-label"
-                           Text="{Binding SelectedLayerStateLabel}"
-                           TextWrapping="Wrap" />
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding SelectedLayerStateLabel}"
+                             TextWrapping="Wrap" />
+                  <TextBlock Classes="micro-label"
+                             IsVisible="{Binding CanEditShapeAuthoring}"
+                             Text="{Binding ShapeAuthoringSummary}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
               </Border>
 
               <Border Classes="panel-soft"
@@ -3394,21 +4252,151 @@
                         ColumnSpacing="10">
                     <StackPanel Spacing="6">
                       <TextBlock Classes="micro-label"
-                                 Text="Background from" />
-                      <TextBox Text="{Binding BackgroundFrom, Mode=TwoWay}" />
+                                 Text="Stage color" />
+                      <controls:ColorPropertyEditorControl Value="{Binding BackgroundFrom, Mode=TwoWay}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1"
                                 Spacing="6">
                       <TextBlock Classes="micro-label"
-                                 Text="Background to" />
-                      <TextBox Text="{Binding BackgroundTo, Mode=TwoWay}" />
+                                 Text="Pasteboard" />
+                      <controls:ColorPropertyEditorControl Value="{Binding PasteboardColor, Mode=TwoWay}" />
                     </StackPanel>
                   </Grid>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <CheckBox Content="No color"
+                              IsChecked="{Binding TransparentStageBackground, Mode=TwoWay}" />
+                    <CheckBox Grid.Column="1"
+                              Content="Match pasteboard to stage"
+                              IsChecked="{Binding MatchPasteboardToStageColor, Mode=TwoWay}" />
+                  </Grid>
+              <TextBlock Classes="micro-label"
+                         Text="{Binding CanvasBackgroundSummary}"
+                         TextWrapping="Wrap" />
+              <Border Classes="panel-soft">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow"
+                             Text="Rendering" />
                   <TextBlock Classes="micro-label"
-                             Text="{Binding CanvasBackgroundSummary}"
+                             Text="{Binding RenderingEngineSummary}"
+                             TextWrapping="Wrap" />
+                  <ComboBox ItemsSource="{Binding AvailableRenderingEngines}"
+                            SelectedItem="{Binding SelectedRenderingEngine, Mode=TwoWay}" />
+                </StackPanel>
+              </Border>
+              <Border Classes="panel-soft">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow"
+                             Text="Animate Target" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding AnimateDocumentSummary}"
+                             TextWrapping="Wrap" />
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Document type" />
+                      <ComboBox ItemsSource="{Binding AvailableAnimateDocumentTypes}"
+                                SelectedItem="{Binding AnimateDocumentTypeEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Units" />
+                      <ComboBox ItemsSource="{Binding AvailableAnimateDocumentUnits}"
+                                SelectedItem="{Binding AnimateDocumentUnitsEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <CheckBox Content="Responsive"
+                              IsChecked="{Binding AnimateDocumentResponsiveEditor, Mode=TwoWay}" />
+                    <CheckBox Grid.Column="1"
+                              Content="External script"
+                              IsChecked="{Binding AnimateDocumentExternalScriptEditor, Mode=TwoWay}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <CheckBox Content="Web fonts"
+                              IsChecked="{Binding AnimateDocumentWebFontsEditor, Mode=TwoWay}" />
+                    <CheckBox Grid.Column="1"
+                              Content="Advanced layers"
+                              IsChecked="{Binding AnimateDocumentAdvancedLayersEditor, Mode=TwoWay}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <CheckBox Content="Enable 3D transforms"
+                              IsChecked="{Binding AnimateDocumentEnable3DEditor, Mode=TwoWay}" />
+                    <StackPanel Grid.Column="1"
+                                Spacing="6"
+                                IsEnabled="{Binding AnimateDocumentEnable3DEditor}">
+                      <TextBlock Classes="micro-label"
+                                 Text="Perspective angle" />
+                      <TextBox Text="{Binding AnimateDocumentPerspectiveAngleEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10"
+                        IsEnabled="{Binding AnimateDocumentEnable3DEditor}">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Vanishing X" />
+                      <TextBox Text="{Binding AnimateDocumentVanishingPointXEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Vanishing Y" />
+                      <TextBox Text="{Binding AnimateDocumentVanishingPointYEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Template" />
+                    <TextBox Text="{Binding AnimateDocumentTemplateNameEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10">
+                    <TextBlock Classes="micro-label"
+                               Text="{Binding AnimateDocumentCompatibilitySummary}"
+                               TextWrapping="Wrap" />
+                    <Button Grid.Column="1"
+                            Content="{Binding AnimateDocumentConvertButtonLabel}"
+                            Command="{Binding ApplyAnimateDocumentTargetDefaultsCommand}" />
+                  </Grid>
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding AnimateDocumentConversionSummary}"
+                             TextWrapping="Wrap" />
+                  <Border Classes="panel-soft"
+                          IsVisible="{Binding HasAnimateDocumentCompatibilityIssues}">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="eyebrow"
+                                 Text="Compatibility Review" />
+                      <ItemsControl ItemsSource="{Binding AnimateDocumentCompatibilityIssues}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="models:PublishValidationIssue">
+                            <Border Classes="panel-soft"
+                                    Padding="8,6">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="eyebrow"
+                                           Text="{Binding Source}" />
+                                <TextBlock Classes="micro-label"
+                                           Text="{Binding Message}"
+                                           TextWrapping="Wrap" />
+                              </StackPanel>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding AnimateDocumentOptionsSummary}"
                              TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
+            </StackPanel>
+          </Border>
 
               <Border Classes="panel-soft"
                       IsVisible="{Binding SelectedLayerIsSymbolInstance}">
@@ -3456,9 +4444,52 @@
                                 IsVisible="{Binding LayerCacheAsBitmapEditor}">
                       <TextBlock Classes="micro-label"
                                  Text="Cache background" />
-                      <TextBox Text="{Binding LayerBitmapCacheBackgroundEditor, Mode=TwoWay}" />
+                      <controls:ColorPropertyEditorControl Value="{Binding LayerBitmapCacheBackgroundEditor, Mode=TwoWay}" />
                     </StackPanel>
                   </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel-soft"
+                      IsVisible="{Binding SelectedLayerIsComponentInstance}">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow"
+                             Text="Component Instance" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding SelectedComponentOverrideSummary}"
+                             TextWrapping="Wrap" />
+                  <ListBox ItemsSource="{Binding SelectedComponentOverrideItems}"
+                           MaxHeight="184"
+                           SelectedItem="{Binding SelectedComponentOverrideItem, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ComponentParameterOverrideViewModel">
+                        <Border Classes="layer-row">
+                          <StackPanel Spacing="2">
+                            <TextBlock Classes="strong-label"
+                                       Text="{Binding Name}" />
+                            <TextBlock Classes="micro-label"
+                                       Text="{Binding Subtitle}" />
+                            <TextBlock Classes="micro-label"
+                                       Text="{Binding Value}" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10"
+                        IsEnabled="{Binding CanEditSelectedComponentOverrides}">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Override value" />
+                      <TextBox Text="{Binding ComponentOverrideValueEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            Content="Reset"
+                            Command="{Binding ResetSelectedComponentOverrideCommand}"
+                            IsEnabled="{Binding CanResetSelectedComponentOverride}" />
+                  </Grid>
                 </StackPanel>
               </Border>
 
@@ -3472,7 +4503,7 @@
 
                 <Grid ColumnDefinitions="*,*"
                       ColumnSpacing="10"
-                      RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                   <StackPanel Spacing="6">
                     <TextBlock Classes="micro-label"
                                Text="X" />
@@ -3530,6 +4561,26 @@
                     <TextBox Text="{Binding InspectorRotation, Mode=TwoWay}" />
                   </StackPanel>
                   <StackPanel Grid.Row="4"
+                              Grid.Column="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Rotation X" />
+                    <TextBox Text="{Binding InspectorRotationX, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="5"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Rotation Y" />
+                    <TextBox Text="{Binding InspectorRotationY, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="5"
+                              Grid.Column="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Z depth" />
+                    <TextBox Text="{Binding InspectorZDepth, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="6"
                               Grid.Column="1"
                               Spacing="6"
                               IsVisible="{Binding SelectedLayerSupportsCornerRadius}">
@@ -3673,6 +4724,116 @@
                 </StackPanel>
               </Border>
               <Border Classes="panel-soft"
+                      IsVisible="{Binding CanEditTransformParenting}">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow"
+                             Text="Transform parenting" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding TransformParentingSummary}"
+                             TextWrapping="Wrap" />
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Parent layer" />
+                      <ComboBox ItemsSource="{Binding AvailableTransformParentLayers}"
+                                SelectedItem="{Binding SelectedTransformParentLayer, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:LayerViewModel">
+                            <TextBlock Text="{Binding Name}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            Content="Clear"
+                            Command="{Binding ClearTransformParentCommand}"
+                            IsEnabled="{Binding HasTransformParent}" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+              <Border Classes="panel-soft"
+                      IsVisible="{Binding CanEditWarpRigging}">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="eyebrow"
+                             Text="Warp and rig" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding WarpRigSummary}"
+                             TextWrapping="Wrap" />
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <CheckBox Content="Enable warp"
+                              IsChecked="{Binding WarpEnabledEditor, Mode=TwoWay}" />
+                    <CheckBox Grid.Column="1"
+                              Content="Enable rig"
+                              IsChecked="{Binding RigEnabledEditor, Mode=TwoWay}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Mesh columns" />
+                      <TextBox Text="{Binding WarpMeshColumnsEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Mesh rows" />
+                      <TextBox Text="{Binding WarpMeshRowsEditor, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <Button Content="Default Pins"
+                            Command="{Binding EnsureDefaultWarpPinsCommand}" />
+                    <Button Grid.Column="1"
+                            Content="Default Rig"
+                            Command="{Binding EnsureDefaultRigCommand}" />
+                  </Grid>
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Pose name" />
+                    <TextBox Text="{Binding RigPoseNameEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                  <Grid ColumnDefinitions="*,Auto,Auto"
+                        ColumnSpacing="10">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="micro-label"
+                                 Text="Saved pose" />
+                      <ComboBox ItemsSource="{Binding RigPoses}"
+                                SelectedItem="{Binding SelectedRigPose, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:RigPoseViewModel">
+                            <TextBlock Text="{Binding Summary}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            Content="Apply"
+                            Command="{Binding ApplySelectedRigPoseCommand}"
+                            IsEnabled="{Binding CanApplySelectedRigPose}" />
+                    <Button Grid.Column="2"
+                            VerticalAlignment="Bottom"
+                            Content="Delete"
+                            Classes="warm"
+                            Command="{Binding DeleteSelectedRigPoseCommand}"
+                            IsEnabled="{Binding CanDeleteSelectedRigPose}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10">
+                    <TextBlock Classes="micro-label"
+                               VerticalAlignment="Center"
+                               Text="{Binding SelectedRigPoseSummary}" />
+                    <Button Grid.Column="1"
+                            Content="Capture Pose"
+                            Command="{Binding CaptureRigPoseCommand}" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+              <Border Classes="panel-soft"
                       IsEnabled="{Binding CanEditSelection}">
                 <StackPanel Spacing="8">
                   <TextBlock Classes="eyebrow"
@@ -3685,7 +4846,7 @@
                   <StackPanel Spacing="6">
                     <TextBlock Classes="micro-label"
                                Text="Outline color" />
-                    <TextBox Text="{Binding LayerOutlineColorEditor, Mode=TwoWay}" />
+                    <controls:ColorPropertyEditorControl Value="{Binding LayerOutlineColorEditor, Mode=TwoWay}" />
                   </StackPanel>
                 </StackPanel>
               </Border>
@@ -3703,13 +4864,13 @@
               <StackPanel Spacing="6">
                 <TextBlock Classes="micro-label"
                            Text="Fill" />
-                <TextBox Text="{Binding FillHexEditor, Mode=TwoWay}" />
+                <controls:ColorPropertyEditorControl Value="{Binding FillHexEditor, Mode=TwoWay}" />
               </StackPanel>
 
               <StackPanel Spacing="6">
                 <TextBlock Classes="micro-label"
                            Text="Stroke" />
-                <TextBox Text="{Binding StrokeHexEditor, Mode=TwoWay}" />
+                <controls:ColorPropertyEditorControl Value="{Binding StrokeHexEditor, Mode=TwoWay}" />
               </StackPanel>
 
               <UniformGrid Columns="4"
@@ -3847,23 +5008,97 @@
                 <StackPanel Spacing="6">
                   <TextBlock Classes="micro-label"
                              Text="Gradient from" />
-                  <TextBox Text="{Binding GradientFromEditor, Mode=TwoWay}" />
+                  <controls:ColorPropertyEditorControl Value="{Binding GradientFromEditor, Mode=TwoWay}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1"
                             Spacing="6">
                   <TextBlock Classes="micro-label"
                              Text="Gradient to" />
-                  <TextBox Text="{Binding GradientToEditor, Mode=TwoWay}" />
+                  <controls:ColorPropertyEditorControl Value="{Binding GradientToEditor, Mode=TwoWay}" />
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,*"
+                    ColumnSpacing="10"
+                    RowDefinitions="Auto,Auto"
+                    IsVisible="{Binding CanEditGradientTransform}">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Gradient center X" />
+                  <TextBox Text="{Binding GradientCenterXEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Gradient center Y" />
+                  <TextBox Text="{Binding GradientCenterYEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Gradient scale X" />
+                  <TextBox Text="{Binding GradientScaleXEditor, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1"
+                            Grid.Column="1"
+                            Spacing="6">
+                  <TextBlock Classes="micro-label"
+                             Text="Gradient scale Y" />
+                  <TextBox Text="{Binding GradientScaleYEditor, Mode=TwoWay}" />
                 </StackPanel>
               </Grid>
 
               <StackPanel Spacing="6"
                           IsVisible="{Binding SelectedLayerIsPath}">
+                <TextBlock Classes="micro-label"
+                           Text="{Binding SelectedPathPointSummary}"
+                           TextWrapping="Wrap" />
                 <CheckBox Content="Close path"
                           IsChecked="{Binding PathClosedEditor, Mode=TwoWay}" />
                 <TextBlock Classes="micro-label"
                            IsVisible="{Binding CanEditPathPoints}"
-                           Text="Drag vector points directly on the stage to reshape the selected path." />
+                           Text="Drag vector anchors and bezier handles directly on the stage to reshape the selected path." />
+                <Grid ColumnDefinitions="*,*"
+                      ColumnSpacing="10"
+                      IsVisible="{Binding HasSelectedPathPoint}">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Handle mode" />
+                    <ComboBox ItemsSource="{Binding AvailableVectorHandleModes}"
+                              SelectedItem="{Binding SelectedPathPointHandleModeEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1"
+                              Spacing="6">
+                    <TextBlock Classes="micro-label"
+                               Text="Point width" />
+                    <TextBox Text="{Binding SelectedPathPointWidthScaleEditor, Mode=TwoWay}" />
+                  </StackPanel>
+                </Grid>
+                <WrapPanel ItemWidth="132"
+                           Orientation="Horizontal">
+                  <Button Content="Insert Point"
+                          Command="{Binding InsertPathPointAfterSelectedCommand}"
+                          IsEnabled="{Binding CanInsertPathPointAfterSelected}" />
+                  <Button Content="Delete Point"
+                          Classes="warm"
+                          Command="{Binding DeleteSelectedPathPointCommand}"
+                          IsEnabled="{Binding CanDeleteSelectedPathPoint}" />
+                  <Button Content="Reverse Path"
+                          Command="{Binding ReverseSelectedPathCommand}"
+                          IsEnabled="{Binding CanReverseSelectedPath}" />
+                  <Button Content="Smooth"
+                          Command="{Binding SmoothSelectedPathCommand}"
+                          IsEnabled="{Binding CanOptimizeSelectedPath}" />
+                  <Button Content="Straighten"
+                          Command="{Binding StraightenSelectedPathCommand}"
+                          IsEnabled="{Binding CanOptimizeSelectedPath}" />
+                  <Button Content="Optimize"
+                          Command="{Binding OptimizeSelectedPathCommand}"
+                          IsEnabled="{Binding CanOptimizeSelectedPath}" />
+                  <Button Content="Apply Width Profile"
+                          Command="{Binding ApplySelectedStrokeProfileCommand}"
+                          IsEnabled="{Binding CanApplySelectedStrokeProfile}" />
+                </WrapPanel>
               </StackPanel>
 
               <StackPanel IsVisible="{Binding SelectedLayerIsText}"
@@ -4085,7 +5320,7 @@
                 <StackPanel Spacing="6">
                   <TextBlock Classes="micro-label"
                              Text="Tint color" />
-                  <TextBox Text="{Binding LayerTintColorEditor, Mode=TwoWay}" />
+                  <controls:ColorPropertyEditorControl Value="{Binding LayerTintColorEditor, Mode=TwoWay}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1"
                             Spacing="6">
@@ -4123,7 +5358,7 @@
                     <StackPanel Spacing="6">
                       <TextBlock Classes="micro-label"
                                  Text="Tint color" />
-                      <TextBox Text="{Binding LayerFlashTintColorEditor, Mode=TwoWay}" />
+                      <controls:ColorPropertyEditorControl Value="{Binding LayerFlashTintColorEditor, Mode=TwoWay}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1"
                                 Spacing="6">
@@ -4221,7 +5456,7 @@
                     <StackPanel Spacing="6">
                       <TextBlock Classes="micro-label"
                                  Text="Color" />
-                      <TextBox Text="{Binding LayerGlowColorEditor, Mode=TwoWay}" />
+                      <controls:ColorPropertyEditorControl Value="{Binding LayerGlowColorEditor, Mode=TwoWay}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1"
                                 Spacing="6">
@@ -4256,7 +5491,7 @@
                     <StackPanel Spacing="6">
                       <TextBlock Classes="micro-label"
                                  Text="Color" />
-                      <TextBox Text="{Binding LayerShadowColorEditor, Mode=TwoWay}" />
+                      <controls:ColorPropertyEditorControl Value="{Binding LayerShadowColorEditor, Mode=TwoWay}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1"
                                 Spacing="6">
@@ -4340,11 +5575,12 @@
                 <StackPanel Grid.Column="1"
                             Spacing="6">
                   <TextBlock Classes="micro-label"
-                             Text="Looping" />
-                  <CheckBox Content="Loop clip"
-                            IsChecked="{Binding MediaLoopEditor, Mode=TwoWay}" />
+                             Text="Repeat count" />
+                  <TextBox Text="{Binding MediaRepeatCountEditor, Mode=TwoWay}" />
                 </StackPanel>
               </Grid>
+              <CheckBox Content="Repeat forever"
+                        IsChecked="{Binding MediaRepeatForeverEditor, Mode=TwoWay}" />
 
               <StackPanel Spacing="6">
                 <Grid ColumnDefinitions="*,Auto"
@@ -4528,7 +5764,7 @@
                             Spacing="6">
                   <TextBlock Classes="micro-label"
                              Text="Color" />
-                  <TextBox Text="{Binding MarkerColorEditor, Mode=TwoWay}" />
+                  <controls:ColorPropertyEditorControl Value="{Binding MarkerColorEditor, Mode=TwoWay}" />
                   <Border Classes="panel-soft"
                           Padding="8,6">
                     <TextBlock Classes="micro-label"
@@ -4589,7 +5825,7 @@
                                 Spacing="6">
                       <TextBlock Classes="micro-label"
                                  Text="Accent color" />
-                      <TextBox Text="{Binding SceneTransitionAccentColorEditor, Mode=TwoWay}" />
+                      <controls:ColorPropertyEditorControl Value="{Binding SceneTransitionAccentColorEditor, Mode=TwoWay}" />
                     </StackPanel>
                   </Grid>
                 </StackPanel>
@@ -4794,6 +6030,43 @@
                            AcceptsReturn="True"
                            Height="148"
                            TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel-soft">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="eyebrow"
+                             Text="Code snippets" />
+                  <TextBlock Classes="micro-label"
+                             Text="{Binding SelectedActionScriptSnippetSummary}"
+                             TextWrapping="Wrap" />
+                  <ComboBox ItemsSource="{Binding ActionScriptSnippets}"
+                            SelectedItem="{Binding SelectedActionScriptSnippet, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ActionScriptSnippetViewModel">
+                        <StackPanel Spacing="2">
+                          <TextBlock Text="{Binding Name}" />
+                          <TextBlock Classes="micro-label"
+                                     Text="{Binding CategoryLabel}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBox Text="{Binding SelectedActionScriptSnippet.Script, Mode=OneWay}"
+                           AcceptsReturn="True"
+                           Height="96"
+                           IsReadOnly="True"
+                           TextWrapping="Wrap" />
+                  <Grid ColumnDefinitions="*,*"
+                        ColumnSpacing="10">
+                    <Button Content="Insert Into Frame"
+                            Command="{Binding InsertSelectedSnippetIntoFrameActionCommand}"
+                            IsEnabled="{Binding CanInsertActionScriptSnippetIntoFrame}" />
+                    <Button Grid.Column="1"
+                            Content="Insert Into Behavior"
+                            Command="{Binding InsertSelectedSnippetIntoBehaviorScriptCommand}"
+                            IsEnabled="{Binding CanInsertActionScriptSnippetIntoBehavior}" />
+                  </Grid>
                 </StackPanel>
               </Border>
 

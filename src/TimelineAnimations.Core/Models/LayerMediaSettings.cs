@@ -14,6 +14,10 @@ public sealed class LayerMediaSettings
 
     public bool Loop { get; set; }
 
+    public int RepeatCount { get; set; } = 1;
+
+    public bool RepeatForever { get; set; }
+
     public double Volume { get; set; } = 1d;
 
     public double GainDb { get; set; }
@@ -34,6 +38,8 @@ public sealed class LayerMediaSettings
             ClipOffset = ClipOffset,
             ClipDuration = ClipDuration,
             Loop = Loop,
+            RepeatCount = RepeatCount,
+            RepeatForever = RepeatForever,
             Volume = Volume,
             GainDb = GainDb,
             Pan = Pan,

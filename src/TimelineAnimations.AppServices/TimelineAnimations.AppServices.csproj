@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>TimelineAnimations.App</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TimelineAnimations.Core\TimelineAnimations.Core.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Interop\TimelineAnimations.Interop.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Rendering\TimelineAnimations.Rendering.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Rendering.Avalonia\TimelineAnimations.Rendering.Avalonia.csproj" />
+    <ProjectReference Include="..\TimelineAnimations.Rendering.SkiaSharp\TimelineAnimations.Rendering.SkiaSharp.csproj" />
+  </ItemGroup>
+
+</Project>
