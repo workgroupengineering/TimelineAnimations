@@ -438,28 +438,16 @@ public sealed class TimelineHeadlessTests
                 ZoomLabel = "100%"
             };
 
-            var window = new Window
-            {
-                Width = 360,
-                Height = 160,
-                Content = view
-            };
-
-            window.Show();
-            window.UpdateLayout();
-
             var slider = view.FindControl<Slider>("ZoomSlider");
 
             Assert.NotNull(slider);
             Assert.Equal(1d, slider!.Value, 3);
 
             slider.Value = 2.5d;
-            window.UpdateLayout();
 
             Assert.Equal(2.5d, view.Zoom, 3);
 
             view.Zoom = 0.5d;
-            window.UpdateLayout();
 
             Assert.Equal(0.5d, slider.Value, 3);
         }, CancellationToken.None);

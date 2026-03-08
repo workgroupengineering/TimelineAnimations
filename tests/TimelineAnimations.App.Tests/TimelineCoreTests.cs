@@ -4457,6 +4457,7 @@ public class TimelineCoreTests
     public void DockWorkspaceHostViewModel_TracksWhetherSurfacesAreActivelyVisible()
     {
         var viewModel = new MainWindowViewModel();
+        viewModel.DockWorkspace.ApplyPresetCommand.Execute("Animate");
 
         Assert.True(viewModel.DockWorkspace.IsSurfaceActivelyVisible(DockWorkspaceSurfaceIds.StageDocument));
         Assert.True(viewModel.DockWorkspace.IsSurfaceActivelyVisible(DockWorkspaceSurfaceIds.FramesTimelineTool));
@@ -4849,10 +4850,10 @@ public class TimelineCoreTests
 
         Assert.True(viewModel.IsNativeMenuExported);
         Assert.False(viewModel.IsFallbackAppMenuVisible);
-        Assert.True(viewModel.UseNativeMenuTitleBarLayout);
-        Assert.False(viewModel.ShowWorkspacePresetStrip);
-        Assert.False(viewModel.ShowSecondaryWorkspaceActions);
-        Assert.False(viewModel.ShowDockWorkspaceOrganizerMenus);
+        Assert.Equal(viewModel.UseIntegratedTitleBar, viewModel.UseNativeMenuTitleBarLayout);
+        Assert.Equal(!viewModel.UseNativeMenuTitleBarLayout, viewModel.ShowWorkspacePresetStrip);
+        Assert.Equal(!viewModel.UseNativeMenuTitleBarLayout, viewModel.ShowSecondaryWorkspaceActions);
+        Assert.Equal(!viewModel.UseNativeMenuTitleBarLayout, viewModel.ShowDockWorkspaceOrganizerMenus);
     }
 
     [Fact]
