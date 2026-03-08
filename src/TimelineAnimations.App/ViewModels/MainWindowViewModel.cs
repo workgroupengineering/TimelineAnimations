@@ -5046,6 +5046,13 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        var currentParentId = SelectedLayer.Model.TransformParenting.ParentLayerId;
+        var nextParentId = value?.Id;
+        if (currentParentId == nextParentId)
+        {
+            return;
+        }
+
         if (value is not null && !LayerParentingService.CanSetParent(_document.Layers, SelectedLayer.Id, value.Id))
         {
             return;
@@ -9488,7 +9495,6 @@ public partial class MainWindowViewModel : ViewModelBase
         targetLayer.Model.Style.GradientTo = GradientToEditor;
         if (preserveGradientTransform && targetLayer.Model.Style.UseGradient)
         {
-            targetLayer.Model.Style.GradientKind = previousGradientKind;
             targetLayer.Model.Style.GradientAngle = previousGradientAngle;
             targetLayer.Model.Style.GradientCenterX = previousGradientCenterX;
             targetLayer.Model.Style.GradientCenterY = previousGradientCenterY;

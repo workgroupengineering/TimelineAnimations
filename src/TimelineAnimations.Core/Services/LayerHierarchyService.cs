@@ -51,7 +51,7 @@ public static class LayerHierarchyService
             return [];
         }
 
-        var normalizedLayers = layers as List<TimelineLayer> ?? [.. layers];
+        var normalizedLayers = new List<TimelineLayer>(layers);
         normalizedLayers.Sort(static (left, right) => right.ZIndex.CompareTo(left.ZIndex));
         Normalize(normalizedLayers);
 
@@ -203,7 +203,7 @@ public static class LayerHierarchyService
 
     private static List<TimelineLayer> BuildRenderableLayers(IReadOnlyList<TimelineLayer> layers)
     {
-        var normalizedLayers = layers as List<TimelineLayer> ?? [.. layers];
+        var normalizedLayers = new List<TimelineLayer>(layers);
         normalizedLayers.Sort(static (left, right) => right.ZIndex.CompareTo(left.ZIndex));
         Normalize(normalizedLayers);
 
